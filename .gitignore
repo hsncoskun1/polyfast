@@ -1,0 +1,62 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+.eggs/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+venv/
+env/
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Test
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Claude
+.claude/
