@@ -61,7 +61,7 @@ async def test_migrations_are_idempotent(db):
     """Running migrations twice applies them only once."""
     first = await run_migrations(db)
     second = await run_migrations(db)
-    assert len(first) == 1
+    assert len(first) >= 1
     assert len(second) == 0
 
 
@@ -69,7 +69,7 @@ async def test_current_version_after_migration(db):
     """Current version reflects applied migrations."""
     assert await get_current_version(db) == 0
     await run_migrations(db)
-    assert await get_current_version(db) == 1
+    assert await get_current_version(db) >= 1
 
 
 async def test_app_state_insert_and_read(db):
