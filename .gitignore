@@ -1,7 +1,15 @@
-# Environment
+# Environment & Secrets — NEVER commit
 .env
 .env.*
+.env.local
+.env.production
 !.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+secrets/
+credentials/
 
 # Python
 __pycache__/
