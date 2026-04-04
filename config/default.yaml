@@ -1,0 +1,70 @@
+# Polyfast Default Configuration
+# Override via environment variables or local config file.
+
+server:
+  host: "127.0.0.1"
+  port: 8000
+
+trading:
+  min_amount_usd: 5.0
+  entry_rules:
+    time:
+      enabled: true
+      min_seconds: 30
+      max_seconds: 270
+    price:
+      enabled: true
+      min_price: 0.15
+      max_price: 0.85
+    delta:
+      enabled: true
+      threshold: 0.03
+    spread:
+      enabled: true
+      max_spread: 0.04
+    event_max:
+      enabled: true
+      max_positions: 1
+    bot_max:
+      enabled: true
+      max_positions: 3
+  exit_rules:
+    take_profit:
+      enabled: true
+      percentage: 5.0
+    stop_loss:
+      enabled: true
+      percentage: 3.0
+      retry_interval_seconds: 5
+      retry_max: 3
+      jump_threshold: 0.15
+    force_sell:
+      enabled: true
+      combinator: "any"
+      remaining_time_seconds: 30
+      pnl_loss_percentage: 5.0
+      fill_delta_drop: 0.05
+      retry_interval_seconds: 5
+      retry_max: 3
+  claim:
+    wait_for_claim_before_new_trade: true
+
+discovery:
+  interval_seconds: 10
+  timeout_seconds: 15
+  category: "crypto"
+  subcategory: "up_down"
+  duration: "5m"
+
+market_data:
+  ptb_source: "next_data"
+  stale_threshold_seconds: 30
+
+persistence:
+  db_path: "data/polyfast.db"
+
+logging:
+  level: "INFO"
+  format: "json"
+  file_path: "logs/polyfast.log"
+  mask_credentials: true
