@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.health import router as health_router
+from backend.version import __version__
 
 _start_time: float = 0.0
 
@@ -26,7 +27,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Polyfast",
-    version="0.1.1",
+    version=__version__,
     lifespan=lifespan,
 )
 

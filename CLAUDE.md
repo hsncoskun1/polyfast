@@ -45,4 +45,19 @@ Sistemde tek karar ve veri otoritesi backend'dir. Frontend hicbir kosulda karar 
 - Gecersiz veri (0, --, bos) evaluation katmanina ULASAMAZ
 - External connectivity failure sessizce bypass EDILEMEZ
 
+## 5. Branch & Merge Discipline
+
+- Her kucuk surum (v0.x.y) ayri branch uzerinde gelistirilir
+- Branch isimlendirmesi: `v0.2.0`, `v0.2.1`, ...
+- Bir surum tamamlanmadan, test edilmeden ve delivery report ile kapanmadan main'e merge edilmez
+- Merge sonrasi bir sonraki surum branch'i acilir
+- Ayni branch uzerinde birden fazla bagimsiz surum biriktirilmez
+- Bu kural rollback kolayligini, surum sinirlarini ve acceptance discipline'i korur
+
+## 6. Version Management
+
+- Tek merkezi versiyon kaynagi: `backend/version.py` → `__version__`
+- Tum versiyon referanslari (main.py, health endpoint, testler) bu kaynaktan beslenir
+- README.md status bolumuyle senkronize tutulur
+
 Detayli spec icin master plan dosyasina bakiniz.

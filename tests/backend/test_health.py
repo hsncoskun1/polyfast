@@ -4,6 +4,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from backend.main import app
+from backend.version import __version__
 
 
 @pytest.fixture
@@ -21,7 +22,7 @@ async def test_health_returns_ok():
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
-    assert data["version"] == "0.1.1"
+    assert data["version"] == __version__
     assert "uptime_seconds" in data
     assert isinstance(data["uptime_seconds"], float)
     assert "components" in data

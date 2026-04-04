@@ -3,6 +3,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from backend.version import __version__
+
 router = APIRouter()
 
 
@@ -20,7 +22,7 @@ async def health_check() -> HealthResponse:
 
     return HealthResponse(
         status="ok",
-        version="0.1.1",
+        version=__version__,
         uptime_seconds=round(get_uptime(), 2),
         components={},
     )

@@ -6,7 +6,7 @@ Local-first, single-user trading application that automatically discovers, monit
 
 ## Status
 
-**v0.1.0** — Foundation phase (Faz 1)
+**v0.1.7** — Faz 1 complete (Foundation phase)
 
 ## Tech Stack
 
