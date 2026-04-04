@@ -64,5 +64,17 @@ class AuthenticatedTradingClient(BaseClient):
         """Check if trading credentials are available."""
         return self._credential_store.credentials.has_trading_credentials()
 
-    # Balance, order, fill methods will be added in v0.2.1+ (balance fetch)
-    # and v0.5.x (execution engine)
+    async def fetch_balance(self) -> dict:
+        """Fetch account balance from Polymarket CLOB API.
+
+        Returns:
+            Dict with at least 'balance' (total) and 'available' fields
+            as returned by the API. Values are strings representing USD amounts.
+
+        Raises:
+            ClientError: On auth failure, network error, or API error.
+        """
+        response = await self.get("/balance")
+        return response.json()
+
+    # Order, fill methods will be added in v0.5.x (execution engine)
