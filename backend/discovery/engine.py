@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from backend.auth_clients.public_client import PublicMarketClient
 from backend.auth_clients.errors import ClientError
 from backend.discovery.models import DiscoveredEvent
+from backend.domain.startup_guard import HealthIncident, HealthSeverity
 from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("discovery")
@@ -35,8 +36,10 @@ class DiscoveryResult:
     events: list[DiscoveredEvent] = field(default_factory=list)
     total_scanned: int = 0
     total_matched: int = 0
+    parse_failures: int = 0
     success: bool = True
     error_message: str = ""
+    health_incidents: list[HealthIncident] = field(default_factory=list)
     scanned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -66,6 +69,12 @@ class DiscoveryEngine:
         try:
             raw_events = await self._fetch_events()
         except ClientError as e:
+            incident = HealthIncident(
+                severity=HealthSeverity.WARNING,
+                category="discovery",
+                message=f"Discovery scan failed: {e}",
+                suggested_action="Check network connectivity and Polymarket API availability.",
+            )
             log_event(
                 logger, logging.WARNING,
                 f"Discovery scan failed: {e}",
@@ -76,8 +85,15 @@ class DiscoveryEngine:
             return DiscoveryResult(
                 success=False,
                 error_message=str(e),
+                health_incidents=[incident],
             )
         except Exception as e:
+            incident = HealthIncident(
+                severity=HealthSeverity.WARNING,
+                category="discovery",
+                message=f"Discovery scan unexpected error: {e}",
+                suggested_action="Check Polymarket API response format.",
+            )
             log_event(
                 logger, logging.ERROR,
                 f"Discovery scan unexpected error: {e}",
@@ -87,29 +103,44 @@ class DiscoveryEngine:
             return DiscoveryResult(
                 success=False,
                 error_message=f"Unexpected error: {e}",
+                health_incidents=[incident],
             )
 
         # Parse and filter
         matched = []
+        parse_failures = 0
         for raw in raw_events:
             event = DiscoveredEvent.from_api_event(raw)
             if event is None:
+                parse_failures += 1
+                log_event(
+                    logger, logging.WARNING,
+                    "Failed to parse event from API response",
+                    entity_type="discovery",
+                    entity_id="parse_failure",
+                    payload={"raw_keys": list(raw.keys()) if isinstance(raw, dict) else "not_dict"},
+                )
                 continue
             if self._matches_criteria(event):
                 matched.append(event)
 
         log_event(
             logger, logging.INFO,
-            f"Discovery scan complete: {len(raw_events)} scanned, {len(matched)} matched",
+            f"Discovery scan complete: {len(raw_events)} scanned, {len(matched)} matched, {parse_failures} parse failures",
             entity_type="discovery",
             entity_id="scan_complete",
-            payload={"total_scanned": len(raw_events), "total_matched": len(matched)},
+            payload={
+                "total_scanned": len(raw_events),
+                "total_matched": len(matched),
+                "parse_failures": parse_failures,
+            },
         )
 
         return DiscoveryResult(
             events=matched,
             total_scanned=len(raw_events),
             total_matched=len(matched),
+            parse_failures=parse_failures,
             success=True,
         )
 

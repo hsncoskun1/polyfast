@@ -8,6 +8,7 @@ from backend.auth_clients.public_client import PublicMarketClient
 from backend.auth_clients.errors import ClientError, ErrorCategory
 from backend.discovery.models import DiscoveredEvent, _extract_asset, _extract_duration
 from backend.discovery.engine import DiscoveryEngine, DiscoveryResult
+from backend.domain.startup_guard import HealthSeverity
 
 
 def _make_raw_event(
@@ -154,6 +155,32 @@ class TestDiscoveryEngineFailure:
         assert "Connection failed" in result.error_message
         assert len(result.events) == 0
 
+    async def test_api_failure_produces_health_incident(self):
+        """API failure → HealthIncident with WARNING severity and discovery category."""
+        engine = _make_engine(error=ClientError(
+            "Connection failed",
+            category=ErrorCategory.NETWORK,
+            retryable=True,
+            source="public_market",
+        ))
+        result = await engine.scan()
+
+        assert len(result.health_incidents) == 1
+        incident = result.health_incidents[0]
+        assert incident.severity == HealthSeverity.WARNING
+        assert incident.category == "discovery"
+        assert "failed" in incident.message.lower()
+        assert incident.suggested_action != ""
+
+    async def test_unexpected_error_produces_health_incident(self):
+        """Unexpected error → also produces HealthIncident."""
+        engine = _make_engine(error=RuntimeError("Unexpected"))
+        result = await engine.scan()
+
+        assert result.success is False
+        assert len(result.health_incidents) == 1
+        assert result.health_incidents[0].severity == HealthSeverity.WARNING
+
     async def test_unexpected_error_returns_error_result(self):
         """Unexpected exception → success=False."""
         engine = _make_engine(error=RuntimeError("Unexpected"))
@@ -173,6 +200,42 @@ class TestDiscoveryEngineFailure:
         result = await engine.scan()
 
         assert len(result.events) == 0
+
+    async def test_success_has_no_health_incidents(self):
+        """Successful scan → no health incidents."""
+        engine = _make_engine(events=[
+            _make_raw_event(question="Will BTC go up in the next 5 minutes?"),
+        ])
+        result = await engine.scan()
+
+        assert result.success is True
+        assert len(result.health_incidents) == 0
+
+
+# ===== Parse Failure Tests =====
+
+class TestDiscoveryParseFailures:
+    async def test_parse_failure_counted(self):
+        """Unparseable events are counted in parse_failures."""
+        engine = _make_engine(events=[
+            _make_raw_event(question="Will BTC go up in the next 5 minutes?"),
+            None,  # will cause from_api_event to return None
+            "invalid_string",  # will cause from_api_event to return None
+        ])
+        result = await engine.scan()
+
+        assert result.parse_failures == 2
+        assert result.total_scanned == 3
+        assert result.total_matched == 1
+
+    async def test_parse_failure_does_not_pollute_events(self):
+        """Parse failures don't add anything to events list."""
+        engine = _make_engine(events=[None, None])
+        result = await engine.scan()
+
+        assert len(result.events) == 0
+        assert result.parse_failures == 2
+        assert result.success is True  # parse fail != scan fail
 
 
 # ===== Boundary Tests =====
