@@ -6,7 +6,7 @@ Local-first, single-user trading application that automatically discovers, monit
 
 ## Status
 
-**v0.2.6** — Faz 2 in progress (Session & Discovery)
+**v0.2.8** — Faz 2 complete (Session & Discovery)
 
 ### Completed
 
@@ -21,15 +21,19 @@ Local-first, single-user trading application that automatically discovers, monit
 - v0.2.5: Live validation (event liveness check)
 - v0.2.6: Safe sync (controlled registry update, soft-remove, open position protection)
 
-### Not yet completed
-- v0.2.7: Persistence expansion (next)
+- v0.2.7: Persistence expansion (checkpoints + balance snapshots)
 - v0.2.8: Faz 2 final tests + delivery report
-- Faz 3+: Market data, PTB, rule engine, execution, UI
+
+### Not yet completed
+- Faz 3: Market data (RTDS WS, PTB, live price pipeline)
+- Faz 3.5: Credential lifecycle (propagation, rebind)
+- Faz 4+: Rule engine, execution, exit/claim, recovery, UI
 
 ### Important notes
-- Discovery currently finds **candidate** 5M events. Live-validated discovery confirms event liveness but does **not** validate market data, PTB, or prices.
+- Discovery finds **candidate** 5M events. Live validation confirms event liveness but does **not** validate market data, PTB, or prices.
 - No live API testing has been performed yet. Codebase uses mock-based unit tests.
-- 173 backend tests, all passing.
+- Registry is in-memory (persistence deferred to Faz 7 recovery).
+- 191 backend tests, all passing.
 
 ## Tech Stack
 
