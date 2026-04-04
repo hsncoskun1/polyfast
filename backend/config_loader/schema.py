@@ -20,9 +20,14 @@ class TimeRuleConfig(BaseModel):
 
 
 class PriceRuleConfig(BaseModel):
+    """Fiyat kuralı — canlı UP/DOWN outcome fiyatına bakar.
+
+    Kullanıcı 0-100 ölçeğinde girer (örn: 85 = 0.85 outcome price).
+    Backend 0-100 olarak saklar, evaluation sırasında /100 ile dönüştürür.
+    """
     enabled: bool = True
-    min_price: float = Field(default=0.15, ge=0.01, le=0.99)
-    max_price: float = Field(default=0.85, ge=0.01, le=0.99)
+    min_price: int = Field(default=15, ge=1, le=99)
+    max_price: int = Field(default=85, ge=1, le=99)
 
     @model_validator(mode="after")
     def min_less_than_max(self):
@@ -34,13 +39,24 @@ class PriceRuleConfig(BaseModel):
 
 
 class DeltaRuleConfig(BaseModel):
+    """Delta kuralı — PTB ile coin'in anlık USD fiyatı arasındaki mutlak fark.
+
+    Formül: abs(current_coin_usd_price - PTB)
+    Sabit USD fark, yüzde değil, yön önemsiz.
+    Örnek: BTC için threshold=50 → $50 fark, DOGE için threshold=0.001 → $0.001 fark.
+    """
     enabled: bool = True
-    threshold: float = Field(default=0.03, ge=0.001, le=0.5)
+    threshold: float = Field(default=50.0, ge=0.0001, le=100000.0)
 
 
 class SpreadRuleConfig(BaseModel):
+    """Spread kuralı — outcome market best_ask - best_bid farkı.
+
+    Kullanıcı yüzde olarak girer (örn: 3 = max %3 spread).
+    Backend tam sayı olarak saklar, evaluation sırasında /100 ile dönüştürür.
+    """
     enabled: bool = True
-    max_spread: float = Field(default=0.04, ge=0.001, le=0.5)
+    max_spread: int = Field(default=3, ge=1, le=50)
 
 
 class EventMaxConfig(BaseModel):

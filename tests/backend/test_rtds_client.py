@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from backend.market_data.rtds_client import (
     RTDSClient,
@@ -124,32 +124,34 @@ class TestRTDSReconnect:
     @patch("backend.market_data.rtds_client.asyncio.sleep", new_callable=AsyncMock)
     async def test_reconnect_success(self, mock_sleep, mock_connect):
         mock_connect.return_value = MagicMock()
-        client = RTDSClient(ws_url="wss://test.ws", reconnect_max=3, reconnect_backoff_base=0.01)
-
-        result = await client.reconnect()
+        client = RTDSClient(ws_url="wss://test.ws", reconnect_backoff_base=0.01)
+        # deadline far in future
+        deadline = datetime.now(timezone.utc) + timedelta(minutes=5)
+        result = await client.reconnect(deadline=deadline)
 
         assert result is True
         assert client.state == ConnectionState.CONNECTED
 
     @patch("websockets.connect", new_callable=AsyncMock)
     @patch("backend.market_data.rtds_client.asyncio.sleep", new_callable=AsyncMock)
-    async def test_reconnect_exhausted(self, mock_sleep, mock_connect):
+    async def test_reconnect_deadline_reached(self, mock_sleep, mock_connect):
+        """Reconnect stops when deadline is reached."""
         mock_connect.side_effect = ConnectionError("Refused")
-        client = RTDSClient(ws_url="wss://test.ws", reconnect_max=2, reconnect_backoff_base=0.01)
-
-        result = await client.reconnect()
+        client = RTDSClient(ws_url="wss://test.ws", reconnect_backoff_base=0.01)
+        # deadline already passed
+        deadline = datetime.now(timezone.utc) - timedelta(seconds=1)
+        result = await client.reconnect(deadline=deadline)
 
         assert result is False
         assert client.state == ConnectionState.FAILED
-        assert client.get_status().reconnect_attempts == 2
 
     @patch("websockets.connect", new_callable=AsyncMock)
     @patch("backend.market_data.rtds_client.asyncio.sleep", new_callable=AsyncMock)
-    async def test_reconnect_exhausted_produces_health_incident(self, mock_sleep, mock_connect):
+    async def test_reconnect_deadline_produces_health_incident(self, mock_sleep, mock_connect):
         mock_connect.side_effect = ConnectionError("Refused")
-        client = RTDSClient(ws_url="wss://test.ws", reconnect_max=2, reconnect_backoff_base=0.01)
-
-        await client.reconnect()
+        client = RTDSClient(ws_url="wss://test.ws", reconnect_backoff_base=0.01)
+        deadline = datetime.now(timezone.utc) - timedelta(seconds=1)
+        await client.reconnect(deadline=deadline)
 
         incidents = client.get_status().health_incidents
         assert len(incidents) >= 1
@@ -160,9 +162,9 @@ class TestRTDSReconnect:
     async def test_reconnect_success_after_failures(self, mock_sleep, mock_connect):
         """Reconnect succeeds on 2nd attempt."""
         mock_connect.side_effect = [ConnectionError("Fail"), MagicMock()]
-        client = RTDSClient(ws_url="wss://test.ws", reconnect_max=3, reconnect_backoff_base=0.01)
-
-        result = await client.reconnect()
+        client = RTDSClient(ws_url="wss://test.ws", reconnect_backoff_base=0.01)
+        deadline = datetime.now(timezone.utc) + timedelta(minutes=5)
+        result = await client.reconnect(deadline=deadline)
 
         assert result is True
         assert client.state == ConnectionState.CONNECTED

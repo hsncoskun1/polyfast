@@ -1,0 +1,49 @@
+v0.3.3 DURUM TEYIDI + OPERATIONAL HARDENING + PRICE DATA CONTRACT
+
+=== v0.3.3 DURUM TEYIDI ===
+1) Mevcut authoritative live price source: Gamma API outcomePrices. WS pipeline entegrasyonu YOK.
+2) Gamma rolu: Su an TEK kaynak. WS test edildi ama koda baglanmadi.
+3) v0.3.3 RTDS birincil olacak sekilde guncellendi mi: HAYIR.
+4) Guncellenmediyse durum: live_price.py Gamma parse, rtds_client.py baglanti katmani, ikisi BAGLI DEGIL.
+
+=== CIKTI 1: OPERATIONAL HARDENING ADDENDUM ===
+WS auto-reconnect: v0.3.x sonu
+Reconnect sonrasi resubscribe: v0.3.x
+Stale handling: v0.3.x (reconnect ile birlikte)
+WS->LivePricePipeline entegrasyonu: v0.3.4
+Graceful shutdown: v0.7.x
+Crash recovery: v0.7.x
+Watchdog: v0.9.x
+Rate limit: v0.3.x-v0.4.x
+Memory pruning: v0.7.x
+Persistent logging rotation: v0.7.x
+Coin bazli ayar filtresi: v0.4.0
+All/selected events mode: v0.4.0
+
+=== CIKTI 2: PRICE DATA CONTRACT ===
+Live price authoritative: RTDS WS best_bid_ask
+Spread authoritative: WS best_ask - WS best_bid (TURETILIR, Gamma degil)
+PTB authoritative: priceToBeat via ?__nextDataReq=1
+Balance authoritative: CLOB get_balance_allowance (SDK creds)
+Bootstrap: Gamma API (ilk yuklenme)
+Fallback: Gamma API polling (WS koptugunda)
+Stale: WS kopunca aninda STALE, Gamma fallback baslar, reconnect dener
+Reconnect basarili: resubscribe + FRESH
+Reconnect basarisiz: CRITICAL health, Gamma devam, kullaniciya uyari
+Polling yasak: live price, spread, orderbook icin polling ana yontem OLAMAZ
+Polling kabul: discovery (30s), balance (on-demand+periyodik), PTB (tek seferlik)
+
+=== EK NOTLAR ===
+A) Coin bazli filtre: v0.4.0 ile implement, orchestrator bastan desteklemeli
+B) Oto claim/REDEEM: sadece claim degil, claim+redeem birlikte, toggle
+C) Kontrol edilebilir davranislar: hicbir kritik davranis hardcoded olmayacak
+D) Spread net karar: WS best_bid/best_ask uzerinden turetilir, Gamma sadece fallback
+
+=== ONERILEN SIRALAMA ===
+v0.3.4: WS->Pipeline entegrasyonu + reconnect + resubscribe + stale
+v0.3.5: Backend snapshot production
+v0.3.6: Persistence (market_snapshots, ptb_history)
+v0.3.7: Faz 3 testleri + delivery report
+v0.4.0: Strategy skeleton + coin bazli ayar + all/selected events
+
+Bu raporu denetle ve siradaki talimati ver.

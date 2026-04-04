@@ -1,12 +1,17 @@
 """PTB models — Price to Beat record and status.
 
-PTB = openPrice = event başlangıç fiyatı (Chainlink source).
-PTB, outcome price / market price / live price DEĞİLDİR — ayrı kavram.
+PTB = coin'in event açılışındaki gerçek USD fiyatı (Chainlink source).
+Örnekler: BTC=$67,260.12, ETH=$2,062.70, SOL=$80.78, DOGE=$0.092177
+
+PTB, outcome price (UP=0.52 gibi) DEĞİLDİR — gerçek USD coin fiyatıdır.
+PTB, market price / live outcome price ile KARIŞTIRILMAMALIDIR.
 
 PTB event başından sonuna sabittir:
 - Bir kez alındıktan sonra kilitlenir
 - Aynı event içinde değişmez
 - Event bittiğinde temizlenir, yeni event için yeni PTB alınır
+
+Kullanım: Delta kuralı = abs(coin_canlı_usd_fiyatı - PTB)
 """
 
 from dataclasses import dataclass, field
@@ -28,7 +33,7 @@ class PTBRecord:
     Attributes:
         condition_id: Event condition ID this PTB belongs to.
         asset: Crypto asset symbol (e.g., "BTC").
-        ptb_value: The opening price (PTB). None if not yet acquired.
+        ptb_value: USD coin price at event open (e.g., 67260.12 for BTC). None if not yet acquired.
         status: Current PTB status.
         source_name: Where PTB was fetched from.
         acquired_at: When PTB was successfully fetched.
@@ -61,8 +66,8 @@ class PTBRecord:
         """Lock PTB with acquired value. Cannot be overwritten after lock.
 
         Args:
-            value: The PTB value (openPrice).
-            source: Source name (e.g., "ssr_next_data").
+            value: USD coin price at event open (e.g., 67260.12 for BTC).
+            source: Source name (e.g., "ssr_open_price").
 
         Raises:
             RuntimeError: If PTB is already locked.

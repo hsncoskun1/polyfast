@@ -62,8 +62,8 @@ class EventSnapshot:
         price_status: Live price status (fresh, stale, invalid, waiting).
         price_updated_at: When live price was last updated.
 
-        PTB fields:
-        ptb_value: Price to Beat (locked once acquired, None if not yet).
+        PTB fields (SEPARATE from live price — USD coin price, NOT outcome price):
+        ptb_value: USD coin price at event open (e.g., 67260.12 for BTC). None if not yet.
         ptb_status: PTB status (waiting, acquired, failed).
         ptb_source: Where PTB was fetched from.
         ptb_acquired_at: When PTB was locked.

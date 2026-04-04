@@ -20,8 +20,7 @@ This module does NOT:
 
 import json
 import logging
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -181,7 +180,8 @@ class LivePricePipeline:
         elif side_lower == "down":
             record.down_price = best_bid
             record.up_price = round(1.0 - best_bid, 4)
-            # Spread from DOWN side — keep UP side spread if already set
+            # DOWN side de spread günceller — en son gelen side'ın spread'i geçerli
+            record.spread = round(best_ask - best_bid, 4)
         else:
             log_event(
                 logger, logging.WARNING,

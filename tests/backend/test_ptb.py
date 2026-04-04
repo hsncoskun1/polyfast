@@ -236,74 +236,83 @@ class TestPTBBoundaries:
 # ===== SSR Adapter Parse Tests =====
 
 class TestSSRPTBAdapterParse:
-    """Tests for SSRPTBAdapter._parse_ptb method with mock HTML."""
+    """Tests for SSRPTBAdapter._parse_ptb — openPrice+closePrice:null pattern.
+
+    PTB = USD coin price at event open (e.g., $67,260.12 for BTC).
+    Pattern: "openPrice":VALUE,"closePrice":null → live event's PTB.
+    """
 
     def _make_adapter(self):
         return SSRPTBAdapter(timeout_seconds=5.0)
 
-    def test_parse_price_to_beat_btc(self):
-        """priceToBeat field parsed correctly for BTC."""
+    def test_parse_btc_live_event(self):
+        """BTC live event PTB parsed correctly from openPrice+closePrice:null."""
         adapter = self._make_adapter()
-        html = 'some content "priceToBeat":"66885.87" more content'
+        html = 'other data "openPrice":67260.12,"closePrice":null more data'
         result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
         assert result.success is True
-        assert result.value == 66885.87
-        assert result.source_name == "ssr_price_to_beat"
+        assert result.value == 67260.12
+        assert result.source_name == "ssr_open_price"
 
-    def test_parse_price_to_beat_eth(self):
-        """priceToBeat works for ETH (non-BTC asset)."""
+    def test_parse_eth_live_event(self):
+        """ETH live event PTB — smaller USD value."""
         adapter = self._make_adapter()
-        html = 'data "priceToBeat":"2052.5163202565955" end'
+        html = '"openPrice":2062.69665,"closePrice":null'
         result = adapter._parse_ptb(html, "ETH", "eth-updown-5m-123")
         assert result.success is True
-        assert abs(result.value - 2052.5163) < 0.001
+        assert abs(result.value - 2062.69665) < 0.001
 
-    def test_parse_price_to_beat_small_value(self):
-        """priceToBeat works for small values (DOGE)."""
+    def test_parse_doge_live_event(self):
+        """DOGE live event PTB — very small USD value."""
         adapter = self._make_adapter()
-        html = '"priceToBeat":"0.091137362"'
+        html = '"openPrice":0.0921769561676628,"closePrice":null'
         result = adapter._parse_ptb(html, "DOGE", "doge-updown-5m-123")
         assert result.success is True
-        assert abs(result.value - 0.091137) < 0.0001
+        assert abs(result.value - 0.09217) < 0.0001
 
-    def test_parse_price_to_beat_without_quotes(self):
-        """priceToBeat value without string quotes."""
+    def test_parse_sol_live_event(self):
+        """SOL live event PTB."""
         adapter = self._make_adapter()
-        html = '"priceToBeat":66885.87,'
-        result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
+        html = '"openPrice":80.77555301288085,"closePrice":null'
+        result = adapter._parse_ptb(html, "SOL", "sol-updown-5m-123")
         assert result.success is True
-        assert result.value == 66885.87
+        assert abs(result.value - 80.7755) < 0.001
 
-    def test_parse_fallback_to_open_price(self):
-        """Falls back to openPrice if priceToBeat not found."""
+    def test_closed_event_not_matched(self):
+        """Closed event (closePrice filled) is NOT matched as live PTB."""
         adapter = self._make_adapter()
-        html = '"openPrice":66920.89960871995,"closePrice":null'
+        # closePrice is NOT null → this is a past event, not live
+        html = '"openPrice":67260.12,"closePrice":67280.50'
         result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
-        assert result.success is True
-        assert abs(result.value - 66920.90) < 0.01
-        assert "fallback" in result.source_name
+        assert result.success is False
 
-    def test_parse_no_price_field(self):
-        """No price field found returns failure."""
+    def test_no_open_price_returns_failure(self):
+        """No openPrice+closePrice:null → failure."""
         adapter = self._make_adapter()
         html = 'no price data here at all'
         result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
         assert result.success is False
         assert result.value is None
-        assert "not found" in result.error.lower()
 
-    def test_parse_empty_html(self):
+    def test_empty_html_returns_failure(self):
         """Empty HTML returns failure."""
         adapter = self._make_adapter()
         result = adapter._parse_ptb("", "BTC", "btc-updown-5m-123")
         assert result.success is False
 
-    def test_ptb_is_not_market_price(self):
-        """priceToBeat is NOT outcomePrices/market price."""
+    def test_ptb_is_usd_not_outcome_price(self):
+        """PTB is USD coin price, NOT outcome price (0.505)."""
         adapter = self._make_adapter()
-        # HTML has both priceToBeat and outcomePrices
-        html = '"priceToBeat":"66885.87","outcomePrices":["0.505","0.495"]'
+        html = '"openPrice":67260.12,"closePrice":null,"outcomePrices":["0.505","0.495"]'
         result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
-        # Should return priceToBeat, NOT outcomePrices
-        assert result.value == 66885.87
+        assert result.value == 67260.12
         assert result.value != 0.505
+
+    def test_only_one_live_event_matches(self):
+        """Only closePrice:null matches — past events with closePrice filled are skipped."""
+        adapter = self._make_adapter()
+        # Past event first, then live event
+        html = '"openPrice":67100.50,"closePrice":67120.30 other "openPrice":67260.12,"closePrice":null'
+        result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
+        assert result.success is True
+        assert result.value == 67260.12  # Live event, not past

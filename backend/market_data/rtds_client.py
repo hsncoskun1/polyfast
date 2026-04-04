@@ -74,13 +74,11 @@ class RTDSClient:
     def __init__(
         self,
         ws_url: str | None = None,
-        reconnect_max: int = 10,
         reconnect_backoff_base: float = 2.0,
-        reconnect_backoff_max: float = 60.0,
+        reconnect_backoff_max: float = 30.0,
         on_message: MessageCallback | None = None,
     ):
         self._ws_url = ws_url or self.RTDS_WS_URL
-        self._reconnect_max = reconnect_max
         self._reconnect_backoff_base = reconnect_backoff_base
         self._reconnect_backoff_max = reconnect_backoff_max
         self._on_message = on_message
@@ -394,26 +392,49 @@ class RTDSClient:
 
     # ─── Auto-Reconnect ───
 
-    async def reconnect(self) -> bool:
-        """Attempt to reconnect with exponential backoff.
+    async def reconnect(self, deadline: datetime | None = None) -> bool:
+        """Attempt to reconnect with exponential backoff until deadline.
+
+        Keeps trying until:
+        - Successfully reconnected, OR
+        - deadline is reached (e.g., event end time), OR
+        - shutdown_event is set
+
+        No fixed attempt limit — event sonuna kadar dener.
+
+        Args:
+            deadline: Stop trying after this time (UTC). None = no deadline.
 
         On success, auto-resubscribes to previously tracked tokens.
 
         Returns:
-            True if reconnected successfully, False if max attempts exceeded.
+            True if reconnected successfully, False if deadline exceeded or shutdown.
         """
         self._state = ConnectionState.RECONNECTING
+        attempt = 0
 
-        for attempt in range(1, self._reconnect_max + 1):
+        while True:
+            attempt += 1
             self._reconnect_attempts = attempt
+
+            # Check deadline
+            if deadline is not None and datetime.now(timezone.utc) >= deadline:
+                log_event(
+                    logger, logging.WARNING,
+                    f"RTDS reconnect deadline reached after {attempt} attempts",
+                    entity_type="rtds",
+                    entity_id="reconnect_deadline",
+                )
+                break
+
             wait = min(
-                self._reconnect_backoff_base ** attempt,
+                self._reconnect_backoff_base ** min(attempt, 5),
                 self._reconnect_backoff_max,
             )
 
             log_event(
                 logger, logging.INFO,
-                f"RTDS reconnect attempt {attempt}/{self._reconnect_max} in {wait:.1f}s",
+                f"RTDS reconnect attempt {attempt} in {wait:.1f}s",
                 entity_type="rtds",
                 entity_id="reconnecting",
                 payload={"attempt": attempt, "wait_seconds": wait},
@@ -424,6 +445,10 @@ class RTDSClient:
             # Check shutdown
             if self._shutdown_event.is_set():
                 return False
+
+            # Check deadline again after sleep
+            if deadline is not None and datetime.now(timezone.utc) >= deadline:
+                break
 
             try:
                 self._ws = await websockets.connect(self._ws_url)
@@ -450,20 +475,20 @@ class RTDSClient:
                     entity_id="reconnect_failure",
                 )
 
-        # All attempts exhausted
+        # Deadline or max reached
         self._state = ConnectionState.FAILED
 
         incident = HealthIncident(
             severity=HealthSeverity.WARNING,
             category="market_data",
-            message=f"RTDS reconnect failed after {self._reconnect_max} attempts",
+            message=f"RTDS reconnect failed after {attempt} attempts",
             suggested_action="Check RTDS endpoint and network. Manual intervention may be needed.",
         )
         self._health_incidents.append(incident)
 
         log_event(
             logger, logging.ERROR,
-            f"RTDS reconnect exhausted after {self._reconnect_max} attempts",
+            f"RTDS reconnect exhausted after {attempt} attempts",
             entity_type="rtds",
             entity_id="reconnect_exhausted",
         )

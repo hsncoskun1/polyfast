@@ -14,14 +14,14 @@ trading:
       max_seconds: 270
     price:
       enabled: true
-      min_price: 0.15
-      max_price: 0.85
+      min_price: 15
+      max_price: 85
     delta:
       enabled: true
-      threshold: 0.03
+      threshold: 50.0
     spread:
       enabled: true
-      max_spread: 0.04
+      max_spread: 3
     event_max:
       enabled: true
       max_positions: 1
