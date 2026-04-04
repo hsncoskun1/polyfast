@@ -23,8 +23,8 @@ def _make_event(
 
 def _make_tokens():
     return [
-        {"token_id": "tok_up", "outcome": "Yes"},
-        {"token_id": "tok_down", "outcome": "No"},
+        {"token_id": "tok_up", "outcome": "Up"},
+        {"token_id": "tok_down", "outcome": "Down"},
     ]
 
 
@@ -107,7 +107,7 @@ class TestDuplicateMapping:
         """Only one token → not complete."""
         mapper = MarketMapper()
         result = mapper.map_event(_make_event(tokens=[
-            {"token_id": "tok_up", "outcome": "Yes"},
+            {"token_id": "tok_up", "outcome": "Up"},
         ]))
 
         assert result.status == MappingStatus.MAPPED
@@ -119,8 +119,8 @@ class TestDuplicateMapping:
         """Tokens without token_id are skipped."""
         mapper = MarketMapper()
         result = mapper.map_event(_make_event(tokens=[
-            {"token_id": "tok_up", "outcome": "Yes"},
-            {"outcome": "No"},  # no token_id
+            {"token_id": "tok_up", "outcome": "Up"},
+            {"outcome": "Down"},  # no token_id
         ]))
 
         assert len(result.tokens) == 1

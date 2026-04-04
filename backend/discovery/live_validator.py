@@ -154,23 +154,32 @@ class LiveValidator:
             )
 
     async def _check_event_live(self, condition_id: str, slug: str) -> bool:
-        """Check if event is live via Polymarket API.
+        """Check if event is live via Polymarket Gamma API.
 
-        Skeleton implementation: queries event by condition_id and checks
-        if it exists and is not closed.
+        Uses slug-based lookup (GET /events?slug=XXX).
+        Based on live API validation: /events/{id} returns 422 for conditionId,
+        slug-based query parameter is the correct approach.
 
         Raises:
             ClientError: On API failure.
         """
-        # Try to fetch the specific event
-        lookup = slug if slug else condition_id
-        response = await self._client.get(f"/events/{lookup}")
+        if slug:
+            response = await self._client.get("/events", params={"slug": slug})
+        else:
+            # Fallback: try condition_id based search
+            response = await self._client.get("/events", params={"slug": condition_id})
+
         data = response.json()
 
-        if not data:
-            return False
+        # Gamma API returns list of events
+        if isinstance(data, list):
+            if not data:
+                return False
+            event = data[0]
+            closed = event.get("closed", True)
+            active = event.get("active", False)
+            return (not closed) or active
 
-        # Check if event is open/active
         if isinstance(data, dict):
             closed = data.get("closed", True)
             active = data.get("active", False)
