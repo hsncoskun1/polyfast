@@ -1,4 +1,4 @@
-"""Tests for PTB fetch adapter — models, fetcher, lock semantics, boundaries."""
+"""Tests for PTB fetch adapter — models, fetcher, SSR parse, lock semantics, boundaries."""
 
 import pytest
 from datetime import datetime, timezone
@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 from backend.ptb.models import PTBRecord, PTBStatus
 from backend.ptb.source_adapter import PTBFetchResult
 from backend.ptb.fetcher import PTBFetcher
+from backend.ptb.ssr_adapter import SSRPTBAdapter
 
 
 class FakeAdapter:
@@ -230,3 +231,79 @@ class TestPTBBoundaries:
                  if l.strip().startswith(("import ", "from "))]
         for line in lines:
             assert "registry" not in line
+
+
+# ===== SSR Adapter Parse Tests =====
+
+class TestSSRPTBAdapterParse:
+    """Tests for SSRPTBAdapter._parse_ptb method with mock HTML."""
+
+    def _make_adapter(self):
+        return SSRPTBAdapter(timeout_seconds=5.0)
+
+    def test_parse_price_to_beat_btc(self):
+        """priceToBeat field parsed correctly for BTC."""
+        adapter = self._make_adapter()
+        html = 'some content "priceToBeat":"66885.87" more content'
+        result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
+        assert result.success is True
+        assert result.value == 66885.87
+        assert result.source_name == "ssr_price_to_beat"
+
+    def test_parse_price_to_beat_eth(self):
+        """priceToBeat works for ETH (non-BTC asset)."""
+        adapter = self._make_adapter()
+        html = 'data "priceToBeat":"2052.5163202565955" end'
+        result = adapter._parse_ptb(html, "ETH", "eth-updown-5m-123")
+        assert result.success is True
+        assert abs(result.value - 2052.5163) < 0.001
+
+    def test_parse_price_to_beat_small_value(self):
+        """priceToBeat works for small values (DOGE)."""
+        adapter = self._make_adapter()
+        html = '"priceToBeat":"0.091137362"'
+        result = adapter._parse_ptb(html, "DOGE", "doge-updown-5m-123")
+        assert result.success is True
+        assert abs(result.value - 0.091137) < 0.0001
+
+    def test_parse_price_to_beat_without_quotes(self):
+        """priceToBeat value without string quotes."""
+        adapter = self._make_adapter()
+        html = '"priceToBeat":66885.87,'
+        result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
+        assert result.success is True
+        assert result.value == 66885.87
+
+    def test_parse_fallback_to_open_price(self):
+        """Falls back to openPrice if priceToBeat not found."""
+        adapter = self._make_adapter()
+        html = '"openPrice":66920.89960871995,"closePrice":null'
+        result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
+        assert result.success is True
+        assert abs(result.value - 66920.90) < 0.01
+        assert "fallback" in result.source_name
+
+    def test_parse_no_price_field(self):
+        """No price field found returns failure."""
+        adapter = self._make_adapter()
+        html = 'no price data here at all'
+        result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
+        assert result.success is False
+        assert result.value is None
+        assert "not found" in result.error.lower()
+
+    def test_parse_empty_html(self):
+        """Empty HTML returns failure."""
+        adapter = self._make_adapter()
+        result = adapter._parse_ptb("", "BTC", "btc-updown-5m-123")
+        assert result.success is False
+
+    def test_ptb_is_not_market_price(self):
+        """priceToBeat is NOT outcomePrices/market price."""
+        adapter = self._make_adapter()
+        # HTML has both priceToBeat and outcomePrices
+        html = '"priceToBeat":"66885.87","outcomePrices":["0.505","0.495"]'
+        result = adapter._parse_ptb(html, "BTC", "btc-updown-5m-123")
+        # Should return priceToBeat, NOT outcomePrices
+        assert result.value == 66885.87
+        assert result.value != 0.505

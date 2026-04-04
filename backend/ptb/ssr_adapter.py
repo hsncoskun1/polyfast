@@ -1,20 +1,24 @@
-"""SSR PTB adapter — fetches PTB from Polymarket event page __NEXT_DATA__.
+"""SSR PTB adapter — fetches PTB from Polymarket event page.
 
-This adapter parses the server-side rendered HTML of a Polymarket event page
-to extract the openPrice from the crypto-prices query in __NEXT_DATA__.
+Uses ?__nextDataReq=1 parameter to get server-rendered page data,
+then parses the priceToBeat field via regex.
 
-KNOWN LIMITATIONS:
-- No public API endpoint exists for PTB (openPrice)
-- Requires fetching full HTML page (~2MB)
-- __NEXT_DATA__ structure may change without notice
-- Build ID / query key format may change
-- This is a maintenance risk — documented intentionally
+FIELD NAME: priceToBeat (NOT openPrice)
+- openPrice exists only for BTC in crypto-prices query
+- priceToBeat exists for ALL 7 assets (BTC, ETH, SOL, XRP, DOGE, BNB, HYPE)
+- priceToBeat matches the "Price To Beat" shown on Polymarket UI
 
-SOURCE: __NEXT_DATA__ → crypto-prices query → {"openPrice": X, "closePrice": null}
-VERIFIED: openPrice matches "Price To Beat" displayed on Polymarket page
+ENDPOINT: https://polymarket.com/event/{slug}?__nextDataReq=1
+- Works with httpx (no headless browser needed)
+- Response ~2MB per asset
+- Average fetch time ~0.4s per asset
+
+KNOWN RISKS:
+- priceToBeat field name may change without notice
+- ?__nextDataReq=1 parameter may be removed by Polymarket
+- Response size is large (~2MB) but fetch speed is acceptable
 """
 
-import json
 import logging
 import re
 from datetime import datetime, timezone
@@ -26,15 +30,15 @@ from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("ptb.ssr_adapter")
 
-# Polymarket event page URL pattern
 EVENT_PAGE_URL = "https://polymarket.com/event/{slug}"
 
 
 class SSRPTBAdapter(PTBSourceAdapter):
-    """Fetches PTB from Polymarket event page SSR (__NEXT_DATA__).
+    """Fetches PTB from Polymarket event page via ?__nextDataReq=1.
 
-    Parses the crypto-prices query from __NEXT_DATA__ script tag.
-    Falls back to past-results if crypto-prices is not available.
+    Parses the priceToBeat field from the server-rendered response.
+    Works for all 7 assets (BTC, ETH, SOL, XRP, DOGE, BNB, HYPE).
+    No headless browser required.
     """
 
     def __init__(self, timeout_seconds: float = 15.0):
@@ -42,27 +46,28 @@ class SSRPTBAdapter(PTBSourceAdapter):
 
     @property
     def source_name(self) -> str:
-        return "ssr_next_data"
+        return "ssr_price_to_beat"
 
     async def fetch_ptb(self, asset: str, event_slug: str) -> PTBFetchResult:
-        """Fetch PTB from event page __NEXT_DATA__.
+        """Fetch PTB (priceToBeat) from event page.
 
         Args:
             asset: Crypto asset symbol (e.g., "BTC").
             event_slug: Event slug (e.g., "btc-updown-5m-1775293800").
 
         Returns:
-            PTBFetchResult with openPrice or error.
+            PTBFetchResult with priceToBeat value or error.
         """
-        url = EVENT_PAGE_URL.format(slug=event_slug)
+        url = f"{EVENT_PAGE_URL.format(slug=event_slug)}?__nextDataReq=1"
 
         try:
             async with httpx.AsyncClient(
                 timeout=self._timeout,
                 follow_redirects=True,
-                headers={"User-Agent": "Mozilla/5.0"},
             ) as client:
-                response = await client.get(url)
+                response = await client.get(url, headers={
+                    "User-Agent": "Mozilla/5.0",
+                })
 
             if response.status_code != 200:
                 return PTBFetchResult(
@@ -73,7 +78,7 @@ class SSRPTBAdapter(PTBSourceAdapter):
                     error=f"HTTP {response.status_code} from event page",
                 )
 
-            return self._parse_ptb_from_html(response.text, asset, event_slug)
+            return self._parse_ptb(response.text, asset, event_slug)
 
         except httpx.TimeoutException:
             log_event(
@@ -105,107 +110,62 @@ class SSRPTBAdapter(PTBSourceAdapter):
                 error=str(e),
             )
 
-    def _parse_ptb_from_html(
+    def _parse_ptb(
         self, html: str, asset: str, event_slug: str
     ) -> PTBFetchResult:
-        """Parse openPrice from __NEXT_DATA__ in HTML.
+        """Parse priceToBeat from server response.
 
-        Looks for crypto-prices query first, then past-results fallback.
+        Uses regex to find the priceToBeat field in the HTML/JSON response.
+        This field exists for all 7 supported assets.
         """
         now = datetime.now(timezone.utc)
 
-        # Extract __NEXT_DATA__ JSON
-        match = re.search(
-            r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
-            html,
-            re.DOTALL,
-        )
-
-        if not match:
+        # Primary: priceToBeat field (works for ALL assets)
+        match = re.search(r'"priceToBeat"\s*:\s*"?([0-9.]+)"?', html)
+        if match:
+            ptb_value = float(match.group(1))
             log_event(
-                logger, logging.WARNING,
-                f"__NEXT_DATA__ not found in event page for {event_slug}",
+                logger, logging.INFO,
+                f"PTB acquired: {asset} = {ptb_value}",
                 entity_type="ptb",
                 entity_id=event_slug,
+                payload={"ptb_value": ptb_value, "source": self.source_name},
             )
             return PTBFetchResult(
-                success=False,
-                value=None,
+                success=True,
+                value=ptb_value,
                 source_name=self.source_name,
                 fetched_at=now,
-                error="__NEXT_DATA__ script tag not found in HTML",
             )
 
-        try:
-            data = json.loads(match.group(1))
-        except json.JSONDecodeError as e:
+        # Fallback: openPrice field (BTC only, legacy)
+        match_open = re.search(r'"openPrice"\s*:\s*([0-9.]+)', html)
+        if match_open:
+            ptb_value = float(match_open.group(1))
+            log_event(
+                logger, logging.INFO,
+                f"PTB acquired via openPrice fallback: {asset} = {ptb_value}",
+                entity_type="ptb",
+                entity_id=event_slug,
+                payload={"ptb_value": ptb_value, "source": f"{self.source_name}_openPrice_fallback"},
+            )
             return PTBFetchResult(
-                success=False,
-                value=None,
-                source_name=self.source_name,
+                success=True,
+                value=ptb_value,
+                source_name=f"{self.source_name}_openPrice_fallback",
                 fetched_at=now,
-                error=f"Failed to parse __NEXT_DATA__ JSON: {e}",
             )
 
-        queries = (
-            data.get("props", {})
-            .get("pageProps", {})
-            .get("dehydratedState", {})
-            .get("queries", [])
+        log_event(
+            logger, logging.WARNING,
+            f"priceToBeat not found in response for {event_slug}",
+            entity_type="ptb",
+            entity_id=event_slug,
         )
-
-        # Strategy 1: crypto-prices query (primary)
-        for q in queries:
-            key = q.get("queryKey", [])
-            key_str = str(key)
-            if "crypto-prices" in key_str and "price" in key_str:
-                qdata = q.get("state", {}).get("data", {})
-                if isinstance(qdata, dict) and "openPrice" in qdata:
-                    open_price = qdata["openPrice"]
-                    if open_price is not None:
-                        log_event(
-                            logger, logging.INFO,
-                            f"PTB acquired via crypto-prices: {asset} = {open_price}",
-                            entity_type="ptb",
-                            entity_id=event_slug,
-                        )
-                        return PTBFetchResult(
-                            success=True,
-                            value=float(open_price),
-                            source_name=self.source_name,
-                            fetched_at=now,
-                        )
-
-        # Strategy 2: past-results fallback (last event's closePrice = current openPrice hypothesis)
-        # NOT guaranteed to match — documented as fallback
-        for q in queries:
-            key = q.get("queryKey", [])
-            key_str = str(key)
-            if "past-results" in key_str:
-                qdata = q.get("state", {}).get("data", {})
-                results = qdata.get("data", {}).get("results", []) if isinstance(qdata, dict) else []
-                if results:
-                    last_result = results[-1]
-                    open_price = last_result.get("openPrice")
-                    if open_price is not None:
-                        log_event(
-                            logger, logging.INFO,
-                            f"PTB acquired via past-results fallback: {asset} = {open_price}",
-                            entity_type="ptb",
-                            entity_id=event_slug,
-                            payload={"fallback": True},
-                        )
-                        return PTBFetchResult(
-                            success=True,
-                            value=float(open_price),
-                            source_name=f"{self.source_name}_past_results_fallback",
-                            fetched_at=now,
-                        )
-
         return PTBFetchResult(
             success=False,
             value=None,
             source_name=self.source_name,
             fetched_at=now,
-            error="openPrice not found in __NEXT_DATA__ queries",
+            error="priceToBeat field not found in response",
         )
