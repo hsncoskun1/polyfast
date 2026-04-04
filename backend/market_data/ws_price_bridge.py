@@ -116,37 +116,36 @@ class WSPriceBridge:
     def on_ws_message(self, data: dict[str, Any]) -> None:
         """Process a single WS message from RTDSClient.
 
-        Expected WS message formats from Polymarket RTDS:
+        Polymarket RTDS sends these event types:
 
-        Market event (price_change):
-        [
-            {
-                "asset_id": "token_id_here",
-                "event_type": "price_change",
-                "price": "0.55",
-                ...
-            }
-        ]
+        1. book (initial snapshot) — list of items:
+           [{"asset_id": "...", "event_type": "book", "bids": [...], "asks": [...]}]
 
-        Or book event (best_bid_ask):
-        [
-            {
-                "asset_id": "token_id_here",
-                "event_type": "best_bid_ask" | "book",
-                "best_bid": "0.55",
-                "best_ask": "0.56",
-                ...
-            }
-        ]
+        2. price_change (most common) — dict:
+           {"market": "...", "price_changes": [
+               {"asset_id": "...", "price": "0.55", "best_bid": "0.51", "best_ask": "0.55", ...}
+           ], "event_type": "price_change"}
 
-        Also handles single-object messages (not wrapped in array).
+        3. best_bid_ask — dict:
+           {"asset_id": "...", "best_bid": "0.51", "best_ask": "0.55", "event_type": "best_bid_ask"}
+
+        4. last_trade_price — dict:
+           {"market": "...", "price_changes": [...], "event_type": "last_trade_price"}
         """
         # WS can send array of events or single event
         if isinstance(data, list):
             for item in data:
                 self._process_single_event(item)
         elif isinstance(data, dict):
-            self._process_single_event(data)
+            event_type = data.get("event_type", "")
+
+            # price_change / last_trade_price: nested price_changes array
+            if event_type in ("price_change", "last_trade_price"):
+                price_changes = data.get("price_changes", [])
+                for pc in price_changes:
+                    self._process_single_event(pc)
+            else:
+                self._process_single_event(data)
 
     def _process_single_event(self, event: dict[str, Any]) -> None:
         """Process a single market event from WS."""
@@ -183,14 +182,12 @@ class WSPriceBridge:
     def _extract_prices(event: dict[str, Any]) -> tuple[float | None, float | None]:
         """Extract best_bid and best_ask from a WS event.
 
-        Handles multiple message formats:
-        - best_bid_ask event: has best_bid/best_ask fields
-        - price_change event: has price field (use as bid, ask = bid)
-        - book event: has bids/asks arrays
+        Handles multiple message formats from Polymarket RTDS:
+        - best_bid/best_ask fields (from price_change items and best_bid_ask events)
+        - book event: bids/asks arrays → extract highest bid / lowest ask
+        - price field only: fallback
         """
-        event_type = event.get("event_type", "")
-
-        # Format 1: best_bid / best_ask fields (most common from market subscription)
+        # Format 1: best_bid / best_ask fields (most common — inside price_change items)
         if "best_bid" in event and "best_ask" in event:
             try:
                 bid = float(event["best_bid"])
@@ -199,25 +196,27 @@ class WSPriceBridge:
             except (ValueError, TypeError):
                 return None, None
 
-        # Format 2: price field (price_change events)
+        # Format 2: book event — bids/asks arrays
+        bids = event.get("bids", [])
+        asks = event.get("asks", [])
+        if bids and asks:
+            try:
+                # bids sorted ascending by default — highest bid is last
+                # asks sorted ascending by default — lowest ask is first
+                # But Polymarket sends bids lowest-first, so take max
+                best_bid = max(float(b["price"]) for b in bids if b.get("price"))
+                best_ask = min(float(a["price"]) for a in asks if a.get("price"))
+                return best_bid, best_ask
+            except (ValueError, TypeError, KeyError):
+                return None, None
+
+        # Format 3: price field only (fallback)
         if "price" in event:
             try:
                 price = float(event["price"])
                 return price, price
             except (ValueError, TypeError):
                 return None, None
-
-        # Format 3: changes array with price/side
-        changes = event.get("changes", [])
-        if changes:
-            try:
-                # Take last change as current
-                last = changes[-1]
-                if isinstance(last, dict):
-                    price = float(last.get("price", 0))
-                    return price, price
-            except (ValueError, TypeError, IndexError):
-                pass
 
         return None, None
 

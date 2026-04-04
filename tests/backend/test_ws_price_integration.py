@@ -215,12 +215,19 @@ class TestWSPriceBridge:
         assert bridge.total_routed == 0
 
     def test_route_price_change_message(self):
-        """price_change event format supported."""
+        """price_change event format (nested price_changes array) supported."""
         pipe = LivePricePipeline()
         bridge = WSPriceBridge(pipe)
         bridge.register_token("tok1", "0x1", "BTC", "up")
 
-        msg = {"asset_id": "tok1", "event_type": "price_change", "price": "0.55"}
+        # Real Polymarket format: price_change has nested price_changes array
+        msg = {
+            "market": "0xabc",
+            "event_type": "price_change",
+            "price_changes": [
+                {"asset_id": "tok1", "price": "0.55", "best_bid": "0.55", "best_ask": "0.56"}
+            ],
+        }
         bridge.on_ws_message(msg)
 
         record = pipe.get_record("0x1")
