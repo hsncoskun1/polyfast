@@ -49,8 +49,9 @@ Sistemde tek karar ve veri otoritesi backend'dir. Frontend hicbir kosulda karar 
 
 - Her kucuk surum (v0.x.y) ayri branch uzerinde gelistirilir
 - Branch isimlendirmesi: `v0.2.0`, `v0.2.1`, ...
-- Bir surum tamamlanmadan, test edilmeden ve delivery report ile kapanmadan main'e merge edilmez
-- Merge sonrasi bir sonraki surum branch'i acilir
+- Bir faz tamamlandiginda Claude kullaniciya rapor verir
+- Merge YALNIZCA kullanici acikca "merge yap" dediginde yapilir
+- Kullanici demeden merge YAPILMAZ
 - Ayni branch uzerinde birden fazla bagimsiz surum biriktirilmez
 - Bu kural rollback kolayligini, surum sinirlarini ve acceptance discipline'i korur
 
