@@ -1,12 +1,16 @@
 """Live price pipeline — normalize, timestamp, freshness, invalid data filtering.
 
-Processes raw price data from RTDS/Gamma into normalized LivePriceRecord.
-Tracks freshness and filters invalid values before they reach evaluation.
+Processes raw price data from RTDS WebSocket and Gamma API into normalized
+LivePriceRecord. WS is the primary authoritative source; Gamma is bootstrap/fallback.
+
+v0.3.3: Gamma-only pipeline (normalize, freshness, invalid filtering)
+v0.3.4: WS integration (update_from_ws, dual-source tracking, source priority)
 
 CRITICAL RULES (from CLAUDE.md):
 - Invalid data (0, --, empty) MUST NOT reach evaluation layer
 - Stale data must be marked, not silently used
 - Price source must be visible
+- WS primary, Gamma fallback — source always recorded
 
 This module does NOT:
 - Produce backend snapshots (→ v0.3.5)
@@ -30,6 +34,13 @@ logger = get_logger("market_data.live_price")
 DEFAULT_STALE_THRESHOLD_SEC = 30
 
 
+class PriceSource(str, Enum):
+    """Where the price data originated."""
+    RTDS_WS = "rtds_ws"                    # Primary: RTDS WebSocket streaming
+    GAMMA_OUTCOME_PRICES = "gamma_outcome_prices"  # Fallback: Gamma API polling
+    NONE = "none"                          # No data yet
+
+
 class PriceStatus(str, Enum):
     """Status of a live price reading."""
     FRESH = "fresh"         # Recently updated, valid
@@ -47,11 +58,13 @@ class LivePriceRecord:
         asset: Crypto asset symbol.
         up_price: Up outcome price (0.0-1.0 range).
         down_price: Down outcome price (0.0-1.0 range).
-        spread: Difference between best ask and best bid.
+        spread: Difference between best ask and best bid (UP side).
         status: Current price status.
         updated_at: When this price was last updated (UTC).
-        source: Where this price came from.
+        source: Where this price came from (PriceSource enum value).
         stale_threshold_sec: Seconds before price is considered stale.
+        best_bid: Best bid price for UP token (from WS).
+        best_ask: Best ask price for UP token (from WS).
     """
     condition_id: str
     asset: str
@@ -62,6 +75,8 @@ class LivePriceRecord:
     updated_at: datetime | None = None
     source: str = ""
     stale_threshold_sec: int = DEFAULT_STALE_THRESHOLD_SEC
+    best_bid: float = 0.0
+    best_ask: float = 0.0
 
     @property
     def is_fresh(self) -> bool:
@@ -114,6 +129,73 @@ class LivePricePipeline:
     def __init__(self, stale_threshold_sec: int = DEFAULT_STALE_THRESHOLD_SEC):
         self._records: dict[str, LivePriceRecord] = {}
         self._stale_threshold = stale_threshold_sec
+
+    def update_from_ws(
+        self,
+        condition_id: str,
+        asset: str,
+        side: str,
+        best_bid: float,
+        best_ask: float,
+    ) -> LivePriceRecord:
+        """Update price from RTDS WebSocket market data.
+
+        WS sends per-token data. Each token is one side (UP or DOWN).
+        When the UP side is updated, up_price = best_bid (mid or bid).
+        Spread = best_ask - best_bid.
+        DOWN price = 1 - UP price (binary market invariant).
+
+        Args:
+            condition_id: Market condition ID.
+            asset: Crypto asset symbol.
+            side: "up" or "down".
+            best_bid: Best bid price for this token.
+            best_ask: Best ask price for this token.
+
+        Returns:
+            Updated LivePriceRecord.
+        """
+        record = self._get_or_create(condition_id, asset)
+
+        # Validate bid/ask
+        if not self._is_valid_ws_price(best_bid) or not self._is_valid_ws_price(best_ask):
+            # Don't mark INVALID on single bad WS tick if we already have valid data
+            if record.status == PriceStatus.WAITING:
+                record.status = PriceStatus.INVALID
+            log_event(
+                logger, logging.WARNING,
+                f"Invalid WS price for {asset} ({side}): bid={best_bid} ask={best_ask}",
+                entity_type="live_price",
+                entity_id=condition_id,
+            )
+            return record
+
+        side_lower = side.lower()
+
+        if side_lower == "up":
+            record.up_price = best_bid
+            record.down_price = round(1.0 - best_bid, 4)
+            record.best_bid = best_bid
+            record.best_ask = best_ask
+            record.spread = round(best_ask - best_bid, 4)
+        elif side_lower == "down":
+            record.down_price = best_bid
+            record.up_price = round(1.0 - best_bid, 4)
+            # Spread from DOWN side — keep UP side spread if already set
+        else:
+            log_event(
+                logger, logging.WARNING,
+                f"Unknown side '{side}' for {asset}",
+                entity_type="live_price",
+                entity_id=condition_id,
+            )
+            return record
+
+        record.status = PriceStatus.FRESH
+        record.updated_at = datetime.now(timezone.utc)
+        record.source = PriceSource.RTDS_WS.value
+
+        return record
 
     def update_from_gamma(
         self,
@@ -255,4 +337,14 @@ class LivePricePipeline:
     @staticmethod
     def _is_valid_price(price: float) -> bool:
         """Check if a price value is valid (not zero, not negative, within range)."""
+        return 0.0 < price <= 1.0
+
+    @staticmethod
+    def _is_valid_ws_price(price: float) -> bool:
+        """Check if a WS bid/ask price is valid.
+
+        WS prices can be 0.0 (no bids/asks available) — that is NOT invalid
+        for the market, but we cannot use it for evaluation.
+        Valid range: 0 < price <= 1.0
+        """
         return 0.0 < price <= 1.0
