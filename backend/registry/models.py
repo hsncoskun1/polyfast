@@ -30,7 +30,7 @@ class EventStatus(str, Enum):
 
 # Allowed state transitions — registry enforces these
 ALLOWED_TRANSITIONS: dict[EventStatus, set[EventStatus]] = {
-    EventStatus.DISCOVERED: {EventStatus.VALIDATING, EventStatus.CLOSED},
+    EventStatus.DISCOVERED: {EventStatus.VALIDATING, EventStatus.INACTIVE, EventStatus.CLOSED},
     EventStatus.VALIDATING: {EventStatus.ACTIVE, EventStatus.INACTIVE, EventStatus.CLOSED},
     EventStatus.ACTIVE: {EventStatus.INACTIVE, EventStatus.EXPIRED, EventStatus.SUSPENDED, EventStatus.CLOSED},
     EventStatus.INACTIVE: {EventStatus.ACTIVE, EventStatus.EXPIRED, EventStatus.CLOSED},
