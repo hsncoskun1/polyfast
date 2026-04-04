@@ -18,6 +18,8 @@ Does NOT:
 """
 
 import logging
+import re
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -51,9 +53,13 @@ class DiscoveryEngine:
     """
 
     # Target filters — based on real Gamma API tag structure
-    TARGET_TAG_SLUG = "up-or-down"
+    # Source: https://polymarket.com/crypto/5M
+    # tag_slug=5M returns all 5M events (Up or Down format)
+    TARGET_TAG_SLUG = "5M"
     TARGET_CATEGORY = "crypto"
     TARGET_DURATION = "5m"
+    # Title format: "[Asset] Up or Down - [Date], [Time]-[Time] ET"
+    TITLE_PATTERN = "up or down"
 
     def __init__(self, public_client: PublicMarketClient):
         self._client = public_client
@@ -168,10 +174,15 @@ class DiscoveryEngine:
     def _matches_criteria(self, event: DiscoveredEvent) -> bool:
         """Check if an event matches 5M Crypto Up/Down criteria.
 
-        Filtering is now tag-based (from real Gamma API structure):
-        - category extracted from tags (crypto/crypto-prices)
-        - duration extracted from tags (5M tag)
-        - Up/Down pre-filtered by tag_slug query parameter
+        Source: https://polymarket.com/crypto/5M
+        Title format: "[Asset] Up or Down - [Date], [Time]-[Time] ET"
+        Each 5M event has exactly 300 seconds duration.
+
+        Filtering:
+        - tag_slug=5M pre-filters at API level
+        - Title must contain "Up or Down" (guards against non-updown 5M events)
+        - Must be crypto category
+        - Must be 5M duration
         """
         # Must be crypto
         if event.category != self.TARGET_CATEGORY:
@@ -181,4 +192,36 @@ class DiscoveryEngine:
         if event.duration != self.TARGET_DURATION:
             return False
 
+        # Title must match Up or Down pattern
+        if self.TITLE_PATTERN not in event.question.lower():
+            return False
+
+        # Must be currently live or upcoming (within reasonable window)
+        # Slug format: btc-updown-5m-TIMESTAMP where TIMESTAMP is event end time
+        if not self._is_current_or_upcoming(event.slug):
+            return False
+
         return True
+
+    def _is_current_or_upcoming(self, slug: str, lookahead_seconds: int = 1800) -> bool:
+        """Check if event is currently live or upcoming within lookahead window.
+
+        Slug format: asset-updown-5m-TIMESTAMP
+        Each 5M event lasts exactly 300 seconds.
+        TIMESTAMP in slug represents the event's end time.
+
+        Args:
+            slug: Event slug containing timestamp.
+            lookahead_seconds: How far ahead to look for upcoming events (default 30 min).
+        """
+        match = re.search(r'-(\d{10,})$', slug)
+        if not match:
+            return True  # Can't determine, let it through
+
+        event_end_ts = int(match.group(1))
+        event_start_ts = event_end_ts - 300  # 5M = 300 seconds
+        now = int(time.time())
+
+        # Event is live if: start <= now <= end
+        # Event is upcoming if: now < start <= now + lookahead
+        return event_start_ts <= now + lookahead_seconds and event_end_ts >= now

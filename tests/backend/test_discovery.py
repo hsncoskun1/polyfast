@@ -1,8 +1,12 @@
 """Tests for discovery engine — adapted to real Polymarket Gamma API structure."""
 
 import pytest
+import time
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
+
+# Generate a future timestamp for test slugs (current time + 60s = still live)
+_TEST_TS = str(int(time.time()) + 60)
 
 from backend.auth_clients.public_client import PublicMarketClient
 from backend.auth_clients.errors import ClientError, ErrorCategory
@@ -19,7 +23,7 @@ from backend.domain.startup_guard import HealthSeverity
 def _make_raw_event(
     condition_id: str = "0x123",
     title: str = "Bitcoin Up or Down - April 4, 3AM ET",
-    slug: str = "btc-updown-5m-1712200000",
+    slug: str | None = None,
     tags: list | None = None,
     outcomes: list | None = None,
     clob_token_ids: list | None = None,
@@ -33,6 +37,8 @@ def _make_raw_event(
         ]
     if outcomes is None:
         outcomes = '["Up", "Down"]'
+    if slug is None:
+        slug = f"btc-updown-5m-{_TEST_TS}"
     if clob_token_ids is None:
         clob_token_ids = '["tok_up_123", "tok_down_456"]'
     return {
@@ -127,8 +133,8 @@ class TestDiscoveredEventModel:
 class TestDiscoveryEngineScan:
     async def test_scan_finds_matching_events(self):
         engine = _make_engine(events=[
-            _make_raw_event(condition_id="1", slug="btc-updown-5m-100"),
-            _make_raw_event(condition_id="2", slug="eth-updown-5m-200", title="Ethereum Up or Down"),
+            _make_raw_event(condition_id="1"),
+            _make_raw_event(condition_id="2", title="Ethereum Up or Down"),
         ])
         result = await engine.scan()
         assert result.success is True
