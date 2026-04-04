@@ -50,12 +50,10 @@ class DiscoveryEngine:
     Polymarket Gamma API for events matching the target criteria.
     """
 
-    # Target filters
+    # Target filters — based on real Gamma API tag structure
+    TARGET_TAG_SLUG = "up-or-down"
     TARGET_CATEGORY = "crypto"
     TARGET_DURATION = "5m"
-    # Up/Down keywords in event questions
-    UPDOWN_KEYWORDS = ["go up", "go down", "up or down", "above", "below",
-                        "higher", "lower", "increase", "decrease"]
 
     def __init__(self, public_client: PublicMarketClient):
         self._client = public_client
@@ -145,12 +143,16 @@ class DiscoveryEngine:
         )
 
     async def _fetch_events(self) -> list[dict]:
-        """Fetch raw event data from Polymarket API.
+        """Fetch raw event data from Polymarket Gamma API.
+
+        Uses tag_slug=up-or-down to get Up/Down events directly.
+        This is the correct endpoint based on live API validation.
 
         Raises:
             ClientError: On API failure (classified by BaseClient).
         """
         response = await self._client.get("/events", params={
+            "tag_slug": self.TARGET_TAG_SLUG,
             "closed": "false",
             "limit": "100",
         })
@@ -164,18 +166,19 @@ class DiscoveryEngine:
         return []
 
     def _matches_criteria(self, event: DiscoveredEvent) -> bool:
-        """Check if an event matches 5M Crypto Up/Down criteria."""
+        """Check if an event matches 5M Crypto Up/Down criteria.
+
+        Filtering is now tag-based (from real Gamma API structure):
+        - category extracted from tags (crypto/crypto-prices)
+        - duration extracted from tags (5M tag)
+        - Up/Down pre-filtered by tag_slug query parameter
+        """
         # Must be crypto
         if event.category != self.TARGET_CATEGORY:
             return False
 
         # Must be 5M duration
         if event.duration != self.TARGET_DURATION:
-            return False
-
-        # Must be Up/Down type (check question keywords)
-        question_lower = event.question.lower()
-        if not any(kw in question_lower for kw in self.UPDOWN_KEYWORDS):
             return False
 
         return True

@@ -164,42 +164,78 @@ class MarketMapper:
     def _extract_tokens(self, event_data: dict) -> list[TokenMapping]:
         """Extract token mappings from event data.
 
-        Polymarket events typically have 'tokens' array with
-        token_id and outcome fields.
+        Real Polymarket Gamma API structure for Up/Down events:
+        - Event level: markets[] array
+        - Market level: clobTokenIds (JSON string array), outcomes (JSON string array)
+        - Outcomes are "Up"/"Down" (not "Yes"/"No")
+        - Also supports CLOB API format with tokens[] array
         """
-        raw_tokens = event_data.get("tokens", [])
-        if not raw_tokens:
-            # Try markets → tokens nested structure
-            markets = event_data.get("markets", [])
-            for market in markets:
-                raw_tokens.extend(market.get("tokens", []))
+        import json as _json
 
+        # Try CLOB format first (tokens array with token_id/outcome dicts)
+        raw_tokens = event_data.get("tokens", [])
+        if raw_tokens and isinstance(raw_tokens[0], dict):
+            return self._parse_token_dicts(raw_tokens)
+
+        # Try Gamma format: markets → clobTokenIds + outcomes
+        markets = event_data.get("markets", [])
         mappings = []
-        for token in raw_tokens:
+        for market in markets:
+            clob_ids = market.get("clobTokenIds", [])
+            outcomes = market.get("outcomes", [])
+
+            # Parse JSON strings if needed
+            if isinstance(clob_ids, str):
+                try:
+                    clob_ids = _json.loads(clob_ids)
+                except (ValueError, TypeError):
+                    clob_ids = []
+            if isinstance(outcomes, str):
+                try:
+                    outcomes = _json.loads(outcomes)
+                except (ValueError, TypeError):
+                    outcomes = []
+
+            # Pair token IDs with outcomes
+            for i, token_id in enumerate(clob_ids):
+                outcome = outcomes[i] if i < len(outcomes) else ""
+                if not token_id:
+                    continue
+                side = self._classify_side(outcome)
+                mappings.append(TokenMapping(
+                    token_id=str(token_id),
+                    side=side,
+                    outcome=outcome,
+                ))
+
+            # Also try nested tokens in market
+            market_tokens = market.get("tokens", [])
+            if market_tokens and isinstance(market_tokens[0], dict):
+                mappings.extend(self._parse_token_dicts(market_tokens))
+
+        return mappings
+
+    def _parse_token_dicts(self, tokens: list[dict]) -> list[TokenMapping]:
+        """Parse token dicts (CLOB API format)."""
+        mappings = []
+        for token in tokens:
             token_id = str(token.get("token_id", token.get("tokenId", "")))
             outcome = str(token.get("outcome", ""))
-
             if not token_id:
                 continue
-
             side = self._classify_side(outcome)
-            mappings.append(TokenMapping(
-                token_id=token_id,
-                side=side,
-                outcome=outcome,
-            ))
-
+            mappings.append(TokenMapping(token_id=token_id, side=side, outcome=outcome))
         return mappings
 
     def _classify_side(self, outcome: str) -> MarketSide:
         """Classify an outcome as UP or DOWN side.
 
-        Convention:
-        - "Yes" / first outcome → UP
-        - "No" / second outcome → DOWN
+        Based on real Polymarket API:
+        - Up/Down events use "Up" and "Down" outcomes
+        - Also supports "Yes"/"Higher"/"Above" as UP for compatibility
         """
         lower = outcome.lower()
-        if lower in ("yes", "up", "higher", "above"):
+        if lower in ("up", "yes", "higher", "above"):
             return MarketSide.UP
         return MarketSide.DOWN
 
