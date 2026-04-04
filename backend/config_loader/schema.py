@@ -20,14 +20,16 @@ class TimeRuleConfig(BaseModel):
 
 
 class PriceRuleConfig(BaseModel):
-    """Fiyat kuralı — canlı UP/DOWN outcome fiyatına bakar.
+    """Fiyat kuralı — dominant tarafın canlı outcome fiyatına bakar.
 
+    Dominant = max(up_price, down_price), her zaman ≥ 0.51.
     Kullanıcı 0-100 ölçeğinde girer (örn: 85 = 0.85 outcome price).
     Backend 0-100 olarak saklar, evaluation sırasında /100 ile dönüştürür.
+    Min 51 — çünkü dominant taraf her zaman ≥ 0.51 (50-50'de bile 0.50).
     """
     enabled: bool = True
-    min_price: int = Field(default=15, ge=1, le=99)
-    max_price: int = Field(default=85, ge=1, le=99)
+    min_price: int = Field(default=51, ge=51, le=99)
+    max_price: int = Field(default=85, ge=51, le=99)
 
     @model_validator(mode="after")
     def min_less_than_max(self):
@@ -52,11 +54,12 @@ class DeltaRuleConfig(BaseModel):
 class SpreadRuleConfig(BaseModel):
     """Spread kuralı — outcome market best_ask - best_bid farkı.
 
-    Kullanıcı yüzde olarak girer (örn: 3 = max %3 spread).
-    Backend tam sayı olarak saklar, evaluation sırasında /100 ile dönüştürür.
+    Kullanıcı yüzde olarak girer (örn: 2.5 = max %2.5 spread).
+    Ondalık yüzde desteklenir.
+    Backend float olarak saklar, evaluation sırasında /100 ile dönüştürür.
     """
     enabled: bool = True
-    max_spread: int = Field(default=3, ge=1, le=50)
+    max_spread: float = Field(default=3.0, ge=0.1, le=50.0)
 
 
 class EventMaxConfig(BaseModel):

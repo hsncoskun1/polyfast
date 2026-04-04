@@ -14,7 +14,7 @@ trading:
       max_seconds: 270
     price:
       enabled: true
-      min_price: 15
+      min_price: 51
       max_price: 85
     delta:
       enabled: true

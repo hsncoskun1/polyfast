@@ -70,7 +70,7 @@ def test_price_rule_min_must_be_less_than_max(tmp_path):
     data = {
         "trading": {
             "entry_rules": {
-                "price": {"min_price": 90, "max_price": 10}
+                "price": {"min_price": 90, "max_price": 55}
             }
         }
     }
