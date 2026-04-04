@@ -13,36 +13,36 @@ class TestCredentialMasking:
     """Tests for credential masking filter."""
 
     def test_mask_api_key_in_string(self):
-        text = 'api_key="f649cb77-2283-dbf3-510d-f8a3dafade63"'
+        text = 'api_key="fake-0000-1111-2222-3333-444444444444"'
         result = mask_string(text)
-        assert "f649cb77-2283-dbf3-510d-f8a3dafade63" not in result
+        assert "fake-0000-1111-2222-3333-444444444444" not in result
         assert "****" in result
 
     def test_mask_secret_in_string(self):
-        text = "secret=VSlmx75F7clayZpaDs1r2YWDPx5XJHKTcBwBgY45e5A="
+        text = "secret=FakeSecretBase64Value0123456789ABCDEFGHIJK="
         result = mask_string(text)
-        assert "VSlmx75F7clay" not in result
+        assert "FakeSecretBas" not in result
         assert "****" in result
 
     def test_mask_private_key_in_string(self):
-        text = 'private_key: "79f6a2c64bbeee82affa2098d74dddd8babb39ce2527dab2451c9ea49e8559fe"'
+        text = 'private_key: "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeeeffffffffaaaaaaaabbbbbbbb"'
         result = mask_string(text)
-        assert "79f6a2c64bbeee82" not in result
+        assert "aaaaaaaabbbbbbbb" not in result
         assert "****" in result
 
     def test_mask_ethereum_address(self):
-        text = "funder=0x7e3bacaa4e7563ff2343e48019120504028ee306"
+        text = "funder=0x0000000000000000000000000000000000000000"
         result = mask_string(text)
-        assert "0x7e3bacaa4e7563ff2343e48019120504028ee306" not in result
+        assert "0x0000000000000000000000000000000000000000" not in result
 
     def test_mask_dict_sensitive_fields(self):
         data = {
-            "api_key": "f649cb77-2283-dbf3-510d-f8a3dafade63",
+            "api_key": "fake-0000-1111-2222-3333-444444444444",
             "username": "trader1",
-            "private_key": "79f6a2c64bbeee82affa2098d74dddd8",
+            "private_key": "aaaaaaaabbbbbbbbccccccccdddddddd",
         }
         result = mask_dict(data)
-        assert "f649cb77-2283" not in result["api_key"]
+        assert "fake-0000-1111" not in result["api_key"]
         assert "****" in result["api_key"]
         assert result["username"] == "trader1"  # non-sensitive preserved
         assert "****" in result["private_key"]
@@ -136,7 +136,7 @@ class TestLoggerService:
     def test_credential_masking_in_log_output(self, capfd):
         setup_logging(level="DEBUG", fmt="human", mask_credentials=True)
         logger = get_logger("test_mask")
-        logger.info('Using api_key="f649cb77-2283-dbf3-510d-f8a3dafade63"')
+        logger.info('Using api_key="fake-0000-1111-2222-3333-444444444444"')
         captured = capfd.readouterr()
-        assert "f649cb77-2283-dbf3-510d-f8a3dafade63" not in captured.out
+        assert "fake-0000-1111-2222-3333-444444444444" not in captured.out
         assert "****" in captured.out

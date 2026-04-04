@@ -1,0 +1,4 @@
+# Prevent accidental credential file commits
+*.env linguist-generated
+*.pem linguist-generated
+*.key linguist-generated
