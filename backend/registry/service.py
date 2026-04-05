@@ -143,3 +143,32 @@ class EventRegistry:
     def active_count(self) -> int:
         """Number of events with ACTIVE status."""
         return sum(1 for r in self._records.values() if r.status == EventStatus.ACTIVE)
+
+    def expire_events(self, now: datetime) -> list[str]:
+        """Süresi dolmuş event'leri EXPIRED'a geçir.
+
+        end_date < now olan ve henüz terminal state'te olmayan event'ler
+        EXPIRED'a geçirilir. has_open_position olan event'ler ATLANMAZ —
+        expired olur ama position yönetimi devam eder (Faz 5).
+
+        Returns:
+            Expired olan event condition_id'leri.
+        """
+        expired_ids = []
+        for cond_id, record in self._records.items():
+            if record.status in (EventStatus.EXPIRED, EventStatus.CLOSED):
+                continue  # zaten terminal
+            if record.end_date and record.end_date <= now:
+                try:
+                    old = record.status
+                    record.transition_to(EventStatus.EXPIRED)
+                    expired_ids.append(cond_id)
+                    log_event(
+                        logger, logging.INFO,
+                        f"Event expired: {record.asset} ({old.value} → expired)",
+                        entity_type="registry",
+                        entity_id=cond_id,
+                    )
+                except InvalidTransitionError:
+                    pass  # geçiş izni yoksa atla
+        return expired_ids
