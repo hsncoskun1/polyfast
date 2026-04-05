@@ -23,6 +23,7 @@ class RejectReason(str, Enum):
     BOT_MAX_REACHED = "bot_max_reached"
     MISSING_TOKEN_ID = "missing_token_id"
     MISSING_CONDITION_ID = "missing_condition_id"
+    CLAIM_PENDING = "claim_pending"
 
 
 @dataclass(frozen=True)
