@@ -141,13 +141,18 @@ class CoinPriceClient:
         await client.poll_once()  # tek batch fetch
     """
 
+    # Default resubscribe interval — admin/advanced safety ayarı
+    DEFAULT_RESUB_INTERVAL_MS = 150
+
     def __init__(
         self,
         ws_url: str | None = None,
         stale_threshold_sec: float = DEFAULT_STALE_THRESHOLD_SEC,
+        resub_interval_ms: int = DEFAULT_RESUB_INTERVAL_MS,
     ):
         self._ws_url = ws_url or RTDS_LIVE_URL
         self._stale_threshold = stale_threshold_sec
+        self._resub_interval = resub_interval_ms / 1000.0  # ms → seconds
         self._records: dict[str, CoinPriceRecord] = {}
         self._coins: list[str] = []
         self._total_updates: int = 0
@@ -311,7 +316,7 @@ class CoinPriceClient:
         """
         self._running = True
         fail_count = 0
-        resub_interval = 0.2  # 200ms
+        resub_interval = self._resub_interval
 
         log_event(
             logger, logging.INFO,

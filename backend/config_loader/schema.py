@@ -219,6 +219,7 @@ class MarketDataConfig(BaseModel):
     ptb_source: str = Field(default="next_data", pattern="^(next_data|api)$")
     stale_threshold_seconds: int = Field(default=30, ge=5, le=300)
     coin_price_stale_threshold_seconds: int = Field(default=15, ge=5, le=120)
+    coin_price_resub_interval_ms: int = Field(default=150, ge=50, le=5000)
 
 
 class PersistenceConfig(BaseModel):
