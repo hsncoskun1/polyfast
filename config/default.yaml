@@ -21,7 +21,7 @@ trading:
       threshold: 50.0
     spread:
       enabled: true
-      max_spread: 3
+      max_spread: 3.0
     event_max:
       enabled: true
       max_positions: 1
@@ -35,16 +35,20 @@ trading:
     stop_loss:
       enabled: true
       percentage: 3.0
-      retry_interval_seconds: 5
+      retry_interval_ms: 500
       retry_max: 3
       jump_threshold: 0.15
     force_sell:
-      enabled: true
-      combinator: "any"
-      remaining_time_seconds: 30
-      pnl_loss_percentage: 5.0
-      fill_delta_drop: 0.05
-      retry_interval_seconds: 5
+      time:
+        enabled: true
+        remaining_seconds: 30
+      delta_drop:
+        enabled: false
+        threshold_usd: 20.0
+      pnl_loss:
+        enabled: false
+        loss_percentage: 5.0
+      retry_interval_ms: 500
       retry_max: 3
   claim:
     wait_for_claim_before_new_trade: true
@@ -59,6 +63,7 @@ discovery:
 market_data:
   ptb_source: "next_data"
   stale_threshold_seconds: 30
+  coin_price_stale_threshold_seconds: 15
 
 persistence:
   db_path: "data/polyfast.db"

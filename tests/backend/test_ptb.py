@@ -122,43 +122,40 @@ class TestPTBFetcher:
         assert fetcher.failed_count == 1
 
     async def test_retry_until_success(self):
+        """Multiple fetch_ptb calls — fails then succeeds and locks."""
         adapter = FakeAdapter([
             _fail_result("Error 1"),
             _fail_result("Error 2"),
             _ok_result(66920.90),
         ])
-        fetcher = PTBFetcher(source=adapter, retry_max=5)
+        fetcher = PTBFetcher(source=adapter)
 
-        # First attempt fails
         r1 = await fetcher.fetch_ptb("0x1", "BTC", "btc-updown-5m-123")
         assert r1.is_failed is True
 
-        # Second attempt fails
         r2 = await fetcher.fetch_ptb("0x1", "BTC", "btc-updown-5m-123")
         assert r2.is_failed is True
 
-        # Third attempt succeeds
         r3 = await fetcher.fetch_ptb("0x1", "BTC", "btc-updown-5m-123")
         assert r3.is_locked is True
         assert r3.ptb_value == 66920.90
 
-    async def test_retry_stops_after_max(self):
-        adapter = FakeAdapter([_fail_result("Error")] * 5)
-        fetcher = PTBFetcher(source=adapter, retry_max=3)
+    async def test_retry_keeps_trying_no_fixed_max(self):
+        """No fixed retry_max — fetch_ptb can be called any number of times."""
+        adapter = FakeAdapter([_fail_result("Error")] * 10)
+        fetcher = PTBFetcher(source=adapter)
 
-        await fetcher.fetch_ptb("0x1", "BTC", "btc-updown-5m-123")
-        await fetcher.fetch_ptb("0x1", "BTC", "btc-updown-5m-123")
-        r3 = await fetcher.fetch_ptb("0x1", "BTC", "btc-updown-5m-123")
-        r4 = await fetcher.fetch_ptb("0x1", "BTC", "btc-updown-5m-123")
+        # Can call many times — no fixed limit
+        for _ in range(10):
+            await fetcher.fetch_ptb("0x1", "BTC", "btc-updown-5m-123")
 
-        assert r3.is_failed is True
-        assert r4.is_failed is True
-        # 4th call should not trigger adapter — max exhausted
-        assert adapter.call_count <= 3
+        # All calls went through (no max exhaustion)
+        assert adapter.call_count == 10
 
     async def test_retry_stops_after_lock(self):
+        """Once locked, further fetch_ptb calls don't call source."""
         adapter = FakeAdapter([_ok_result(66920.90)])
-        fetcher = PTBFetcher(source=adapter, retry_max=5)
+        fetcher = PTBFetcher(source=adapter)
 
         await fetcher.fetch_ptb("0x1", "BTC", "btc-updown-5m-123")
         await fetcher.fetch_ptb("0x1", "BTC", "btc-updown-5m-123")

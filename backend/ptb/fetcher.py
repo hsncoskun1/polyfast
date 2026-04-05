@@ -1,11 +1,15 @@
-"""PTB fetcher — orchestrates PTB acquisition with retry and lock semantics.
+"""PTB fetcher — orchestrates PTB acquisition with retry schedule and lock.
 
-Responsibilities:
-- Fetch PTB via source adapter
-- Lock PTB after first successful acquisition (no overwrite)
-- Retry only when PTB not yet acquired
-- Surface failure/waiting state for downstream consumers
-- Log all attempts
+PTB retry schedule (bağlayıcı):
+  2s → 4s → 8s → 16s → 10s → 10s → 10s → ... (event sonuna kadar her 10s)
+
+Lock davranışı:
+- PTB bir kez başarıyla alındığında kilitlenir
+- Kilitlendikten sonra retry tamamen durur
+- Same-event overwrite YOK
+- Yeni event instance başladığında yeni PTB süreci başlar
+
+Stop condition: PTB acquired (lock) VEYA event expired
 
 Does NOT:
 - Evaluate trading rules (→ strategy engine)
@@ -13,7 +17,9 @@ Does NOT:
 - Manage positions or orders (→ execution)
 """
 
+import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 
 from backend.ptb.models import PTBRecord, PTBStatus
@@ -23,9 +29,9 @@ from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("ptb.fetcher")
 
-# Default retry interval — hardcoded for now, will be config-driven later
-DEFAULT_RETRY_INTERVAL_SEC = 5
-DEFAULT_RETRY_MAX = 3
+# Bağlayıcı retry schedule: 2, 4, 8, 16, sonra 10s sabit
+PTB_RETRY_SCHEDULE = [2, 4, 8, 16]
+PTB_RETRY_STEADY_INTERVAL = 10
 
 
 class PTBFetcher:
@@ -34,18 +40,14 @@ class PTBFetcher:
     PTB rules:
     - PTB is fetched once per event
     - Once acquired, it is LOCKED — no overwrite
-    - Retry only runs while PTB is not acquired
-    - Retry stops after acquisition or max attempts
+    - Retry follows schedule: 2s→4s→8s→16s→10s→10s...
+    - Retry runs until PTB acquired OR event expired
+    - Same-event overwrite is prohibited
     - Failure is never silent
     """
 
-    def __init__(
-        self,
-        source: PTBSourceAdapter,
-        retry_max: int = DEFAULT_RETRY_MAX,
-    ):
+    def __init__(self, source: PTBSourceAdapter):
         self._source = source
-        self._retry_max = retry_max
         self._records: dict[str, PTBRecord] = {}  # keyed by condition_id
 
     def get_or_create_record(self, condition_id: str, asset: str) -> PTBRecord:
@@ -60,33 +62,17 @@ class PTBFetcher:
     async def fetch_ptb(
         self, condition_id: str, asset: str, event_slug: str
     ) -> PTBRecord:
-        """Fetch PTB for an event. Respects lock — won't refetch if locked.
+        """Single fetch attempt. Respects lock — won't refetch if locked.
 
-        Args:
-            condition_id: Event condition ID.
-            asset: Crypto asset symbol.
-            event_slug: Event slug for source lookup.
+        For scheduled retry use fetch_ptb_with_retry().
 
         Returns:
             PTBRecord with current state.
         """
         record = self.get_or_create_record(condition_id, asset)
 
-        # Already locked — return immediately
+        # Already locked — return immediately (same-event overwrite YOK)
         if record.is_locked:
-            return record
-
-        # Max retries exhausted
-        if record.retry_count >= self._retry_max:
-            if record.status != PTBStatus.FAILED:
-                record.record_failure(f"Max retries ({self._retry_max}) exhausted")
-                log_event(
-                    logger, logging.ERROR,
-                    f"PTB fetch exhausted for {asset} ({condition_id})",
-                    entity_type="ptb",
-                    entity_id=condition_id,
-                    payload={"retry_count": record.retry_count},
-                )
             return record
 
         # Attempt fetch
@@ -97,7 +83,7 @@ class PTBFetcher:
             record.lock(result.value, result.source_name)
             log_event(
                 logger, logging.INFO,
-                f"PTB locked: {asset} = {result.value} (source: {result.source_name})",
+                f"PTB locked: {asset} = ${result.value:,.2f} (source: {result.source_name})",
                 entity_type="ptb",
                 entity_id=condition_id,
                 payload={"ptb_value": result.value, "source": result.source_name},
@@ -114,12 +100,82 @@ class PTBFetcher:
 
         return record
 
+    async def fetch_ptb_with_retry(
+        self,
+        condition_id: str,
+        asset: str,
+        event_slug: str,
+        event_end_ts: float,
+    ) -> PTBRecord:
+        """Fetch PTB with full retry schedule until acquired or event expired.
+
+        Retry schedule: 2s → 4s → 8s → 16s → 10s → 10s → ...
+        Stops when: PTB acquired (lock) OR event_end_ts reached.
+
+        Args:
+            condition_id: Event condition ID.
+            asset: Crypto asset symbol.
+            event_slug: Event slug for source lookup.
+            event_end_ts: Unix timestamp when event expires.
+
+        Returns:
+            PTBRecord — locked if successful, FAILED if event expired.
+        """
+        record = self.get_or_create_record(condition_id, asset)
+
+        # Already locked
+        if record.is_locked:
+            return record
+
+        attempt = 0
+        while time.time() < event_end_ts:
+            # Determine wait time from schedule
+            if attempt < len(PTB_RETRY_SCHEDULE):
+                wait = PTB_RETRY_SCHEDULE[attempt]
+            else:
+                wait = PTB_RETRY_STEADY_INTERVAL
+
+            # Wait
+            await asyncio.sleep(wait)
+
+            # Check if event expired during wait
+            if time.time() >= event_end_ts:
+                break
+
+            # Attempt fetch
+            await self.fetch_ptb(condition_id, asset, event_slug)
+
+            # Check if locked
+            if record.is_locked:
+                return record
+
+            attempt += 1
+
+        # Event expired without PTB
+        if not record.is_locked:
+            record.record_failure("Event expired before PTB acquired")
+            log_event(
+                logger, logging.WARNING,
+                f"PTB not acquired before event end: {asset} ({condition_id})",
+                entity_type="ptb",
+                entity_id=condition_id,
+            )
+
+        return record
+
     def get_record(self, condition_id: str) -> PTBRecord | None:
         """Get PTB record by condition ID."""
         return self._records.get(condition_id)
 
+    def get_all_records(self) -> dict[str, PTBRecord]:
+        """Get all PTB records."""
+        return dict(self._records)
+
     def clear_event(self, condition_id: str) -> None:
-        """Clear PTB record for an event (event ended, cleanup)."""
+        """Clear PTB record for an event (event ended, cleanup).
+
+        Yeni event instance başladığında yeni PTB süreci başlar.
+        """
         if condition_id in self._records:
             del self._records[condition_id]
             log_event(
@@ -144,15 +200,12 @@ class PTBFetcher:
 
     @property
     def pending_count(self) -> int:
-        """Number of events still waiting for PTB."""
         return sum(1 for r in self._records.values() if r.is_waiting)
 
     @property
     def locked_count(self) -> int:
-        """Number of events with locked PTB."""
         return sum(1 for r in self._records.values() if r.is_locked)
 
     @property
     def failed_count(self) -> int:
-        """Number of events with failed PTB fetch."""
         return sum(1 for r in self._records.values() if r.is_failed)

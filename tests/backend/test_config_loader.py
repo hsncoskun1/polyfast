@@ -85,17 +85,24 @@ def test_invalid_log_level(tmp_path):
         load_config(_write_yaml(data, tmp_path))
 
 
-def test_invalid_force_sell_combinator(tmp_path):
-    """Force sell combinator must be 'all' or 'any'."""
+def test_force_sell_checkbox_structure(tmp_path):
+    """Force sell uses checkbox-based conditions, no combinator."""
     data = {
         "trading": {
             "exit_rules": {
-                "force_sell": {"combinator": "maybe"}
+                "force_sell": {
+                    "time": {"enabled": True, "remaining_seconds": 15},
+                    "delta_drop": {"enabled": True, "threshold_usd": 30.0},
+                    "pnl_loss": {"enabled": False},
+                }
             }
         }
     }
-    with pytest.raises(Exception):
-        load_config(_write_yaml(data, tmp_path))
+    config = load_config(_write_yaml(data, tmp_path))
+    assert config.trading.exit_rules.force_sell.time.enabled is True
+    assert config.trading.exit_rules.force_sell.time.remaining_seconds == 15
+    assert config.trading.exit_rules.force_sell.delta_drop.threshold_usd == 30.0
+    assert config.trading.exit_rules.force_sell.pnl_loss.enabled is False
 
 
 def test_port_out_of_range(tmp_path):
