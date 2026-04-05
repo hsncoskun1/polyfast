@@ -208,6 +208,12 @@ class ServerConfig(BaseModel):
 
 
 class DiscoveryConfig(BaseModel):
+    """Discovery ayarlari — admin/advanced.
+
+    interval_seconds: Event tarama sikligi (saniye)
+    timeout_seconds: API cevap bekleme suresi (saniye)
+    category/subcategory/duration: Tarama filtreleri (degistirme)
+    """
     interval_seconds: int = Field(default=10, ge=1, le=300)
     timeout_seconds: int = Field(default=15, ge=1, le=60)
     category: str = "crypto"
@@ -216,6 +222,13 @@ class DiscoveryConfig(BaseModel):
 
 
 class MarketDataConfig(BaseModel):
+    """Market veri ayarlari — admin/advanced.
+
+    ptb_source: PTB cekme yontemi (kullaniciya acilmaz)
+    stale_threshold_seconds: Outcome fiyat bu kadar sure guncellenmezse bayat sayilir
+    coin_price_stale_threshold_seconds: Coin USD fiyat bu kadar sure guncellenmezse bayat sayilir
+    coin_price_resub_interval_ms: Coin USD fiyat guncelleme sikligi (dusuk = hizli, yuksek = yavas)
+    """
     ptb_source: str = Field(default="next_data", pattern="^(next_data|api)$")
     stale_threshold_seconds: int = Field(default=30, ge=5, le=300)
     coin_price_stale_threshold_seconds: int = Field(default=15, ge=5, le=120)
@@ -227,6 +240,13 @@ class PersistenceConfig(BaseModel):
 
 
 class LoggingConfig(BaseModel):
+    """Log ayarlari — admin/advanced.
+
+    level: Log detay seviyesi (DEBUG en detayli, CRITICAL sadece kritik)
+    format: json = makine okunur, human = insan okunur
+    file_path: Log dosyasi konumu
+    mask_credentials: Credential'lari logda gizle (her zaman true olmali)
+    """
     level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     format: str = Field(default="json", pattern="^(json|human)$")
     file_path: str = "logs/polyfast.log"

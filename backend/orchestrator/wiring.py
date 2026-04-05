@@ -7,7 +7,9 @@ main.py lifespan'dan çağrılır.
 Execution / order / position / claim scope'u YOKTUR.
 """
 
+import asyncio
 import logging
+import time as _time
 
 from backend.auth_clients.public_client import PublicMarketClient
 from backend.discovery.engine import DiscoveryEngine
@@ -121,6 +123,24 @@ class Orchestrator:
 
         # 4. Coin USD subscribe güncelle
         self.coin_client.set_coins(eligible_assets)
+
+        # 5. PTB fetch — sadece lock'lanmamış olanlar için
+        for asset, info in event_map.items():
+            cond_id = info.get("condition_id", "")
+            slug = info.get("slug", "")
+            if cond_id and slug:
+                existing = self.ptb_fetcher.get_record(cond_id)
+                if existing and existing.is_locked:
+                    continue  # zaten lock'lı, tekrar deneme
+                # Background task olarak PTB retry başlat
+                slot_start = (int(_time.time()) // 300) * 300
+                event_end_ts = float(slot_start + 300)
+                asyncio.create_task(
+                    self.ptb_fetcher.fetch_ptb_with_retry(
+                        cond_id, asset, slug, event_end_ts,
+                    ),
+                    name=f"ptb_retry_{asset}",
+                )
 
         log_event(
             logger, logging.INFO,
