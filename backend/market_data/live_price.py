@@ -260,6 +260,14 @@ class LivePricePipeline:
             record.check_freshness()
         return record
 
+    def get_record_by_asset(self, asset: str) -> LivePriceRecord | None:
+        """Get price record by asset symbol, with freshness check."""
+        for record in self._records.values():
+            if record.asset.upper() == asset.upper():
+                record.check_freshness()
+                return record
+        return None
+
     def get_all_records(self) -> list[LivePriceRecord]:
         """Get all records with freshness check."""
         for r in self._records.values():

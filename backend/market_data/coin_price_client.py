@@ -153,6 +153,8 @@ class CoinPriceClient:
         self._total_updates: int = 0
         self._last_connect_at: datetime | None = None
         self._health_incidents: list[HealthIncident] = []
+        self._running: bool = False
+        self._task: asyncio.Task | None = None
 
     # ─── Records ───
 
@@ -293,6 +295,75 @@ class CoinPriceClient:
         )
 
         return results
+
+    # ─── Continuous Batch Loop ───
+
+    async def run_forever(self) -> None:
+        """Sürekli batch poll döngüsü — 7/24 çalışır.
+
+        PolyFlow pattern: connect → subscribe → receive → close → hemen tekrar.
+        Bekleme YOK — bir cycle biter bitmez sonraki başlar (~600-700ms/cycle).
+
+        Bu endpoint sürekli streaming DESTEKLEMİYOR.
+        Reconnect-based batch snapshot loop olarak çalışır.
+        Bir cycle fail oldu diye loop DURMAZ — sonsuz retry.
+        """
+        self._running = True
+        fail_count = 0
+
+        log_event(
+            logger, logging.INFO,
+            f"Coin price batch loop started — {len(self._coins)} coins",
+            entity_type="coin_price",
+            entity_id="loop_started",
+        )
+
+        while self._running:
+            try:
+                results = await self.poll_once()
+                if results:
+                    fail_count = 0
+                else:
+                    fail_count += 1
+            except Exception as e:
+                fail_count += 1
+                log_event(
+                    logger, logging.WARNING,
+                    f"Coin price batch cycle failed ({fail_count}): {e}",
+                    entity_type="coin_price",
+                    entity_id="cycle_failure",
+                )
+
+            # Fail durumunda kısa bekleme — loop durmuyor
+            if fail_count > 0:
+                wait = min(fail_count * 2, 10)  # max 10s bekleme
+                await asyncio.sleep(wait)
+            # Başarılı cycle sonrası bekleme YOK — hemen tekrar
+
+        log_event(
+            logger, logging.INFO,
+            "Coin price batch loop stopped",
+            entity_type="coin_price",
+            entity_id="loop_stopped",
+        )
+
+    async def start(self) -> asyncio.Task:
+        """Batch loop'u background task olarak başlat."""
+        if self._running:
+            return self._task
+        self._task = asyncio.create_task(self.run_forever(), name="coin_price_loop")
+        return self._task
+
+    async def stop(self) -> None:
+        """Batch loop'u durdur."""
+        self._running = False
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+        self._task = None
 
     # ─── Internal ───
 
