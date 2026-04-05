@@ -22,15 +22,30 @@ Discovery engine tek başına çağrıldığında doğru event'i bulur:
 AMA: Onu çağıran, registry'yi güncelleyen, eligibility kontrol eden,
 subscription yöneten ve evaluation tetikleyen orchestrator TAMAMEN EKSİK.
 
-## Discovery Retry Politikası (Bağlayıcı Karar)
+## Discovery Davranış Modeli (Bağlayıcı Karar)
 
-- Normal discovery scan cadence: config'den (default 10s)
-- Failure retry cadence: aynı interval ile devam (hız düşürmez)
-- Retry sonsuz — sistem discovery failure'da DURMAZ
-- Health warning üretir
-- Yeni event/trade opportunity geçici olarak durur
-- AMA mevcut açık pozisyonlar discovery failure yüzünden DURMAZ
-- Discovery retry admin/advanced safety altında olacak, normal kullanıcı ayarı DEĞİL
+Discovery PTB mantığıyla çalışır — bul ve bekle:
+
+```
+1. Yeni 5dk slot başladı → discovery tara
+2. Event bulundu mu?
+   EVET → discovery DUR
+          → PTB fetch başlat
+          → WS subscribe
+          → evaluation döngüsüne al
+          → slot bitene kadar TEKRAR TARAMA (gereksiz API yükü)
+          → slot bittikten sonra → adım 1'e dön (yeni slot)
+   HAYIR → retry schedule: 2s→4s→8s→16s→10s→10s... (event bulunana kadar)
+           → health warning üret
+           → mevcut açık pozisyonlar ETKİLENMEZ
+```
+
+Kritik kurallar:
+- Event bulunduysa tekrar taramaya GEREK YOK
+- Bulunmadıysa retry sonsuz — sistem discovery failure'da DURMAZ
+- Gereksiz API çağrısı YOK
+- Discovery retry admin/advanced safety altında, normal kullanıcı ayarı DEĞİL
+- Mevcut açık pozisyonlar discovery failure yüzünden DURMAZ
 
 ## Sonuç
 
