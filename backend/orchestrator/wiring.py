@@ -79,6 +79,7 @@ class Orchestrator:
         # Loops
         self.discovery_loop = DiscoveryLoop(
             self.discovery_engine, self.safe_sync,
+            on_events_found=self._handle_discovered_events,
         )
         self.evaluation_loop = EvaluationLoop(
             self.rule_engine, self.pipeline, self.coin_client,
@@ -87,6 +88,47 @@ class Orchestrator:
 
         # WS message callback
         self.rtds_client.set_message_callback(self.bridge.on_ws_message)
+
+    async def _handle_discovered_events(self, events: list) -> None:
+        """Discovery event bulduğunda çağrılır.
+
+        Zincir: events → eligibility → subscription diff → subscribe/unsubscribe
+        """
+        # 1. Eligibility kontrol
+        result = self.eligibility_gate.filter(events)
+
+        if not result.eligible:
+            return
+
+        # 2. Eligible asset listesi
+        eligible_assets = []
+        event_map = {}
+        for event in result.eligible:
+            asset = event.get("asset", "") if isinstance(event, dict) else getattr(event, "asset", "")
+            if asset:
+                eligible_assets.append(asset)
+                # Event data for subscription
+                event_map[asset] = {
+                    "condition_id": event.get("condition_id", "") if isinstance(event, dict) else getattr(event, "condition_id", ""),
+                    "token_ids": list(event.get("clob_token_ids", [])) if isinstance(event, dict) else list(getattr(event, "clob_token_ids", [])),
+                    "sides": list(event.get("outcomes", [])) if isinstance(event, dict) else list(getattr(event, "outcomes", [])),
+                    "slug": event.get("slug", "") if isinstance(event, dict) else getattr(event, "slug", ""),
+                }
+
+        # 3. Subscription diff
+        diff = self.subscription_manager.compute_diff(eligible_assets)
+        await self.subscription_manager.apply_diff(diff, event_map)
+
+        # 4. Coin USD subscribe güncelle
+        self.coin_client.set_coins(eligible_assets)
+
+        log_event(
+            logger, logging.INFO,
+            f"Event chain: {len(result.eligible)} eligible, "
+            f"+{len(diff.to_subscribe)} subscribe, -{len(diff.to_unsubscribe)} unsubscribe",
+            entity_type="orchestrator",
+            entity_id="event_chain",
+        )
 
     async def start(self) -> None:
         """Tüm loop'ları başlat."""

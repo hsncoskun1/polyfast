@@ -59,9 +59,11 @@ class DiscoveryLoop:
         self,
         discovery_engine: DiscoveryEngine,
         safe_sync: SafeSync,
+        on_events_found=None,
     ):
         self._engine = discovery_engine
         self._sync = safe_sync
+        self._on_events_found = on_events_found  # callback: eligible→subscribe
         self._running = False
         self._task: asyncio.Task | None = None
         self._current_slot: int = 0
@@ -207,6 +209,19 @@ class DiscoveryLoop:
                         entity_id="discovery_found",
                         payload={"count": len(events), "slot": slot_start},
                     )
+
+                    # Callback: eligibility → subscription zinciri
+                    if self._on_events_found:
+                        try:
+                            await self._on_events_found(events)
+                        except Exception as e:
+                            log_event(
+                                logger, logging.WARNING,
+                                f"on_events_found callback error: {e}",
+                                entity_type="orchestrator",
+                                entity_id="callback_error",
+                            )
+
                     return True
 
             except Exception as e:
