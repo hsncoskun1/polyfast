@@ -161,6 +161,12 @@ class CoinPriceClient:
         self._running: bool = False
         self._task: asyncio.Task | None = None
 
+        # Telemetry
+        self._resub_count: int = 0
+        self._reconnect_count: int = 0
+        self._empty_batch_streak: int = 0
+        self._connection_start: float = 0.0
+
     # ─── Records ───
 
     def get_price(self, coin: str) -> CoinPriceRecord | None:
@@ -205,6 +211,28 @@ class CoinPriceClient:
     @property
     def total_updates(self) -> int:
         return self._total_updates
+
+    @property
+    def resub_count(self) -> int:
+        """Toplam resubscribe sayisi."""
+        return self._resub_count
+
+    @property
+    def reconnect_count(self) -> int:
+        """Baglanti kopup yeniden baglanma sayisi."""
+        return self._reconnect_count
+
+    @property
+    def connection_uptime_seconds(self) -> float:
+        """Mevcut baglantinin suresi (saniye)."""
+        if self._connection_start > 0:
+            return time.time() - self._connection_start
+        return 0.0
+
+    @property
+    def empty_batch_streak(self) -> int:
+        """Ard arda bos batch sayisi."""
+        return self._empty_batch_streak
 
     # ─── Batch Poll (PolyFlow pattern) ───
 
@@ -331,6 +359,7 @@ class CoinPriceClient:
                 fail_count = 0
             except Exception as e:
                 fail_count += 1
+                self._reconnect_count += 1
                 log_event(
                     logger, logging.WARNING,
                     f"Coin price connection failed ({fail_count}): {e}",
@@ -376,15 +405,17 @@ class CoinPriceClient:
             additional_headers=RTDS_HEADERS,
         ) as ws:
             self._last_connect_at = datetime.now(timezone.utc)
+            self._connection_start = time.time()
             last_resub = 0.0
 
             while self._running:
-                # Resubscribe (200ms interval)
+                # Resubscribe (configurable interval)
                 now = time.time()
                 if now - last_resub >= resub_interval:
                     for msg in sub_msgs:
                         await ws.send(msg)
                     last_resub = now
+                    self._resub_count += 1
 
                 # Mesajları oku
                 try:
