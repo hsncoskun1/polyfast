@@ -1,0 +1,211 @@
+"""ClobClientWrapper — py-clob-client SDK wrapper.
+
+SDK sorumlulukları:
+- Auth (private key + API creds)
+- Balance okuma (get_balance_allowance)
+- Fee rate okuma (neg_risk endpoint)
+- Order gönderme (create_and_post_order) — v0.5.3'te KAPALI
+
+Fee rate authoritative path (öncelik sırası):
+1. SDK neg_risk_fee_rate_bps → token bazlı authoritative
+2. Market endpoint fee_rate_bps → fallback
+3. DEFAULT_CRYPTO_FEE_RATE → SADECE paper mode guard
+
+Bu surumde order gonderme TEKNIK GUARD ile KAPALI:
+- LIVE_ORDER_ENABLED = False
+- Bu flag True yapılmadan gerçek order çıkamaz
+- Yanlışlıkla canlı order riski SIFIR
+"""
+
+import logging
+from datetime import datetime, timezone
+
+from backend.logging_config.service import get_logger, log_event
+
+logger = get_logger("execution.clob_wrapper")
+
+# TEKNIK GUARD — bu False oldukca gercek order CIKMAZ
+LIVE_ORDER_ENABLED = False
+
+
+class ClobClientWrapper:
+    """py-clob-client SDK wrapper.
+
+    Production'da:
+    - from py_clob_client.client import ClobClient
+    - client = ClobClient(host, key, chain_id, ...)
+    - client.get_balance_allowance(...)
+    - client.create_and_post_order(...)
+
+    v0.5.3'te:
+    - Balance okuma: HAZIR (SDK veya simulated)
+    - Fee rate okuma: HAZIR
+    - Order gönderme: TEKNIK GUARD İLE KAPALI
+    """
+
+    def __init__(
+        self,
+        private_key: str = "",
+        api_key: str = "",
+        api_secret: str = "",
+        api_passphrase: str = "",
+        chain_id: int = 137,
+    ):
+        self._private_key = private_key
+        self._api_key = api_key
+        self._api_secret = api_secret
+        self._api_passphrase = api_passphrase
+        self._chain_id = chain_id
+        self._client = None
+        self._initialized = False
+
+    def initialize(self) -> bool:
+        """SDK client olustur. Credentials varsa gercek SDK, yoksa simulated."""
+        if self._private_key and self._api_key:
+            try:
+                from py_clob_client.client import ClobClient
+                self._client = ClobClient(
+                    host="https://clob.polymarket.com",
+                    key=self._private_key,
+                    chain_id=self._chain_id,
+                    creds={
+                        "apiKey": self._api_key,
+                        "secret": self._api_secret,
+                        "passphrase": self._api_passphrase,
+                    },
+                )
+                self._initialized = True
+                log_event(
+                    logger, logging.INFO,
+                    "CLOB SDK client initialized (real credentials)",
+                    entity_type="execution",
+                    entity_id="sdk_init",
+                )
+                return True
+            except Exception as e:
+                log_event(
+                    logger, logging.WARNING,
+                    f"CLOB SDK init failed: {e} — running without SDK",
+                    entity_type="execution",
+                    entity_id="sdk_init_error",
+                )
+                self._initialized = False
+                return False
+        else:
+            log_event(
+                logger, logging.INFO,
+                "CLOB SDK: no credentials — paper mode only",
+                entity_type="execution",
+                entity_id="sdk_no_creds",
+            )
+            self._initialized = False
+            return False
+
+    @property
+    def is_initialized(self) -> bool:
+        return self._initialized
+
+    # ─── Balance ───
+
+    async def get_balance(self) -> dict | None:
+        """CLOB SDK ile balance cek.
+
+        Returns:
+            {"available": float, "total": float} veya None.
+        """
+        if not self._initialized or self._client is None:
+            return None
+
+        try:
+            # SDK call: get_balance_allowance
+            result = self._client.get_balance_allowance()
+            if result is not None:
+                balance = float(result.get("balance", 0))
+                return {"available": balance, "total": balance}
+        except Exception as e:
+            log_event(
+                logger, logging.WARNING,
+                f"Balance fetch failed: {e}",
+                entity_type="execution",
+                entity_id="balance_error",
+            )
+        return None
+
+    # ─── Fee Rate ───
+
+    async def get_fee_rate(self, token_id: str) -> float | None:
+        """Fee rate cek — authoritative path.
+
+        Oncelik:
+        1. neg_risk endpoint (token bazli)
+        2. market endpoint (fallback)
+        """
+        if not self._initialized or self._client is None:
+            return None
+
+        try:
+            # SDK veya direct API call
+            import httpx
+            async with httpx.AsyncClient(timeout=5) as client:
+                # 1. neg_risk endpoint
+                resp = await client.get(
+                    f"https://clob.polymarket.com/neg-risk/markets/{token_id}"
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    rate = data.get("neg_risk_fee_rate")
+                    if rate is not None:
+                        return float(rate)
+                    bps = data.get("fee_rate_bps")
+                    if bps is not None:
+                        return int(bps) / 10000.0
+
+                # 2. market endpoint fallback
+                resp2 = await client.get(
+                    f"https://clob.polymarket.com/markets/{token_id}"
+                )
+                if resp2.status_code == 200:
+                    data2 = resp2.json()
+                    bps2 = data2.get("fee_rate_bps")
+                    if bps2 is not None:
+                        return int(bps2) / 10000.0
+
+        except Exception as e:
+            log_event(
+                logger, logging.WARNING,
+                f"Fee rate fetch failed: {e}",
+                entity_type="execution",
+                entity_id="fee_rate_error",
+            )
+        return None
+
+    # ─── Order (TEKNIK GUARD ILE KAPALI) ───
+
+    async def send_market_fok_order(
+        self,
+        token_id: str,
+        side: str,
+        amount_usd: float,
+    ) -> dict | None:
+        """Market FOK order gonder.
+
+        TEKNIK GUARD: LIVE_ORDER_ENABLED = False oldukca CALISMAZ.
+        Gercek order CIKMAZ.
+        """
+        if not LIVE_ORDER_ENABLED:
+            log_event(
+                logger, logging.WARNING,
+                "LIVE ORDER BLOCKED — LIVE_ORDER_ENABLED = False",
+                entity_type="execution",
+                entity_id="order_blocked",
+            )
+            return None
+
+        if not self._initialized or self._client is None:
+            return None
+
+        # TODO: gercek SDK order gonderme
+        # order = self._client.create_and_post_order(...)
+        # return {"order_id": ..., "fill_price": ..., "status": ...}
+
+        return None

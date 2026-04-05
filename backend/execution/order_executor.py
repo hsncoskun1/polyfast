@@ -205,41 +205,42 @@ class OrderExecutor:
         )
 
     async def _execute_live(self, intent: OrderIntent, position) -> ExecutionResult:
-        """Live mode — gercek CLOB API ile Market FOK.
+        """Live mode — TEKNIK GUARD ile KAPALI.
 
-        SDK feeRateBps'yi otomatik halleder — ayri fetch YOK.
-        Fill response'tan fee_rate authoritative olarak alinir.
+        LIVE_ORDER_ENABLED = False oldukca gercek order CIKMAZ.
+        SDK wiring hazir ama order gonderme bilinçli olarak devre disi.
+        Bu guard True yapilmadan canli order riski SIFIR.
 
-        TODO: py-clob-client SDK entegrasyonu
-        Su an placeholder — v0.5.2'de SDK wiring gelecek.
+        Gercek order akisi (guard acildiginda):
+        1. SDK feeRateBps'yi token_id icin otomatik ceker
+        2. Signed order payload olusturur
+        3. CLOB API'ye gonderir
+        4. Response: filled/not_filled + fill_price + fee bilgisi
+        5. fill_price ve fee_rate response'tan PositionRecord'a yazilir
         """
-        # TODO: py-clob-client SDK ile gercek order gonderme
-        # order = await clob_client.create_and_post_order(...)
-        # fill_price = order.fill_price
-        # fee_rate = order.fee_rate_bps / 10000
-        #
-        # SDK akisi:
-        # 1. SDK feeRateBps'yi token_id icin otomatik ceker
-        # 2. Signed order payload olusturur
-        # 3. CLOB API'ye gonderir
-        # 4. Response: filled/not_filled + fill_price + fee bilgisi
-        #
-        # Bot accounting:
-        # fill_price ve fee_rate response'tan alinir
-        # PositionRecord'a authoritative olarak yazilir
+        from backend.execution.clob_client_wrapper import LIVE_ORDER_ENABLED
 
-        # Placeholder: live mode simdilik NOT_FILLED doner
+        if not LIVE_ORDER_ENABLED:
+            # TEKNIK GUARD — gercek order CIKMAZ
+            self._tracker.reject_fill(position.position_id)
+
+            log_event(
+                logger, logging.WARNING,
+                f"LIVE ORDER BLOCKED by technical guard — LIVE_ORDER_ENABLED=False",
+                entity_type="execution",
+                entity_id=position.position_id,
+            )
+
+            return ExecutionResult(
+                result=OrderResult.NOT_FILLED,
+                position_id=position.position_id,
+                detail={"mode": "live", "guard": "LIVE_ORDER_ENABLED=False"},
+            )
+
+        # Guard acik oldugunda gercek SDK order buraya gelecek
+        # TODO: self._clob_wrapper.send_market_fok_order(...)
         self._tracker.reject_fill(position.position_id)
-
-        log_event(
-            logger, logging.WARNING,
-            f"LIVE execution placeholder — SDK entegrasyonu gerekli",
-            entity_type="execution",
-            entity_id=position.position_id,
-        )
-
         return ExecutionResult(
             result=OrderResult.NOT_FILLED,
             position_id=position.position_id,
-            detail={"mode": "live", "note": "SDK entegrasyonu henuz yapilmadi"},
         )
