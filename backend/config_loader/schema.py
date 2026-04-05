@@ -233,6 +233,7 @@ class MarketDataConfig(BaseModel):
     stale_threshold_seconds: int = Field(default=30, ge=5, le=300)
     coin_price_stale_threshold_seconds: int = Field(default=15, ge=5, le=120)
     coin_price_resub_interval_ms: int = Field(default=150, ge=50, le=5000)
+    balance_stale_threshold_seconds: int = Field(default=90, ge=30, le=300)
 
 
 class PersistenceConfig(BaseModel):

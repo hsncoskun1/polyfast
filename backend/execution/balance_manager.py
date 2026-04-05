@@ -26,7 +26,7 @@ from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("execution.balance")
 
-BALANCE_STALE_THRESHOLD_SEC = 60.0  # 60s guncellenmezse stale
+BALANCE_STALE_THRESHOLD_SEC = 90.0  # 90s guncellenmezse stale — admin/advanced
 PASSIVE_REFRESH_INTERVAL_SEC = 20.0  # 15-30s arasi, 20s default
 
 
