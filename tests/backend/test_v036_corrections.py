@@ -32,7 +32,6 @@ from backend.config_loader.schema import (
     TakeProfitConfig,
     ForceSellConfig,
     ForceSellTimeCondition,
-    ForceSellDeltaDropCondition,
     ForceSellPnlCondition,
     EventMaxConfig,
     BotMaxConfig,
@@ -208,11 +207,10 @@ class TestConfigSchemaSemantics:
 
     def test_force_sell_checkbox_based(self):
         config = ForceSellConfig()
-        # Each condition is independently enabled/disabled
+        # Only time + pnl (delta removed)
         assert hasattr(config, "time")
-        assert hasattr(config, "delta_drop")
         assert hasattr(config, "pnl_loss")
-        # No combinator field
+        assert not hasattr(config, "delta_drop")  # KALDIRILDI
         assert not hasattr(config, "combinator")
 
     def test_force_sell_time_default_enabled(self):
@@ -220,15 +218,10 @@ class TestConfigSchemaSemantics:
         assert config.time.enabled is True
         assert config.time.remaining_seconds == 30
 
-    def test_force_sell_delta_drop_default_disabled(self):
+    def test_force_sell_no_delta_drop(self):
+        """Force sell delta KALDIRILDI — sadece time + pnl."""
         config = ForceSellConfig()
-        assert config.delta_drop.enabled is False
-        assert config.delta_drop.threshold_usd == 20.0
-
-    def test_force_sell_delta_drop_coin_usd_semantics(self):
-        """Delta drop docstring must reference coin USD, not outcome."""
-        assert "coin USD" in ForceSellDeltaDropCondition.__doc__
-        assert "outcome" not in ForceSellDeltaDropCondition.__doc__ or "DEĞİL" in ForceSellDeltaDropCondition.__doc__
+        assert not hasattr(config, "delta_drop")
 
     def test_force_sell_retry_ms(self):
         config = ForceSellConfig()
@@ -449,18 +442,14 @@ class TestExitSemantics:
         # fill_price is higher → correct PnL is lower
         assert correct_pnl < wrong_pnl
 
-    def test_force_sell_delta_drop_coin_usd(self):
-        """Force sell delta drop uses coin USD, not outcome price."""
-        ptb = 67260.12
-        coin_usd_at_fill = 67310.00
-        coin_usd_now = 67270.00
-
-        fill_delta = abs(coin_usd_at_fill - ptb)  # 49.88
-        current_delta = abs(coin_usd_now - ptb)    # 9.88
-        drop = fill_delta - current_delta            # 40.00
-
-        assert abs(fill_delta - 49.88) < 0.01
-        assert abs(drop - 40.0) < 0.01
+    def test_delta_is_entry_only_not_exit(self):
+        """Delta is entry rule only. Force sell delta KALDIRILDI."""
+        # Delta kuralı entry'de kalır
+        from backend.strategy.rules.delta_rule import DeltaRule
+        assert DeltaRule is not None
+        # Force sell'de delta yok
+        config = ForceSellConfig()
+        assert not hasattr(config, "delta_drop")
 
 
 # ═══════════════════════════════════════════════════════════════

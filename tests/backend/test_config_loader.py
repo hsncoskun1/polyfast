@@ -86,14 +86,13 @@ def test_invalid_log_level(tmp_path):
 
 
 def test_force_sell_checkbox_structure(tmp_path):
-    """Force sell uses checkbox-based conditions, no combinator."""
+    """Force sell uses time + pnl only (delta removed)."""
     data = {
         "trading": {
             "exit_rules": {
                 "force_sell": {
                     "time": {"enabled": True, "remaining_seconds": 15},
-                    "delta_drop": {"enabled": True, "threshold_usd": 30.0},
-                    "pnl_loss": {"enabled": False},
+                    "pnl_loss": {"enabled": True, "loss_percentage": 4.0},
                 }
             }
         }
@@ -101,8 +100,9 @@ def test_force_sell_checkbox_structure(tmp_path):
     config = load_config(_write_yaml(data, tmp_path))
     assert config.trading.exit_rules.force_sell.time.enabled is True
     assert config.trading.exit_rules.force_sell.time.remaining_seconds == 15
-    assert config.trading.exit_rules.force_sell.delta_drop.threshold_usd == 30.0
-    assert config.trading.exit_rules.force_sell.pnl_loss.enabled is False
+    assert config.trading.exit_rules.force_sell.pnl_loss.enabled is True
+    assert config.trading.exit_rules.force_sell.pnl_loss.loss_percentage == 4.0
+    assert not hasattr(config.trading.exit_rules.force_sell, "delta_drop")
 
 
 def test_port_out_of_range(tmp_path):

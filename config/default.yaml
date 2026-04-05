@@ -42,9 +42,6 @@ trading:
       time:
         enabled: true
         remaining_seconds: 30
-      delta_drop:
-        enabled: false
-        threshold_usd: 20.0
       pnl_loss:
         enabled: false
         loss_percentage: 5.0

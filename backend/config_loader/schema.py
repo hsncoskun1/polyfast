@@ -152,20 +152,6 @@ class ForceSellTimeCondition(BaseModel):
     remaining_seconds: int = Field(default=30, ge=1, le=299)
 
 
-class ForceSellDeltaDropCondition(BaseModel):
-    """Force sell delta drop koşulu — coin USD delta düşüşü.
-
-    fill_delta = abs(coin_usd_at_fill - PTB)
-    current_delta = abs(coin_usd_now - PTB)
-    drop = fill_delta - current_delta
-    Outcome fiyata DEĞİL, coin USD delta'ya bakar.
-    Kullanıcı sabit USD sayı girer.
-    Coin USD feed koptuğunda bu koşul waiting olur.
-    """
-    enabled: bool = False
-    threshold_usd: float = Field(default=20.0, ge=0.0001, le=100000.0)
-
-
 class ForceSellPnlCondition(BaseModel):
     """Force sell PnL loss koşulu — PnL zarar yüzdesi."""
     enabled: bool = False
@@ -175,15 +161,21 @@ class ForceSellPnlCondition(BaseModel):
 class ForceSellConfig(BaseModel):
     """Force Sell — checkbox bazlı zorunlu çıkış koşulları.
 
-    Combinator any/all YOK.
-    Kullanıcı koşulları checkbox ile seçer ve değerlerini editler.
+    SADECE iki koşul var:
+    1. time — event bitimine X saniye kala
+    2. pnl_loss — PnL zarar yüzdesi
+
+    Force sell delta KALDIRILDI (delta sadece entry kuralı).
+
     Seçilenlerin (enabled=True) HEPSİ sağlanınca force sell tetiklenir.
     Tek koşul seçildiyse o yeterli.
+
+    Stale safety: outcome stale ise force sell time tek başına safety
+    override olarak çalışabilir — zaman bazlı çıkış bloke olmaz.
 
     Tüm exit orderları Market FOK.
     """
     time: ForceSellTimeCondition = ForceSellTimeCondition()
-    delta_drop: ForceSellDeltaDropCondition = ForceSellDeltaDropCondition()
     pnl_loss: ForceSellPnlCondition = ForceSellPnlCondition()
     retry_interval_ms: int = Field(default=500, ge=100, le=10000)
     retry_max: int = Field(default=3, ge=1, le=20)
