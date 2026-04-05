@@ -1,3 +1,3 @@
 """Centralized version constant — single source of truth for app version."""
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"

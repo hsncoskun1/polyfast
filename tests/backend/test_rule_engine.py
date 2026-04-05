@@ -203,7 +203,7 @@ class TestPriceRule:
         ctx = _make_ctx(up_price=0.85, down_price=0.15, price_min=51, price_max=95)
         result = rule.evaluate(ctx)
         assert result.state == RuleState.PASS
-        assert result.detail["dominant_side"] == "UP"
+        assert result.detail["evaluated_side"] == "UP"
 
     def test_dominant_down_in_range_pass(self):
         """DOWN dominant 70 → 51-95 aralığında → PASS."""
@@ -211,7 +211,7 @@ class TestPriceRule:
         ctx = _make_ctx(up_price=0.30, down_price=0.70, price_min=51, price_max=95)
         result = rule.evaluate(ctx)
         assert result.state == RuleState.PASS
-        assert result.detail["dominant_side"] == "DOWN"
+        assert result.detail["evaluated_side"] == "DOWN"
 
     def test_dominant_below_min_fail(self):
         """Dominant 52 → min=70 → FAIL."""

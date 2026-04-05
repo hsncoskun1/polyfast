@@ -17,6 +17,8 @@ Snapshot'tan DEĞİL, canlı pipeline/PTB/coin USD'den beslenir.
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
+from backend.settings.coin_settings import SideMode
+
 
 @dataclass
 class EvaluationContext:
@@ -37,6 +39,9 @@ class EvaluationContext:
     best_bid: float = 0.0          # outcome best bid
     best_ask: float = 0.0          # outcome best ask
     outcome_fresh: bool = False    # outcome verisi fresh mi
+
+    # ── Side mode ──
+    side_mode: SideMode = SideMode.DOMINANT_ONLY
 
     # ── Coin canlı USD fiyatı (RTDS crypto_prices'tan) ──
     coin_usd_price: float = 0.0   # BTC=$67260, DOGE=$0.092
@@ -80,19 +85,45 @@ class EvaluationContext:
     # ── Türetilmiş ──
 
     @property
-    def dominant_price(self) -> float:
-        """Dominant taraf fiyatı (0.0-1.0). Her zaman >= 0.50."""
-        return max(self.up_price, self.down_price)
+    def evaluated_price(self) -> float:
+        """Side mode'a göre değerlendirilecek fiyat (0.0-1.0).
+
+        dominant_only → max(up, down), her zaman >= 0.50
+        up_only → up_price
+        down_only → down_price
+        """
+        if self.side_mode == SideMode.UP_ONLY:
+            return self.up_price
+        if self.side_mode == SideMode.DOWN_ONLY:
+            return self.down_price
+        return max(self.up_price, self.down_price)  # dominant_only
 
     @property
-    def dominant_side(self) -> str:
-        """UP veya DOWN."""
+    def evaluated_side(self) -> str:
+        """Side mode'a göre değerlendirilecek taraf."""
+        if self.side_mode == SideMode.UP_ONLY:
+            return "UP"
+        if self.side_mode == SideMode.DOWN_ONLY:
+            return "DOWN"
         return "UP" if self.up_price >= self.down_price else "DOWN"
 
     @property
+    def evaluated_price_100(self) -> float:
+        """Değerlendirilecek fiyat 0-100 ölçeğinde."""
+        return self.evaluated_price * 100
+
+    # Backward compat — dominant_* isimleri korunuyor
+    @property
+    def dominant_price(self) -> float:
+        return self.evaluated_price
+
+    @property
+    def dominant_side(self) -> str:
+        return self.evaluated_side
+
+    @property
     def dominant_price_100(self) -> float:
-        """Dominant fiyat 0-100 ölçeğinde."""
-        return self.dominant_price * 100
+        return self.evaluated_price_100
 
     @property
     def spread_pct(self) -> float:
