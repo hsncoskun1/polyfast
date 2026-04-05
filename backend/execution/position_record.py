@@ -40,7 +40,9 @@ class PositionState(str, Enum):
 ALLOWED_TRANSITIONS: dict[PositionState, set[PositionState]] = {
     PositionState.PENDING_OPEN: {PositionState.OPEN_CONFIRMED, PositionState.CLOSED},
     PositionState.OPEN_CONFIRMED: {PositionState.CLOSING_REQUESTED},
-    PositionState.CLOSING_REQUESTED: {PositionState.CLOSE_PENDING},
+    PositionState.CLOSING_REQUESTED: {PositionState.CLOSE_PENDING, PositionState.OPEN_CONFIRMED},
+    # closing_requested → open_confirmed: SADECE TP reevaluate=True durumunda izinli
+    # SL ve force sell icin bu geri donus YASAK — caller tarafinda kontrol edilir
     PositionState.CLOSE_PENDING: {PositionState.CLOSED, PositionState.CLOSE_FAILED},
     PositionState.CLOSE_FAILED: {PositionState.CLOSING_REQUESTED, PositionState.CLOSED},
     PositionState.CLOSED: set(),  # terminal
