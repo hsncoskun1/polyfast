@@ -176,6 +176,154 @@ class TestJumpThreshold:
 
 
 # ═══════════════════════════════════════════════════════════════
+# FORCE SELL EVALUATION
+# ═══════════════════════════════════════════════════════════════
+
+class TestForceSellTime:
+
+    def test_time_only_triggered(self):
+        """Sadece time secili, kalan <= threshold → tetikle."""
+        pos, _ = _make_open_position()
+        evaluator = ExitEvaluator(force_sell_time_enabled=True, force_sell_time_seconds=30, force_sell_pnl_enabled=False)
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.85, seconds_remaining=15)
+        assert signal.should_exit is True
+        assert signal.reason == CloseReason.FORCE_SELL
+        assert "force_sell_time" in signal.detail["trigger_set"]
+        assert signal.detail["latch"] is True
+
+    def test_time_only_not_triggered(self):
+        """Kalan > threshold → tetiklenmez."""
+        pos, _ = _make_open_position()
+        evaluator = ExitEvaluator(force_sell_time_enabled=True, force_sell_time_seconds=30, force_sell_pnl_enabled=False)
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.85, seconds_remaining=100)
+        assert signal.should_exit is False
+
+    def test_time_stale_still_works(self):
+        """Sadece time secili + outcome stale → force sell CALISIR."""
+        pos, _ = _make_open_position()
+        evaluator = ExitEvaluator(force_sell_time_enabled=True, force_sell_time_seconds=30, force_sell_pnl_enabled=False)
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.85, seconds_remaining=10, outcome_fresh=False)
+        assert signal.should_exit is True  # time tek basina stale'de bile calisir
+
+
+class TestForceSellPnl:
+
+    def test_pnl_only_triggered(self):
+        """Sadece PnL secili, zarar >= threshold → tetikle."""
+        pos, _ = _make_open_position(fill_price=0.85)
+        evaluator = ExitEvaluator(force_sell_time_enabled=False, force_sell_pnl_enabled=True, force_sell_pnl_pct=3.0)
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.78, seconds_remaining=200)
+        assert signal.should_exit is True
+        assert "force_sell_pnl" in signal.detail["trigger_set"]
+
+    def test_pnl_only_not_triggered(self):
+        """Zarar < threshold → tetiklenmez."""
+        pos, _ = _make_open_position(fill_price=0.85)
+        evaluator = ExitEvaluator(force_sell_time_enabled=False, force_sell_pnl_enabled=True, force_sell_pnl_pct=10.0)
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.84, seconds_remaining=200)
+        assert signal.should_exit is False
+
+
+class TestForceSellCombined:
+
+    def test_both_selected_both_met(self):
+        """Ikisi secili, ikisi de saglanıyor → tetikle."""
+        pos, _ = _make_open_position(fill_price=0.85)
+        evaluator = ExitEvaluator(
+            force_sell_time_enabled=True, force_sell_time_seconds=30,
+            force_sell_pnl_enabled=True, force_sell_pnl_pct=3.0,
+        )
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.78, seconds_remaining=10)
+        assert signal.should_exit is True
+        assert "force_sell_time" in signal.detail["trigger_set"]
+        assert "force_sell_pnl" in signal.detail["trigger_set"]
+
+    def test_both_selected_only_time_met(self):
+        """Ikisi secili ama sadece time saglanıyor → tetiklenmez."""
+        pos, _ = _make_open_position(fill_price=0.85)
+        evaluator = ExitEvaluator(
+            force_sell_time_enabled=True, force_sell_time_seconds=30,
+            force_sell_pnl_enabled=True, force_sell_pnl_pct=10.0,
+        )
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.84, seconds_remaining=10)
+        assert signal.should_exit is False  # pnl saglanmiyor
+
+    def test_both_selected_only_pnl_met(self):
+        """Ikisi secili ama sadece PnL saglanıyor → tetiklenmez."""
+        pos, _ = _make_open_position(fill_price=0.85)
+        evaluator = ExitEvaluator(
+            force_sell_time_enabled=True, force_sell_time_seconds=30,
+            force_sell_pnl_enabled=True, force_sell_pnl_pct=3.0,
+        )
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.78, seconds_remaining=100)
+        assert signal.should_exit is False  # time saglanmiyor
+
+
+class TestForceSellStale:
+
+    def test_time_pnl_both_stale_time_safety_override(self):
+        """time + pnl secili, outcome stale, time saglandi → time safety override ile tetikle."""
+        pos, _ = _make_open_position(fill_price=0.85)
+        evaluator = ExitEvaluator(
+            force_sell_time_enabled=True, force_sell_time_seconds=30,
+            force_sell_pnl_enabled=True, force_sell_pnl_pct=3.0,
+        )
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.78, seconds_remaining=10, outcome_fresh=False)
+        assert signal.should_exit is True  # time safety override
+        assert signal.detail["safety_override"] is True
+        assert signal.detail["pnl_stale"] is True
+        assert "force_sell_time" in signal.detail["trigger_set"]
+
+    def test_time_pnl_both_stale_time_not_met(self):
+        """time + pnl secili, outcome stale, time saglanmadi → tetiklenmez."""
+        pos, _ = _make_open_position(fill_price=0.85)
+        evaluator = ExitEvaluator(
+            force_sell_time_enabled=True, force_sell_time_seconds=30,
+            force_sell_pnl_enabled=True, force_sell_pnl_pct=3.0,
+        )
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.78, seconds_remaining=100, outcome_fresh=False)
+        assert signal.should_exit is False  # time saglanmiyor + pnl stale → tetiklenmez
+
+    def test_time_only_stale_works(self):
+        """Sadece time secili + stale → time calisir (stale safety override)."""
+        pos, _ = _make_open_position()
+        evaluator = ExitEvaluator(
+            force_sell_time_enabled=True, force_sell_time_seconds=30,
+            force_sell_pnl_enabled=False,
+        )
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.85, seconds_remaining=10, outcome_fresh=False)
+        assert signal.should_exit is True  # time tek basina calisir
+
+
+class TestForceSellDisabled:
+
+    def test_none_selected(self):
+        """Hic kosul secili degil → tetiklenmez."""
+        pos, _ = _make_open_position()
+        evaluator = ExitEvaluator(force_sell_time_enabled=False, force_sell_pnl_enabled=False)
+        signal = evaluator.evaluate_force_sell(pos, current_price=0.78, seconds_remaining=5)
+        assert signal.should_exit is False
+
+    def test_force_sell_latch(self):
+        """Force sell should_cancel_close → her zaman False (latch)."""
+        pos, tracker = _make_open_position()
+        evaluator = ExitEvaluator()
+        tracker.request_close(pos.position_id, CloseReason.FORCE_SELL,
+                              trigger_set=["force_sell_time"])
+        # Force sell icin cancel YOK
+        assert evaluator.should_cancel_close(pos, current_price=0.95) is False
+
+    def test_trigger_set_authoritative(self):
+        """trigger_set tetik aninda yazilir, sonradan degismez."""
+        pos, tracker = _make_open_position()
+        evaluator = ExitEvaluator()
+        tracker.request_close(pos.position_id, CloseReason.FORCE_SELL,
+                              trigger_set=["force_sell_time", "force_sell_pnl"])
+        # trigger_set authoritative — degismemeli
+        assert pos.close_trigger_set == ["force_sell_time", "force_sell_pnl"]
+
+
+# ═══════════════════════════════════════════════════════════════
 # EDGE CASES
 # ═══════════════════════════════════════════════════════════════
 
@@ -220,9 +368,7 @@ class TestExitBoundaries:
         for line in lines:
             assert "claim" not in line
 
-    def test_no_force_sell_in_v060(self):
-        """v0.6.0'da force sell evaluation YOK (v0.6.1'de)."""
-        import backend.execution.exit_evaluator as mod
-        source = open(mod.__file__, encoding="utf-8").read()
-        # force_sell CloseReason olarak var ama evaluation mantigi yok
-        assert "FORCE_SELL" not in source or "v0.6.1" in source
+    def test_force_sell_evaluation_exists(self):
+        """v0.6.1'de force sell evaluation var."""
+        evaluator = ExitEvaluator()
+        assert hasattr(evaluator, "evaluate_force_sell")

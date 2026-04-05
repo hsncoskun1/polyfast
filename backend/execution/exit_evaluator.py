@@ -1,21 +1,26 @@
-"""ExitEvaluator — acik pozisyonlari izler, TP/SL tetik uretir.
+"""ExitEvaluator — acik pozisyonlari izler, TP/SL/force sell tetik uretir.
 
 TP (Take Profit):
 - net_unrealized_pnl_pct >= tp_pct → closing_requested
-- reevaluate_on_retry = True (default): sell dolmazsa kosul tekrar kontrol edilir
+- reevaluate = True (default): sell dolmazsa kosul tekrar kontrol edilir
   → artik saglanmiyorsa closing_requested iptal → open_confirmed'a geri donus
-- Bu SADECE TP icin — SL/force sell'de geri donus YOK
 
 SL (Stop Loss):
 - net_unrealized_pnl_pct <= -sl_pct → closing_requested
-- LATCH zorunlu — reevaluate = False
-- Geri donus YOK
-- jump_threshold: tek tick'te fiyat %X+ duserse = orderbook anomali → SL tetiklenmez
+- LATCH zorunlu — reevaluate = False, geri donus YOK
+- jump_threshold: tek tick fiyat %X+ duserse → SL tetiklenmez
 
-Exit latch kurali:
-- SL: LATCH zorunlu — tetiklendikten sonra iptal yok
-- Force sell: LATCH zorunlu (v0.6.1'de implement)
-- TP: reevaluate=True ise latch degil, kosul kontrol edilir
+Force Sell:
+- Checkbox bazli: time + pnl (delta KALDIRILDI)
+- Secilenlerin HEPSI saglaninca tetiklenir
+- Tek kosul seciliyse o yeterli
+- LATCH zorunlu — reevaluate = False, geri donus YOK
+- close_trigger_set tetik aninda authoritative yazilir, sonradan degismez
+
+Stale safety:
+- Sadece time seciliyse → stale durumda force sell CALISIR
+- time + pnl birlikte seciliyse ve pnl waiting → force sell TETIKLENMEZ
+- Zaman bazli cikis stale durumda BLOKE OLMAZ (tek seçiliyse)
 
 State machine uyumu:
 - closing_requested → open_confirmed: SADECE TP + reevaluate=True
@@ -27,7 +32,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from backend.execution.position_record import PositionRecord, PositionState
-from backend.execution.close_reason import CloseReason
+from backend.execution.close_reason import CloseReason, ForceSellTrigger
 from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("execution.exit_evaluator")
@@ -58,12 +63,22 @@ class ExitEvaluator:
         sl_jump_threshold: float = 0.15,
         tp_reevaluate: bool = True,
         sl_reevaluate: bool = False,
+        # Force sell
+        force_sell_time_enabled: bool = True,
+        force_sell_time_seconds: int = 30,
+        force_sell_pnl_enabled: bool = False,
+        force_sell_pnl_pct: float = 5.0,
     ):
         self._tp_pct = tp_pct
         self._sl_pct = sl_pct
         self._sl_jump_threshold = sl_jump_threshold
         self._tp_reevaluate = tp_reevaluate
         self._sl_reevaluate = sl_reevaluate  # ZORUNLU False
+        # Force sell
+        self._fs_time_enabled = force_sell_time_enabled
+        self._fs_time_seconds = force_sell_time_seconds
+        self._fs_pnl_enabled = force_sell_pnl_enabled
+        self._fs_pnl_pct = force_sell_pnl_pct
         self._last_prices: dict[str, float] = {}  # position_id → son fiyat
 
     def evaluate(
@@ -190,3 +205,109 @@ class ExitEvaluator:
             return True
 
         return False  # hala saglanıyor, devam
+
+    def evaluate_force_sell(
+        self,
+        position: PositionRecord,
+        current_price: float,
+        seconds_remaining: float,
+        outcome_fresh: bool = True,
+    ) -> ExitSignal:
+        """Force sell evaluation — checkbox bazli kosullar.
+
+        Secilenlerin HEPSI saglaninca tetiklenir.
+        Tek kosul seciliyse o yeterli.
+
+        Stale safety:
+        - Sadece time seciliyse → stale durumda da calisir
+        - time + pnl seciliyse ve outcome stale → tetiklenmez (pnl hesaplanamaz)
+
+        trigger_set tetik aninda authoritative yazilir, sonradan degismez.
+
+        Args:
+            position: Acik pozisyon
+            current_price: Canli held-side outcome fiyati
+            seconds_remaining: Event bitimine kalan saniye
+            outcome_fresh: Outcome verisi fresh mi
+
+        Returns:
+            ExitSignal
+        """
+        if not position.is_open:
+            return ExitSignal(should_exit=False)
+
+        # Hic kosul secili degil
+        if not self._fs_time_enabled and not self._fs_pnl_enabled:
+            return ExitSignal(should_exit=False)
+
+        trigger_set: list[str] = []
+        conditions_required = 0
+        conditions_met = 0
+
+        # ── Time kosulu ──
+        if self._fs_time_enabled:
+            conditions_required += 1
+            if seconds_remaining <= self._fs_time_seconds:
+                trigger_set.append(ForceSellTrigger.TIME.value)
+                conditions_met += 1
+
+        # ── PnL kosulu ──
+        pnl_waiting = False
+        if self._fs_pnl_enabled:
+            conditions_required += 1
+            if not outcome_fresh:
+                # PnL hesaplanamaz — stale/waiting
+                pnl_waiting = True
+            elif position.fill_price > 0 and position.net_position_shares > 0:
+                pnl_data = position.calculate_unrealized_pnl(current_price)
+                pnl_pct = pnl_data["net_unrealized_pnl_pct"]
+                if pnl_pct <= -self._fs_pnl_pct:
+                    trigger_set.append(ForceSellTrigger.PNL.value)
+                    conditions_met += 1
+
+        # Secilenlerin HEPSI saglanmali
+        # AMA: pnl waiting ise ve time saglandiysa → time safety override
+        time_met = ForceSellTrigger.TIME.value in trigger_set
+        time_safety_override = pnl_waiting and time_met and self._fs_time_enabled
+
+        if time_safety_override:
+            # PnL hesaplanamıyor ama time sağlandı → safety override ile çık
+            log_event(
+                logger, logging.WARNING,
+                f"FORCE SELL time safety override: {position.asset} — PnL stale, time sağlandı",
+                entity_type="exit",
+                entity_id=position.position_id,
+            )
+            trigger_set_final = [ForceSellTrigger.TIME.value]  # sadece time tetikledi
+            return ExitSignal(
+                should_exit=True,
+                reason=CloseReason.FORCE_SELL,
+                detail={
+                    "trigger_set": trigger_set_final,
+                    "latch": True,
+                    "reevaluate": False,
+                    "seconds_remaining": seconds_remaining,
+                    "safety_override": True,
+                    "pnl_stale": True,
+                },
+            )
+
+        if conditions_met >= conditions_required and conditions_required > 0:
+            log_event(
+                logger, logging.WARNING,
+                f"FORCE SELL triggered: {position.asset} triggers={trigger_set} — LATCH",
+                entity_type="exit",
+                entity_id=position.position_id,
+            )
+            return ExitSignal(
+                should_exit=True,
+                reason=CloseReason.FORCE_SELL,
+                detail={
+                    "trigger_set": trigger_set,
+                    "latch": True,
+                    "reevaluate": False,
+                    "seconds_remaining": seconds_remaining,
+                },
+            )
+
+        return ExitSignal(should_exit=False)
