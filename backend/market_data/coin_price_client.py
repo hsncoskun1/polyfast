@@ -296,56 +296,115 @@ class CoinPriceClient:
 
         return results
 
-    # ─── Continuous Batch Loop ───
+    # ─── Persistent Connection Loop ───
 
     async def run_forever(self) -> None:
-        """Sürekli batch poll döngüsü — 7/24 çalışır.
+        """Persistent WS bağlantısı + 200ms resubscribe döngüsü.
 
-        PolyFlow pattern: connect → subscribe → receive → close → hemen tekrar.
-        Bekleme YOK — bir cycle biter bitmez sonraki başlar (~600-700ms/cycle).
+        Model: tek bağlantı aç → her 200ms resubscribe → fiyat al → tekrar
+        Reconnect sadece bağlantı koparsa yapılır.
+        Her cycle yeni bağlantı AÇMAZ — tek persistent connection.
 
-        Bu endpoint sürekli streaming DESTEKLEMİYOR.
-        Reconnect-based batch snapshot loop olarak çalışır.
-        Bir cycle fail oldu diye loop DURMAZ — sonsuz retry.
+        Kaynak: wss://ws-live-data.polymarket.com
+        Bu endpoint resubscribe ile yeni snapshot verir.
+        Sürekli push streaming yapmaz — resubscribe tetikler.
         """
         self._running = True
         fail_count = 0
+        resub_interval = 0.2  # 200ms
 
         log_event(
             logger, logging.INFO,
-            f"Coin price batch loop started — {len(self._coins)} coins",
+            f"Coin price persistent loop started — {len(self._coins)} coins, {resub_interval*1000:.0f}ms interval",
             entity_type="coin_price",
             entity_id="loop_started",
         )
 
         while self._running:
             try:
-                results = await self.poll_once()
-                if results:
-                    fail_count = 0
-                else:
-                    fail_count += 1
+                await self._persistent_loop(resub_interval)
+                fail_count = 0
             except Exception as e:
                 fail_count += 1
                 log_event(
                     logger, logging.WARNING,
-                    f"Coin price batch cycle failed ({fail_count}): {e}",
+                    f"Coin price connection failed ({fail_count}): {e}",
                     entity_type="coin_price",
-                    entity_id="cycle_failure",
+                    entity_id="connection_failure",
                 )
-
-            # Fail durumunda kısa bekleme — loop durmuyor
-            if fail_count > 0:
-                wait = min(fail_count * 2, 10)  # max 10s bekleme
-                await asyncio.sleep(wait)
-            # Başarılı cycle sonrası bekleme YOK — hemen tekrar
+                # Reconnect backoff
+                wait = min(fail_count * 2, 10)
+                if self._running:
+                    await asyncio.sleep(wait)
 
         log_event(
             logger, logging.INFO,
-            "Coin price batch loop stopped",
+            "Coin price persistent loop stopped",
             entity_type="coin_price",
             entity_id="loop_stopped",
         )
+
+    async def _persistent_loop(self, resub_interval: float) -> None:
+        """Tek persistent bağlantı içinde resubscribe döngüsü."""
+        if not self._coins:
+            await asyncio.sleep(1)
+            return
+
+        # Subscribe mesajlarını hazırla
+        sub_msgs = []
+        for coin in self._coins:
+            rtds_sym = COIN_SYMBOLS.get(coin)
+            if rtds_sym:
+                sub_msgs.append(json.dumps({
+                    "action": "subscribe",
+                    "subscriptions": [{
+                        "topic": "crypto_prices",
+                        "type": "*",
+                        "filters": json.dumps({"symbol": rtds_sym}),
+                    }],
+                }))
+
+        async with websockets.connect(
+            self._ws_url,
+            ping_interval=None,
+            close_timeout=3,
+            additional_headers=RTDS_HEADERS,
+        ) as ws:
+            self._last_connect_at = datetime.now(timezone.utc)
+            last_resub = 0.0
+
+            while self._running:
+                # Resubscribe (200ms interval)
+                now = time.time()
+                if now - last_resub >= resub_interval:
+                    for msg in sub_msgs:
+                        await ws.send(msg)
+                    last_resub = now
+
+                # Mesajları oku
+                try:
+                    raw = await asyncio.wait_for(ws.recv(), timeout=0.05)
+                    if isinstance(raw, bytes):
+                        raw = raw.decode("utf-8", errors="ignore")
+                    if not raw or not raw.strip():
+                        continue
+
+                    data = json.loads(raw)
+                    payload = data.get("payload", {})
+                    if not isinstance(payload, dict):
+                        continue
+
+                    rtds_sym = payload.get("symbol", "")
+                    coin = _SYMBOL_TO_COIN.get(rtds_sym)
+                    if not coin:
+                        continue
+
+                    price = self._extract_price(payload)
+                    if price is not None and self._is_valid_price(price):
+                        self._update_record(coin, price)
+
+                except asyncio.TimeoutError:
+                    continue
 
     async def start(self) -> asyncio.Task:
         """Batch loop'u background task olarak başlat."""
