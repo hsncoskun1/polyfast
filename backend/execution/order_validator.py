@@ -42,6 +42,8 @@ class OrderValidator:
         event_max: int,
         open_position_count: int,
         bot_max: int,
+        has_pending_claims: bool = False,
+        wait_for_claim_redeem: bool = True,
     ) -> ValidationResult:
         """OrderIntent'i validate et.
 
@@ -56,6 +58,14 @@ class OrderValidator:
         Returns:
             ValidationResult — VALID veya REJECTED + reason
         """
+        # 0. Claim/redeem bekliyor mu
+        if wait_for_claim_redeem and has_pending_claims:
+            return self._reject(
+                RejectReason.CLAIM_PENDING,
+                intent,
+                {"has_pending_claims": True},
+            )
+
         # 1. Token ID ve condition_id mevcut mu
         if not intent.token_id:
             return self._reject(

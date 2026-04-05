@@ -11,7 +11,7 @@ import pytest
 from datetime import datetime, timezone
 
 from backend.execution.claim_manager import (
-    ClaimManager, ClaimRecord, ClaimStatus,
+    ClaimManager, ClaimRecord, ClaimStatus, ClaimOutcome,
     CLAIM_REDEEM_MAX_RETRIES,
 )
 from backend.execution.position_tracker import PositionTracker
@@ -118,28 +118,47 @@ class TestClaimLifecycle:
 # KAYBEDEN TARAF — CLAIM OLUSMAZ
 # ═══════════════════════════════════════════════════════════════
 
-class TestLosingPosition:
+class TestRedeemOutcome:
 
-    def test_losing_position_no_claim(self):
-        """Kaybeden tarafta claim OLUSMAZ — sifir sonuc kaydi YOK.
-
-        Karar: claim sadece kazanan taraf icin olusturulur.
-        Kaybeden taraf ($0.00 degerinde) icin ClaimRecord uretilmez.
-        Bu orchestrator/exit katmaninda kontrol edilir.
-        """
-        # Bu test kavramsal — ClaimManager'a sadece kazanan pozisyonlar gelir
-        # Kaybeden icin create_claim cagirilmaz
+    @pytest.mark.asyncio
+    async def test_redeem_won(self):
+        """Kazanan taraf: redeem -> USDC alindi."""
         balance = BalanceManager()
         balance.update(available=50.0)
         mgr = ClaimManager(balance, paper_mode=True)
+        claim = mgr.create_claim("0x1", "pos1", "BTC", side="UP")
 
-        # Kazanan icin claim olustur
-        claim = mgr.create_claim("0x1", "winning_pos", "BTC")
-        assert claim is not None
+        success = await mgr.execute_redeem(claim.claim_id, won=True, payout_amount=5.88)
+        assert success is True
+        assert claim.outcome == ClaimOutcome.REDEEMED_WON
+        assert claim.claimed_amount_usdc == 5.88
+        assert balance.available_balance == 55.88
 
-        # Kaybeden icin claim OLUSTURMA — bu test ClaimManager'in
-        # kafasina karar yuklemez, orchestrator kontrol eder
-        assert mgr.pending_count == 1  # sadece 1 claim (kazanan)
+    @pytest.mark.asyncio
+    async def test_redeem_lost(self):
+        """Kaybeden taraf: redeem -> $0, balance degismez."""
+        balance = BalanceManager()
+        balance.update(available=50.0)
+        mgr = ClaimManager(balance, paper_mode=True)
+        claim = mgr.create_claim("0x1", "pos1", "BTC", side="UP")
+
+        success = await mgr.execute_redeem(claim.claim_id, won=False, payout_amount=0.0)
+        assert success is True
+        assert claim.outcome == ClaimOutcome.REDEEMED_LOST
+        assert claim.claimed_amount_usdc == 0.0
+        assert balance.available_balance == 50.0  # degismez
+
+    @pytest.mark.asyncio
+    async def test_zero_payout_is_valid_settled(self):
+        """Zero payout gecerli settled sonuctur — hata degil."""
+        balance = BalanceManager()
+        balance.update(available=50.0)
+        mgr = ClaimManager(balance, paper_mode=True)
+        claim = mgr.create_claim("0x1", "pos1", "BTC", side="DOWN")
+
+        await mgr.execute_redeem(claim.claim_id, won=False, payout_amount=0.0)
+        assert claim.is_success
+        assert claim.outcome == ClaimOutcome.REDEEMED_LOST
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -223,6 +242,46 @@ class TestWaitForClaim:
         """CLAIM_PENDING reject reason mevcut."""
         from backend.execution.models import RejectReason
         assert RejectReason.CLAIM_PENDING == "claim_pending"
+
+    def test_validator_rejects_when_claim_pending(self):
+        """Bekleyen claim/redeem varsa ve wait=True ise order REJECTED."""
+        from backend.execution.order_validator import OrderValidator
+        from backend.execution.order_intent import OrderIntent, OrderSide
+        from backend.execution.models import RejectReason
+
+        validator = OrderValidator()
+        intent = OrderIntent(
+            asset="BTC", side=OrderSide.UP, amount_usd=5.0,
+            condition_id="0x1", token_id="tok1", dominant_price=0.85,
+        )
+        result = validator.validate(
+            intent, available_balance=100.0,
+            event_fill_count=0, event_max=3,
+            open_position_count=0, bot_max=5,
+            has_pending_claims=True,
+            wait_for_claim_redeem=True,
+        )
+        assert result.is_rejected
+        assert result.reason == RejectReason.CLAIM_PENDING
+
+    def test_validator_allows_when_wait_false(self):
+        """wait_for_claim_redeem=False ise claim pending olsa bile order VALID."""
+        from backend.execution.order_validator import OrderValidator
+        from backend.execution.order_intent import OrderIntent, OrderSide
+
+        validator = OrderValidator()
+        intent = OrderIntent(
+            asset="BTC", side=OrderSide.UP, amount_usd=5.0,
+            condition_id="0x1", token_id="tok1", dominant_price=0.85,
+        )
+        result = validator.validate(
+            intent, available_balance=100.0,
+            event_fill_count=0, event_max=3,
+            open_position_count=0, bot_max=5,
+            has_pending_claims=True,
+            wait_for_claim_redeem=False,  # bekleme
+        )
+        assert result.is_valid  # claim pending ama wait=False → izin ver
 
 
 # ═══════════════════════════════════════════════════════════════

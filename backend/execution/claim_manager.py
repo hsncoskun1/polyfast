@@ -1,13 +1,24 @@
 """ClaimManager — claim/redeem lifecycle.
 
-Claim ve redeem TEK DAVRANIS — ayri degil, birlikte ele alinir.
-Pozisyon CLOSED olduktan sonra event resolve edilince claim/redeem yapilir.
+Polymarket resmi surec:
+- Event resolve olur (oracle sonuc bildirir)
+- redeemPositions() cagirilir — HER IKI TARAF ICIN (indexSets=[1,2])
+- Kazanan token'lar $1.00 USDC alir
+- Kaybeden token'lar $0.00 alir (yakilir, karsiligi sifir)
+- Redeem TEK ISLEM — kazanan/kaybeden ayri denemez
 
-ClaimRecord ayri model — PositionRecord'a EKLENMEZ.
-Cunku claim/redeem pozisyon kapatildiktan SONRA gerceklesir.
+Bot davranisi:
+- Event bittikten sonra → redeemPositions() cagir (relayer gasless TX)
+- Sonuc ne olursa olsun ayni call (kazandik/kaybettik farketmez)
+- Kazandiysa → USDC gelir → balance artar
+- Kaybettiyse → $0 → balance degismez
+- Kullanici hicbir sey yapmaz — 7/24 otomatik
 
-Kaybeden tarafta claim/redeem lifecycle BASLATILMAZ.
-Sifir degerli tarafta otomatik claim/redeem kaydi ACILMAZ.
+ClaimOutcome:
+- REDEEMED_WON: kazanan taraf, USDC alindi
+- REDEEMED_LOST: kaybeden taraf, $0 (redeem yapildi ama sifir deger)
+- PENDING: henuz redeem edilmedi
+- FAILED: redeem basarisiz
 
 Retry: 5s -> 10s -> 20s -> 20s -> 20s... (max 20 deneme)
 
@@ -15,9 +26,6 @@ Global ayar: wait_for_claim_redeem_before_new_trade
   True → bekleyen claim/redeem varsa yeni trade ACILMAZ
   False → claim/redeem beklerken yeni trade acilabilir
   GLOBAL ayar — coin bazli DEGIL.
-
-Post-claim/redeem: balance refresh.
-claimed_amount_usdc authoritative — sabitlenir.
 """
 
 import logging
@@ -43,19 +51,34 @@ class ClaimStatus(str, Enum):
     FAILED = "failed"
 
 
+class ClaimOutcome(str, Enum):
+    """Redeem sonucu — kazanan mi kaybeden mi."""
+    REDEEMED_WON = "redeemed_won"      # kazanan taraf, USDC alindi
+    REDEEMED_LOST = "redeemed_lost"    # kaybeden taraf, $0 (redeem yapildi)
+    PENDING = "pending"                 # henuz redeem edilmedi
+    FAILED = "failed"                   # redeem basarisiz
+
+
 @dataclass
 class ClaimRecord:
     """Claim/redeem kaydi.
 
+    Polymarket'te redeem TEK ISLEM — kazanan/kaybeden ayri denemez.
+    redeemPositions() her iki outcome'u yakar.
+    Kazanan taraf USDC alir, kaybeden taraf $0 alir.
+
     Authoritative alanlar:
-    - claimed_amount_usdc: basarili claim'de sabitlenir
-    - claimed_at: basarili claim zamani
+    - claimed_amount_usdc: redeem sonrasi sabitlenir (kazandiysa >0, kaybettiyse 0)
+    - claimed_at: basarili redeem zamani
+    - outcome: REDEEMED_WON veya REDEEMED_LOST
     """
     claim_id: str
     condition_id: str
     position_id: str
     asset: str
+    side: str = ""  # UP veya DOWN — hangi taraftaydik
     claim_status: ClaimStatus = ClaimStatus.PENDING
+    outcome: ClaimOutcome = ClaimOutcome.PENDING
     claimed_amount_usdc: float = 0.0
     claimed_at: datetime | None = None
     retry_count: int = 0
@@ -97,14 +120,20 @@ class ClaimManager:
         condition_id: str,
         position_id: str,
         asset: str,
+        side: str = "",
     ) -> ClaimRecord:
-        """Claim olustur — PENDING state."""
+        """Redeem kaydi olustur — PENDING state.
+
+        Event resolve olduktan sonra cagirilir.
+        Kazanan/kaybeden farketmez — redeemPositions() her iki tarafi yakar.
+        """
         claim_id = str(uuid.uuid4())
         record = ClaimRecord(
             claim_id=claim_id,
             condition_id=condition_id,
             position_id=position_id,
             asset=asset,
+            side=side,
         )
         self._claims[claim_id] = record
 
@@ -116,11 +145,26 @@ class ClaimManager:
         )
         return record
 
-    async def execute_claim(self, claim_id: str) -> bool:
-        """Claim execute et.
+    async def execute_redeem(
+        self,
+        claim_id: str,
+        won: bool = True,
+        payout_amount: float = 0.0,
+    ) -> bool:
+        """Redeem execute et — redeemPositions() settlement.
 
-        Paper mode: simulated claim (net_position_shares × 1.0 = USDC)
-        Live mode: SDK claim (ileride)
+        Polymarket'te redeem TEK ISLEM:
+        - redeemPositions(indexSets=[1,2]) her iki outcome'u yakar
+        - Kazanan token $1.00 payout, kaybeden token $0.00
+        - Bu method sonucu kaydeder
+
+        Paper mode: simulated redeem
+        Live mode: relayer gasless TX (ileride)
+
+        Args:
+            claim_id: ClaimRecord ID
+            won: Kazandik mi? True=kazandik, False=kaybettik
+            payout_amount: Kazandiysa USDC miktari, kaybettiyse 0.0
 
         Returns:
             True basarili, False basarisiz.
@@ -130,41 +174,56 @@ class ClaimManager:
             return False
 
         if record.is_success:
-            return True  # zaten claim edilmis
+            return True  # zaten redeem edilmis
 
         record.retry_count += 1
 
         if self._paper_mode:
-            # Paper: simulated claim — $1.00 × shares
-            # Gercek claim miktari PositionRecord'dan gelecek
-            # Simdilik sabit $1.00 simule ediyoruz
             record.claim_status = ClaimStatus.SUCCESS
-            record.claimed_amount_usdc = 1.0  # placeholder
             record.claimed_at = datetime.now(timezone.utc)
             self._claim_count += 1
 
-            # Post-claim balance refresh
-            self._balance.add(record.claimed_amount_usdc)
+            if won:
+                record.outcome = ClaimOutcome.REDEEMED_WON
+                record.claimed_amount_usdc = payout_amount
+                self._balance.add(payout_amount)
 
-            log_event(
-                logger, logging.INFO,
-                f"Claim SUCCESS (paper): {record.asset} ${record.claimed_amount_usdc:.2f}",
-                entity_type="claim",
-                entity_id=claim_id,
-            )
+                log_event(
+                    logger, logging.INFO,
+                    f"Redeem WON (paper): {record.asset} ${payout_amount:.2f}",
+                    entity_type="claim",
+                    entity_id=claim_id,
+                )
+            else:
+                record.outcome = ClaimOutcome.REDEEMED_LOST
+                record.claimed_amount_usdc = 0.0
+                # Balance degismez — kaybeden taraf $0
+
+                log_event(
+                    logger, logging.INFO,
+                    f"Redeem LOST (paper): {record.asset} $0.00",
+                    entity_type="claim",
+                    entity_id=claim_id,
+                )
+
             return True
         else:
-            # Live mode — SDK claim (ileride)
+            # Live mode — relayer gasless TX (ileride)
             record.claim_status = ClaimStatus.FAILED
-            record.last_error = "SDK claim not implemented"
+            record.last_error = "Relayer redeem not implemented"
 
             log_event(
                 logger, logging.WARNING,
-                f"Claim FAILED: {record.asset} — SDK not implemented",
+                f"Redeem FAILED: {record.asset} — relayer not implemented",
                 entity_type="claim",
                 entity_id=claim_id,
             )
             return False
+
+    # Backward compat
+    async def execute_claim(self, claim_id: str) -> bool:
+        """Backward compat — execute_redeem(won=True) cagirir."""
+        return await self.execute_redeem(claim_id, won=True, payout_amount=1.0)
 
     # ─── Query ───
 
