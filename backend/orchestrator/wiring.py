@@ -31,6 +31,7 @@ from backend.execution.balance_manager import BalanceManager
 from backend.execution.claim_manager import ClaimManager
 from backend.execution.clob_client_wrapper import ClobClientWrapper
 from backend.execution.relayer_client_wrapper import RelayerClientWrapper
+from backend.execution.order_validator import OrderValidator
 from backend.orchestrator.discovery_loop import DiscoveryLoop
 from backend.orchestrator.eligibility_gate import EligibilityGate
 from backend.orchestrator.subscription_manager import SubscriptionManager
@@ -39,12 +40,10 @@ from backend.orchestrator.exit_orchestrator import ExitOrchestrator
 from backend.orchestrator.settlement import SettlementOrchestrator
 from backend.orchestrator.cleanup import EventCleanup
 from backend.orchestrator.health import HealthAggregator
+from backend.config_loader.schema import AppConfig
 from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("orchestrator.wiring")
-
-# Default — schema'dan override edilebilir (MarketDataConfig.exit_cycle_interval_ms)
-DEFAULT_EXIT_CYCLE_INTERVAL_SEC = 0.05  # 50ms — in-memory ops only, no API call per cycle
 
 
 class Orchestrator:
@@ -55,23 +54,52 @@ class Orchestrator:
     ExitOrchestrator -> ExitEvaluator -> ExitExecutor -> Settlement
     """
 
-    def __init__(self, credential_store: CredentialStore | None = None):
+    def __init__(
+        self,
+        credential_store: CredentialStore | None = None,
+        config: AppConfig | None = None,
+    ):
+        # Config — None ise default degerler kullanilir
+        cfg = config or AppConfig()
+        self._config = cfg
+
         # Credential store
         self.credential_store = credential_store or CredentialStore()
 
-        # Data layer
-        self.pipeline = LivePricePipeline()
-        self.rtds_client = RTDSClient()
+        # ── Data layer ──
+        self.pipeline = LivePricePipeline(
+            stale_threshold_sec=cfg.market_data.stale_threshold_seconds,
+        )
+        self.rtds_client = RTDSClient(
+            reconnect_backoff_base=cfg.market_data.ws_reconnect_backoff_base,
+            reconnect_backoff_max=cfg.market_data.ws_reconnect_backoff_max,
+        )
         self.bridge = WSPriceBridge(self.pipeline)
-        self.coin_client = CoinPriceClient()
+        self.coin_client = CoinPriceClient(
+            stale_threshold_sec=cfg.market_data.coin_price_stale_threshold_seconds,
+            resub_interval_ms=cfg.market_data.coin_price_resub_interval_ms,
+        )
 
-        # PTB
+        # PTB — retry schedule config'den
+        ptb_schedule = [
+            cfg.market_data.ptb_retry_initial_seconds,
+            cfg.market_data.ptb_retry_schedule_2,
+            cfg.market_data.ptb_retry_schedule_3,
+            cfg.market_data.ptb_retry_schedule_4,
+        ]
         self.ssr_adapter = SSRPTBAdapter()
-        self.ptb_fetcher = PTBFetcher(source=self.ssr_adapter)
+        self.ptb_fetcher = PTBFetcher(
+            source=self.ssr_adapter,
+            retry_schedule=ptb_schedule,
+            retry_steady_seconds=cfg.market_data.ptb_retry_steady_seconds,
+        )
 
-        # Registry
+        # Registry — delist threshold config'den
         self.registry = EventRegistry()
-        self.safe_sync = SafeSync(self.registry)
+        self.safe_sync = SafeSync(
+            self.registry,
+            delist_threshold=cfg.discovery.delist_threshold,
+        )
 
         # Settings
         self.settings_store = SettingsStore()
@@ -79,20 +107,67 @@ class Orchestrator:
         # Strategy
         self.rule_engine = RuleEngine()
 
-        # Discovery
-        self.public_client = PublicMarketClient()
+        # Discovery — retry schedule config'den
+        discovery_schedule = [
+            cfg.discovery.retry_initial_seconds,
+            cfg.discovery.retry_schedule_2,
+            cfg.discovery.retry_schedule_3,
+            cfg.discovery.retry_schedule_4,
+        ]
+        self.public_client = PublicMarketClient(
+            timeout_seconds=cfg.network.default_timeout_seconds,
+            retry_max=cfg.network.default_retry_max,
+        )
         self.discovery_engine = DiscoveryEngine(self.public_client)
 
         # ── Execution layer ──
         self.position_tracker = PositionTracker()
-        self.balance_manager = BalanceManager()
+        self.balance_manager = BalanceManager(
+            stale_threshold_sec=cfg.market_data.balance_stale_threshold_seconds,
+            passive_refresh_interval=cfg.market_data.balance_refresh_interval_seconds,
+        )
         self.clob_client = ClobClientWrapper(credential_store=self.credential_store)
         self.relayer_client = RelayerClientWrapper(credential_store=self.credential_store)
-        self.claim_manager = ClaimManager(self.balance_manager, paper_mode=True)
-        self.exit_evaluator = ExitEvaluator()
+
+        # Claim manager — retry config'den
+        self.claim_manager = ClaimManager(
+            self.balance_manager, paper_mode=True,
+            retry_initial_seconds=cfg.trading.claim.retry_initial_seconds,
+            retry_second_seconds=cfg.trading.claim.retry_second_seconds,
+            retry_steady_seconds=cfg.trading.claim.retry_steady_seconds,
+            max_retry_attempts=cfg.trading.claim.max_retry_attempts,
+        )
+
+        # Exit evaluator — TP/SL config'den
+        tp = cfg.trading.exit_rules.take_profit
+        sl = cfg.trading.exit_rules.stop_loss
+        fs = cfg.trading.exit_rules.force_sell
+        self.exit_evaluator = ExitEvaluator(
+            tp_pct=tp.percentage,
+            sl_pct=sl.percentage,
+            sl_jump_threshold=sl.jump_threshold,
+            tp_reevaluate=tp.reevaluate_on_retry,
+            force_sell_time_enabled=fs.time.enabled,
+            force_sell_time_seconds=fs.time.remaining_seconds,
+            force_sell_pnl_enabled=fs.pnl_loss.enabled,
+            force_sell_pnl_pct=fs.pnl_loss.loss_percentage,
+        )
+
+        # Exit executor — retry intervals config'den
         self.exit_executor = ExitExecutor(
             self.position_tracker, self.balance_manager, paper_mode=True,
+            tp_retry_interval_ms=tp.retry_interval_ms,
+            sl_retry_interval_ms=sl.retry_interval_ms,
+            fs_retry_interval_ms=fs.retry_interval_ms,
+            manual_close_retry_interval_ms=cfg.trading.exit_rules.manual_close_retry_interval_ms,
+            max_close_retries=cfg.trading.exit_rules.max_close_retries,
         )
+
+        # Order validator — min amount config'den
+        self.order_validator = OrderValidator(
+            min_order_usd=cfg.trading.min_amount_usd,
+        )
+
         self.settlement = SettlementOrchestrator(
             self.position_tracker, self.claim_manager, self.relayer_client,
             paper_mode=True, clob_client=self.clob_client,
@@ -117,17 +192,20 @@ class Orchestrator:
         self.discovery_loop = DiscoveryLoop(
             self.discovery_engine, self.safe_sync,
             on_events_found=self._handle_discovered_events,
+            retry_schedule=discovery_schedule,
+            retry_steady_seconds=cfg.discovery.retry_steady_seconds,
         )
         self.evaluation_loop = EvaluationLoop(
             self.rule_engine, self.pipeline, self.coin_client,
             self.ptb_fetcher, self.settings_store,
+            interval_ms=cfg.market_data.evaluation_interval_ms,
         )
 
         # WS message callback
         self.rtds_client.set_message_callback(self.bridge.on_ws_message)
 
-        # Exit cycle
-        self._exit_cycle_interval_sec = DEFAULT_EXIT_CYCLE_INTERVAL_SEC
+        # Exit cycle — config'den ms, runtime'da saniye
+        self._exit_cycle_interval_sec = cfg.market_data.exit_cycle_interval_ms / 1000.0
         self._exit_cycle_task: asyncio.Task | None = None
         self._exit_cycle_running: bool = False
 
