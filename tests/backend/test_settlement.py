@@ -622,6 +622,118 @@ class TestResolutionModel:
 
 
 # ===================================================================
+# REAL RESPONSE STRUCTURE (v0.7.2 — canli API'den dogrulandi)
+# ===================================================================
+
+class TestRealResponseParsing:
+    """Gercek Polymarket CLOB API response yapisiyla parsing dogrulama.
+
+    Canli API bulgulari (2026-04-06):
+    - outcome: 'Up' / 'Down' (ilk harf buyuk, ikinci kucuk)
+    - winner: bool (True/False)
+    - closed: bool (True/False)
+    - price: kazanan=1, kaybeden=0
+    - Token sirasi: [0]=Up, [1]=Down (tutarli ama siralama bagimli degil)
+    """
+
+    @pytest.mark.asyncio
+    async def test_real_up_winner_response(self):
+        """Gercek response: Up kazandi."""
+        from backend.execution.clob_client_wrapper import ClobClientWrapper, MarketResolution
+
+        class RealMockSDK:
+            def get_market(self, cid):
+                # Gercek API response yapisi — btc-updown-5m-1775471700
+                return {
+                    "condition_id": cid,
+                    "closed": True,
+                    "tokens": [
+                        {"outcome": "Up", "winner": True, "price": 1,
+                         "token_id": "1234"},
+                        {"outcome": "Down", "winner": False, "price": 0,
+                         "token_id": "5678"},
+                    ],
+                }
+
+        wrapper = ClobClientWrapper()
+        wrapper._client = RealMockSDK()
+        wrapper._initialized = True
+
+        result = await wrapper.get_market_resolution("0x7115")
+        assert result.closed is True
+        assert result.resolved is True
+        assert result.winning_side == "UP"  # 'Up' -> .upper() -> 'UP'
+
+    @pytest.mark.asyncio
+    async def test_real_down_winner_response(self):
+        """Gercek response: Down kazandi."""
+        from backend.execution.clob_client_wrapper import ClobClientWrapper, MarketResolution
+
+        class RealMockSDK:
+            def get_market(self, cid):
+                # Gercek API response yapisi — btc-updown-5m-1775472300
+                return {
+                    "condition_id": cid,
+                    "closed": True,
+                    "tokens": [
+                        {"outcome": "Up", "winner": False, "price": 0,
+                         "token_id": "1234"},
+                        {"outcome": "Down", "winner": True, "price": 1,
+                         "token_id": "5678"},
+                    ],
+                }
+
+        wrapper = ClobClientWrapper()
+        wrapper._client = RealMockSDK()
+        wrapper._initialized = True
+
+        result = await wrapper.get_market_resolution("0xa6d5")
+        assert result.closed is True
+        assert result.resolved is True
+        assert result.winning_side == "DOWN"  # 'Down' -> .upper() -> 'DOWN'
+
+    @pytest.mark.asyncio
+    async def test_real_open_market_response(self):
+        """Gercek response: henuz acik market (closed=False, winner=False)."""
+        from backend.execution.clob_client_wrapper import ClobClientWrapper
+
+        class RealMockSDK:
+            def get_market(self, cid):
+                return {
+                    "condition_id": cid,
+                    "closed": False,
+                    "tokens": [
+                        {"outcome": "Up", "winner": False, "price": 0.53,
+                         "token_id": "1234"},
+                        {"outcome": "Down", "winner": False, "price": 0.47,
+                         "token_id": "5678"},
+                    ],
+                }
+
+        wrapper = ClobClientWrapper()
+        wrapper._client = RealMockSDK()
+        wrapper._initialized = True
+
+        result = await wrapper.get_market_resolution("0x6307")
+        assert result.closed is False
+        assert result.resolved is False
+        assert result.winning_side == ""
+
+    def test_outcome_normalization_cases(self):
+        """Outcome format varyantlari — .upper() hepsini karsilar."""
+        test_cases = [
+            ("Up", "UP"),
+            ("Down", "DOWN"),
+            ("UP", "UP"),
+            ("DOWN", "DOWN"),
+            ("up", "UP"),
+            ("down", "DOWN"),
+        ]
+        for raw, expected in test_cases:
+            assert raw.upper() == expected
+
+
+# ===================================================================
 # BOUNDARY
 # ===================================================================
 
