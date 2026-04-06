@@ -1,10 +1,10 @@
-"""Orchestrator Wiring — tüm component'ları oluşturup birbirine bağlar.
+"""Orchestrator Wiring — tum component'lari olusturup birbirine baglar.
 
-Bu modül tüm dependency'leri oluşturur ve orchestrator zincirini kurar:
-Discovery → EligibilityGate → SubscriptionManager → EvaluationLoop
+Bu modul tum dependency'leri olusturur ve orchestrator zincirini kurar:
+Discovery -> EligibilityGate -> SubscriptionManager -> EvaluationLoop
+ExitOrchestrator -> ExitEvaluator -> ExitExecutor -> Settlement
 
-main.py lifespan'dan çağrılır.
-Execution / order / position / claim scope'u YOKTUR.
+main.py lifespan'dan cagrilir.
 """
 
 import asyncio
@@ -12,6 +12,7 @@ import logging
 import time as _time
 
 from backend.auth_clients.public_client import PublicMarketClient
+from backend.auth_clients.credential_store import CredentialStore
 from backend.discovery.engine import DiscoveryEngine
 from backend.registry.service import EventRegistry
 from backend.registry.safe_sync import SafeSync
@@ -23,27 +24,40 @@ from backend.ptb.ssr_adapter import SSRPTBAdapter
 from backend.ptb.fetcher import PTBFetcher
 from backend.settings.settings_store import SettingsStore
 from backend.strategy.engine import RuleEngine
+from backend.execution.exit_evaluator import ExitEvaluator
+from backend.execution.exit_executor import ExitExecutor
+from backend.execution.position_tracker import PositionTracker
+from backend.execution.balance_manager import BalanceManager
+from backend.execution.claim_manager import ClaimManager
+from backend.execution.clob_client_wrapper import ClobClientWrapper
+from backend.execution.relayer_client_wrapper import RelayerClientWrapper
 from backend.orchestrator.discovery_loop import DiscoveryLoop
 from backend.orchestrator.eligibility_gate import EligibilityGate
 from backend.orchestrator.subscription_manager import SubscriptionManager
 from backend.orchestrator.evaluation_loop import EvaluationLoop
+from backend.orchestrator.exit_orchestrator import ExitOrchestrator
+from backend.orchestrator.settlement import SettlementOrchestrator
 from backend.orchestrator.cleanup import EventCleanup
 from backend.orchestrator.health import HealthAggregator
 from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("orchestrator.wiring")
 
+EXIT_CYCLE_INTERVAL_SEC = 0.25  # exit cycle periyodu (250ms) — admin/advanced'a tasinacak
+
 
 class Orchestrator:
-    """Tüm component'ları barındıran ve lifecycle yöneten merkezi orchestrator.
+    """Tum component'lari barindirir ve lifecycle yonetir.
 
     Zincir:
-    Discovery → EligibilityGate → SubscriptionManager → EvaluationLoop
-
-    Order gönderme YOK — sadece sinyal üretimi.
+    Discovery -> EligibilityGate -> SubscriptionManager -> EvaluationLoop
+    ExitOrchestrator -> ExitEvaluator -> ExitExecutor -> Settlement
     """
 
-    def __init__(self):
+    def __init__(self, credential_store: CredentialStore | None = None):
+        # Credential store
+        self.credential_store = credential_store or CredentialStore()
+
         # Data layer
         self.pipeline = LivePricePipeline()
         self.rtds_client = RTDSClient()
@@ -68,7 +82,27 @@ class Orchestrator:
         self.public_client = PublicMarketClient()
         self.discovery_engine = DiscoveryEngine(self.public_client)
 
-        # Orchestrator components
+        # ── Execution layer ──
+        self.position_tracker = PositionTracker()
+        self.balance_manager = BalanceManager()
+        self.clob_client = ClobClientWrapper(credential_store=self.credential_store)
+        self.relayer_client = RelayerClientWrapper(credential_store=self.credential_store)
+        self.claim_manager = ClaimManager(self.balance_manager, paper_mode=True)
+        self.exit_evaluator = ExitEvaluator()
+        self.exit_executor = ExitExecutor(
+            self.position_tracker, self.balance_manager, paper_mode=True,
+        )
+        self.settlement = SettlementOrchestrator(
+            self.position_tracker, self.claim_manager, self.relayer_client,
+            paper_mode=True, clob_client=self.clob_client,
+            ptb_fetcher=self.ptb_fetcher, coin_price_client=self.coin_client,
+        )
+        self.exit_orchestrator = ExitOrchestrator(
+            self.position_tracker, self.exit_evaluator, self.exit_executor,
+            self.settlement, self.claim_manager,
+        )
+
+        # ── Orchestrator components ──
         self.eligibility_gate = EligibilityGate(self.settings_store)
         self.subscription_manager = SubscriptionManager(
             self.bridge, self.coin_client, self.ptb_fetcher,
@@ -78,7 +112,7 @@ class Orchestrator:
         )
         self.health_aggregator = HealthAggregator()
 
-        # Loops
+        # ── Loops ──
         self.discovery_loop = DiscoveryLoop(
             self.discovery_engine, self.safe_sync,
             on_events_found=self._handle_discovered_events,
@@ -90,6 +124,10 @@ class Orchestrator:
 
         # WS message callback
         self.rtds_client.set_message_callback(self.bridge.on_ws_message)
+
+        # Exit cycle task
+        self._exit_cycle_task: asyncio.Task | None = None
+        self._exit_cycle_running: bool = False
 
     async def _handle_discovered_events(self, events: list) -> None:
         """Discovery event bulduğunda çağrılır.
@@ -151,7 +189,7 @@ class Orchestrator:
         )
 
     async def start(self) -> None:
-        """Tüm loop'ları başlat."""
+        """Tum loop'lari baslat."""
         log_event(
             logger, logging.INFO,
             "Orchestrator starting all loops",
@@ -168,21 +206,37 @@ class Orchestrator:
         # Evaluation loop
         await self.evaluation_loop.start()
 
+        # Exit cycle loop
+        self._exit_cycle_running = True
+        self._exit_cycle_task = asyncio.create_task(
+            self._run_exit_cycle_loop(),
+            name="exit_cycle_loop",
+        )
+
         log_event(
             logger, logging.INFO,
-            "Orchestrator all loops started",
+            "Orchestrator all loops started (including exit cycle)",
             entity_type="orchestrator",
             entity_id="started",
         )
 
     async def stop(self) -> None:
-        """Tüm loop'ları durdur — graceful shutdown."""
+        """Tum loop'lari durdur — graceful shutdown."""
         log_event(
             logger, logging.INFO,
             "Orchestrator stopping all loops",
             entity_type="orchestrator",
             entity_id="stop",
         )
+
+        # Exit cycle durdur
+        self._exit_cycle_running = False
+        if self._exit_cycle_task and not self._exit_cycle_task.done():
+            self._exit_cycle_task.cancel()
+            try:
+                await self._exit_cycle_task
+            except asyncio.CancelledError:
+                pass
 
         await self.evaluation_loop.stop()
         await self.coin_client.stop()
@@ -195,6 +249,60 @@ class Orchestrator:
             entity_type="orchestrator",
             entity_id="stopped",
         )
+
+    async def _run_exit_cycle_loop(self) -> None:
+        """Exit orchestrator periyodik cycle loop.
+
+        Her EXIT_CYCLE_INTERVAL_SEC'de bir run_cycle() cagrilir.
+        Acik pozisyonlarin fiyatlarini pipeline'dan alir.
+        """
+        while self._exit_cycle_running:
+            try:
+                # Acik pozisyonlar icin canli fiyat ve remaining seconds topla
+                prices = {}
+                remaining = {}
+
+                for pos in self.position_tracker.get_all_positions():
+                    if pos.is_open:
+                        # Held-side outcome fiyati pipeline'dan
+                        price_data = self.pipeline.get_price(pos.asset)
+                        if price_data:
+                            side_key = f"{pos.side.lower()}_price"
+                            price = getattr(price_data, side_key, 0.0) if hasattr(price_data, side_key) else 0.0
+                            if price <= 0:
+                                # Fallback: dominant price
+                                price = getattr(price_data, "dominant_price", 0.0) if hasattr(price_data, "dominant_price") else 0.0
+                            prices[pos.asset] = price
+
+                        # Remaining seconds — slot bazli
+                        slot_start = (int(_time.time()) // 300) * 300
+                        event_end = slot_start + 300
+                        remaining[pos.asset] = max(0, event_end - _time.time())
+
+                result = await self.exit_orchestrator.run_cycle(
+                    current_prices=prices,
+                    remaining_seconds=remaining,
+                )
+
+                if result["triggers"] > 0 or result["closes"] > 0 or result["settlements"] > 0:
+                    log_event(
+                        logger, logging.INFO,
+                        f"Exit cycle #{result['cycle']}: "
+                        f"triggers={result['triggers']} closes={result['closes']} "
+                        f"settlements={result['settlements']} reconciled={result['reconciled']}",
+                        entity_type="orchestrator",
+                        entity_id="exit_cycle",
+                    )
+
+            except Exception as e:
+                log_event(
+                    logger, logging.ERROR,
+                    f"Exit cycle error: {e}",
+                    entity_type="orchestrator",
+                    entity_id="exit_cycle_error",
+                )
+
+            await asyncio.sleep(EXIT_CYCLE_INTERVAL_SEC)
 
     def get_health(self):
         """Orchestrator sağlık durumu."""
