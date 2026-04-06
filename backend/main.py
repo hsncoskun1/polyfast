@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.health import router as health_router
+from backend.api.dashboard import router as dashboard_router
 from backend.version import __version__
 from backend.orchestrator.wiring import Orchestrator
 from backend.logging_config.service import get_logger, log_event
@@ -88,3 +89,4 @@ app.add_middleware(
 )
 
 app.include_router(health_router, prefix="/api")
+app.include_router(dashboard_router, prefix="/api")
