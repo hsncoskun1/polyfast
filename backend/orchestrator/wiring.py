@@ -32,6 +32,8 @@ from backend.execution.claim_manager import ClaimManager
 from backend.execution.clob_client_wrapper import ClobClientWrapper
 from backend.execution.relayer_client_wrapper import RelayerClientWrapper
 from backend.execution.order_validator import OrderValidator
+from backend.persistence.position_store import PositionStore
+from backend.persistence.claim_store import ClaimStore
 from backend.orchestrator.discovery_loop import DiscoveryLoop
 from backend.orchestrator.eligibility_gate import EligibilityGate
 from backend.orchestrator.subscription_manager import SubscriptionManager
@@ -120,8 +122,12 @@ class Orchestrator:
         )
         self.discovery_engine = DiscoveryEngine(self.public_client)
 
+        # ── Persistence stores ──
+        self.position_store = PositionStore()
+        self.claim_store = ClaimStore()
+
         # ── Execution layer ──
-        self.position_tracker = PositionTracker()
+        self.position_tracker = PositionTracker(position_store=self.position_store)
         self.balance_manager = BalanceManager(
             stale_threshold_sec=cfg.market_data.balance_stale_threshold_seconds,
             passive_refresh_interval=cfg.market_data.balance_refresh_interval_seconds,
@@ -129,13 +135,14 @@ class Orchestrator:
         self.clob_client = ClobClientWrapper(credential_store=self.credential_store)
         self.relayer_client = RelayerClientWrapper(credential_store=self.credential_store)
 
-        # Claim manager — retry config'den
+        # Claim manager — retry config + persistence
         self.claim_manager = ClaimManager(
             self.balance_manager, paper_mode=True,
             retry_initial_seconds=cfg.trading.claim.retry_initial_seconds,
             retry_second_seconds=cfg.trading.claim.retry_second_seconds,
             retry_steady_seconds=cfg.trading.claim.retry_steady_seconds,
             max_retry_attempts=cfg.trading.claim.max_retry_attempts,
+            claim_store=self.claim_store,
         )
 
         # Exit evaluator — TP/SL config'den
@@ -268,6 +275,43 @@ class Orchestrator:
             entity_id="event_chain",
         )
 
+    async def restore_state(self) -> dict:
+        """Startup state restore — SQLite'tan memory'ye yukle.
+
+        Acik pozisyonlar + pending claim'ler restore edilir.
+        Session devam eder — yeni session acilmaz.
+
+        Returns:
+            {"positions_restored": int, "claims_restored": int, "stale_detected": int}
+        """
+        result = {"positions_restored": 0, "claims_restored": 0, "stale_detected": 0}
+
+        # 1. Pozisyonlari restore et
+        positions = await self.position_store.load_all()
+        for pos in positions:
+            self.position_tracker.restore_position(pos)
+            result["positions_restored"] += 1
+
+        # 2. Claim'leri restore et
+        claims = await self.claim_store.load_all()
+        for claim in claims:
+            self.claim_manager.restore_claim(claim)
+            result["claims_restored"] += 1
+
+        open_count = self.position_tracker.open_position_count
+        pending_claims = self.claim_manager.pending_count
+
+        log_event(
+            logger, logging.INFO,
+            f"State restored: {result['positions_restored']} positions "
+            f"({open_count} open), {result['claims_restored']} claims "
+            f"({pending_claims} pending)",
+            entity_type="orchestrator",
+            entity_id="restore",
+        )
+
+        return result
+
     async def start(self) -> None:
         """Tum loop'lari baslat."""
         log_event(
@@ -276,6 +320,9 @@ class Orchestrator:
             entity_type="orchestrator",
             entity_id="start",
         )
+
+        # State restore (7/24 — restart sonrasi kaldigi yerden devam)
+        await self.restore_state()
 
         # Coin price batch loop
         await self.coin_client.start()
@@ -301,10 +348,13 @@ class Orchestrator:
         )
 
     async def stop(self) -> None:
-        """Tum loop'lari durdur — graceful shutdown."""
+        """Graceful shutdown — loop'lari durdur + state flush.
+
+        SIGTERM, kontrollu kapanis, normal stop — hepsinde calisir.
+        """
         log_event(
             logger, logging.INFO,
-            "Orchestrator stopping all loops",
+            "Orchestrator stopping — graceful shutdown",
             entity_type="orchestrator",
             entity_id="stop",
         )
@@ -323,11 +373,34 @@ class Orchestrator:
         await self.discovery_loop.stop()
         await self.rtds_client.disconnect()
 
+        # Final state flush — tum acik pozisyon ve pending claim kaydet
+        await self._flush_state()
+
         log_event(
             logger, logging.INFO,
-            "Orchestrator all loops stopped",
+            "Orchestrator stopped — state flushed",
             entity_type="orchestrator",
             entity_id="stopped",
+        )
+
+    async def _flush_state(self) -> None:
+        """Final state flush — tum memory state'i SQLite'a yaz."""
+        flushed_pos = 0
+        flushed_claims = 0
+
+        for pos in self.position_tracker.get_all_positions():
+            if await self.position_store.save(pos):
+                flushed_pos += 1
+
+        for claim in self.claim_manager.get_pending_claims():
+            if await self.claim_store.save(claim):
+                flushed_claims += 1
+
+        log_event(
+            logger, logging.INFO,
+            f"State flushed: {flushed_pos} positions, {flushed_claims} pending claims",
+            entity_type="orchestrator",
+            entity_id="flush",
         )
 
     async def _run_exit_cycle_loop(self) -> None:

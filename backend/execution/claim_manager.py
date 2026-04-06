@@ -114,15 +114,34 @@ class ClaimManager:
         retry_second_seconds: int = CLAIM_REDEEM_RETRY_SCHEDULE[1],
         retry_steady_seconds: int = CLAIM_REDEEM_RETRY_STEADY,
         max_retry_attempts: int = CLAIM_REDEEM_MAX_RETRIES,
+        claim_store=None,
     ):
         self._balance = balance_manager
         self._paper_mode = paper_mode
         self._claims: dict[str, ClaimRecord] = {}
         self._claim_count: int = 0
-        # Retry config — schema'dan override edilebilir
+        self._store = claim_store  # ClaimStore (optional)
+        # Retry config
         self.retry_schedule = [retry_initial_seconds, retry_second_seconds]
         self.retry_steady = retry_steady_seconds
         self.max_retries = max_retry_attempts
+
+    def _persist(self, record: ClaimRecord) -> None:
+        """Claim state degisiminde SQLite'a kaydet. Fire-and-forget."""
+        if self._store is None:
+            return
+        try:
+            import asyncio
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._store.save(record))
+        except RuntimeError:
+            pass
+
+    def restore_claim(self, record: ClaimRecord) -> None:
+        """Startup restore: SQLite'tan okunan claim'i memory'ye yukle."""
+        self._claims[record.claim_id] = record
+        if record.is_success:
+            self._claim_count += 1
 
     def create_claim(
         self,
@@ -152,6 +171,7 @@ class ClaimManager:
             entity_type="claim",
             entity_id=claim_id,
         )
+        self._persist(record)
         return record
 
     async def execute_redeem(
@@ -215,6 +235,7 @@ class ClaimManager:
                     entity_id=claim_id,
                 )
 
+            self._persist(record)
             return True
         else:
             # Live mode — relayer gasless TX (ileride)
@@ -287,6 +308,7 @@ class ClaimManager:
             entity_type="claim",
             entity_id=claim_id,
         )
+        self._persist(record)
         return True
 
     def get_health_incidents(self) -> list[HealthIncident]:
