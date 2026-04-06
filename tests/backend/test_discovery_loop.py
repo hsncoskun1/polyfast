@@ -16,8 +16,8 @@ from dataclasses import dataclass
 
 from backend.orchestrator.discovery_loop import (
     DiscoveryLoop,
-    RETRY_SCHEDULE,
-    RETRY_STEADY_INTERVAL,
+    DEFAULT_RETRY_SCHEDULE,
+    DEFAULT_RETRY_STEADY_INTERVAL,
     SLOT_SECONDS,
     _current_slot_start,
     _slot_remaining,
@@ -35,8 +35,8 @@ from backend.settings.coin_settings import SideMode
 class TestDiscoveryLoopConstants:
 
     def test_retry_schedule(self):
-        assert RETRY_SCHEDULE == [2, 4, 8, 16]
-        assert RETRY_STEADY_INTERVAL == 10
+        assert DEFAULT_RETRY_SCHEDULE == [2, 4, 8, 16]
+        assert DEFAULT_RETRY_STEADY_INTERVAL == 10
 
     def test_slot_seconds(self):
         assert SLOT_SECONDS == 300

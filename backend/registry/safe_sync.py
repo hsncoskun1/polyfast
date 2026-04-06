@@ -60,11 +60,12 @@ class SafeSync:
     5. Soft-removed event reappearing → restore to previous active-path state
     """
 
-    # Number of consecutive missed scans before soft-remove
-    DELIST_THRESHOLD = 3
+    # Default — schema'dan override edilebilir (DiscoveryConfig.delist_threshold)
+    DEFAULT_DELIST_THRESHOLD = 3
 
-    def __init__(self, registry: EventRegistry):
+    def __init__(self, registry: EventRegistry, delist_threshold: int = DEFAULT_DELIST_THRESHOLD):
         self._registry = registry
+        self._delist_threshold = delist_threshold
         self._miss_counts: dict[str, int] = {}  # condition_id → consecutive miss count
 
     def sync(self, discovered_events: list[DiscoveredEvent]) -> SyncResult:
@@ -131,7 +132,7 @@ class SafeSync:
             self._miss_counts[record.condition_id] = miss_count
 
             # Soft-remove if threshold reached
-            if miss_count >= self.DELIST_THRESHOLD:
+            if miss_count >= self._delist_threshold:
                 if record.can_transition_to(EventStatus.INACTIVE):
                     old_status = record.status
                     record.transition_to(EventStatus.INACTIVE)

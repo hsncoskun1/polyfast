@@ -29,26 +29,24 @@ from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("ptb.fetcher")
 
-# Bağlayıcı retry schedule: 2, 4, 8, 16, sonra 10s sabit
-PTB_RETRY_SCHEDULE = [2, 4, 8, 16]
-PTB_RETRY_STEADY_INTERVAL = 10
+# Default retry — schema'dan override edilebilir (MarketDataConfig)
+DEFAULT_PTB_RETRY_SCHEDULE = [2, 4, 8, 16]
+DEFAULT_PTB_RETRY_STEADY = 10
 
 
 class PTBFetcher:
-    """Orchestrates PTB fetch, lock, and retry lifecycle.
+    """Orchestrates PTB fetch, lock, and retry lifecycle."""
 
-    PTB rules:
-    - PTB is fetched once per event
-    - Once acquired, it is LOCKED — no overwrite
-    - Retry follows schedule: 2s→4s→8s→16s→10s→10s...
-    - Retry runs until PTB acquired OR event expired
-    - Same-event overwrite is prohibited
-    - Failure is never silent
-    """
-
-    def __init__(self, source: PTBSourceAdapter):
+    def __init__(
+        self,
+        source: PTBSourceAdapter,
+        retry_schedule: list[int] | None = None,
+        retry_steady_seconds: int = DEFAULT_PTB_RETRY_STEADY,
+    ):
         self._source = source
-        self._records: dict[str, PTBRecord] = {}  # keyed by condition_id
+        self._records: dict[str, PTBRecord] = {}
+        self._retry_schedule = retry_schedule or list(DEFAULT_PTB_RETRY_SCHEDULE)
+        self._retry_steady = retry_steady_seconds
 
     def get_or_create_record(self, condition_id: str, asset: str) -> PTBRecord:
         """Get existing PTB record or create new WAITING record."""
@@ -130,10 +128,10 @@ class PTBFetcher:
         attempt = 0
         while time.time() < event_end_ts:
             # Determine wait time from schedule
-            if attempt < len(PTB_RETRY_SCHEDULE):
-                wait = PTB_RETRY_SCHEDULE[attempt]
+            if attempt < len(self._retry_schedule):
+                wait = self._retry_schedule[attempt]
             else:
-                wait = PTB_RETRY_STEADY_INTERVAL
+                wait = self._retry_steady
 
             # Wait
             await asyncio.sleep(wait)
