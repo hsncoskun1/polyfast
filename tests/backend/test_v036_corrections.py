@@ -37,7 +37,7 @@ from backend.config_loader.schema import (
     BotMaxConfig,
     AppConfig,
 )
-from backend.ptb.fetcher import PTBFetcher, PTB_RETRY_SCHEDULE, PTB_RETRY_STEADY_INTERVAL
+from backend.ptb.fetcher import PTBFetcher, DEFAULT_PTB_RETRY_SCHEDULE, DEFAULT_PTB_RETRY_STEADY
 from backend.ptb.models import PTBRecord, PTBStatus
 from backend.ptb.source_adapter import PTBFetchResult
 from backend.market_data.rtds_client import RTDSClient, ConnectionState
@@ -252,8 +252,8 @@ class TestConfigSchemaSemantics:
 class TestPTBRetrySchedule:
 
     def test_retry_schedule_values(self):
-        assert PTB_RETRY_SCHEDULE == [2, 4, 8, 16]
-        assert PTB_RETRY_STEADY_INTERVAL == 10
+        assert DEFAULT_PTB_RETRY_SCHEDULE == [2, 4, 8, 16]
+        assert DEFAULT_PTB_RETRY_STEADY == 10
 
     @pytest.mark.asyncio
     async def test_lock_stops_retry(self):

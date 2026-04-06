@@ -74,8 +74,8 @@ class RTDSClient:
     def __init__(
         self,
         ws_url: str | None = None,
-        reconnect_backoff_base: float = 2.0,
-        reconnect_backoff_max: float = 30.0,
+        reconnect_backoff_base: float = 2.0,  # schema: MarketDataConfig.ws_reconnect_backoff_base
+        reconnect_backoff_max: float = 30.0,  # schema: MarketDataConfig.ws_reconnect_backoff_max
         on_message: MessageCallback | None = None,
     ):
         self._ws_url = ws_url or self.RTDS_WS_URL

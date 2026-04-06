@@ -48,7 +48,7 @@ class EvaluationLoop:
         coin_client: CoinPriceClient,
         ptb_fetcher: PTBFetcher,
         settings_store: SettingsStore,
-        interval_ms: int = 200,
+        interval_ms: int = 200,  # schema: MarketDataConfig.evaluation_interval_ms
     ):
         self._engine = engine
         self._pipeline = pipeline

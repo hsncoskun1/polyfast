@@ -223,34 +223,60 @@ class ServerConfig(BaseModel):
 
 
 class DiscoveryConfig(BaseModel):
-    """Discovery ayarlari — admin/advanced.
-
-    interval_seconds: Event tarama sikligi (saniye)
-    timeout_seconds: API cevap bekleme suresi (saniye)
-    category/subcategory/duration: Tarama filtreleri (degistirme)
-    """
+    """Discovery ayarlari — admin/advanced."""
     interval_seconds: int = Field(default=10, ge=1, le=300)
     timeout_seconds: int = Field(default=15, ge=1, le=60)
     category: str = "crypto"
     subcategory: str = "up_down"
     duration: str = "5m"
+    # Retry schedule: event bulunamazsa bekleme sureleri (saniye)
+    retry_initial_seconds: int = Field(default=2, ge=1, le=30)
+    retry_schedule_2: int = Field(default=4, ge=1, le=30)
+    retry_schedule_3: int = Field(default=8, ge=1, le=60)
+    retry_schedule_4: int = Field(default=16, ge=1, le=60)
+    retry_steady_seconds: int = Field(default=10, ge=1, le=60)
+    # Registry delist: ardisik scan'da gorulmeyen event soft-remove esigi
+    delist_threshold: int = Field(default=3, ge=1, le=10)
+
+
+class NetworkConfig(BaseModel):
+    """Network / HTTP / auth ayarlari — admin/advanced.
+
+    Tum HTTP client'lar icin timeout, retry ve backoff degerleri.
+    """
+    default_timeout_seconds: float = Field(default=15.0, ge=1.0, le=60.0)
+    default_retry_max: int = Field(default=3, ge=1, le=10)
+    default_backoff_base: float = Field(default=1.0, ge=0.5, le=5.0)
+    relayer_timeout_seconds: float = Field(default=30.0, ge=10.0, le=120.0)
+    clob_api_timeout_seconds: float = Field(default=5.0, ge=1.0, le=30.0)
+    fee_rate_timeout_seconds: float = Field(default=5.0, ge=1.0, le=30.0)
 
 
 class MarketDataConfig(BaseModel):
-    """Market veri ayarlari — admin/advanced.
-
-    ptb_source: PTB cekme yontemi (kullaniciya acilmaz)
-    stale_threshold_seconds: Outcome fiyat bu kadar sure guncellenmezse bayat sayilir
-    coin_price_stale_threshold_seconds: Coin USD fiyat bu kadar sure guncellenmezse bayat sayilir
-    coin_price_resub_interval_ms: Coin USD fiyat guncelleme sikligi (dusuk = hizli, yuksek = yavas)
-    """
+    """Market veri ayarlari — admin/advanced."""
     ptb_source: str = Field(default="next_data", pattern="^(next_data|api)$")
+    # Stale threshold'lari
     stale_threshold_seconds: int = Field(default=30, ge=5, le=300)
     coin_price_stale_threshold_seconds: int = Field(default=15, ge=5, le=120)
-    coin_price_resub_interval_ms: int = Field(default=150, ge=50, le=5000)
     balance_stale_threshold_seconds: int = Field(default=90, ge=30, le=300)
+    # Interval'lar
+    coin_price_resub_interval_ms: int = Field(default=150, ge=50, le=5000)
     balance_refresh_interval_seconds: int = Field(default=20, ge=5, le=60)
     exit_cycle_interval_ms: int = Field(default=50, ge=10, le=2000)
+    evaluation_interval_ms: int = Field(default=200, ge=50, le=2000)
+    # WS reconnect
+    ws_reconnect_backoff_base: float = Field(default=2.0, ge=1.0, le=10.0)
+    ws_reconnect_backoff_max: float = Field(default=30.0, ge=5.0, le=120.0)
+    # WS operational timeout'lar
+    ws_close_timeout_seconds: float = Field(default=3.0, ge=1.0, le=10.0)
+    ws_receive_timeout_seconds: float = Field(default=1.0, ge=0.1, le=10.0)
+    ws_resub_message_timeout_seconds: float = Field(default=0.05, ge=0.01, le=1.0)
+    # PTB retry (discovery ile ayni pattern)
+    ptb_retry_initial_seconds: int = Field(default=2, ge=1, le=30)
+    ptb_retry_schedule_2: int = Field(default=4, ge=1, le=30)
+    ptb_retry_schedule_3: int = Field(default=8, ge=1, le=60)
+    ptb_retry_schedule_4: int = Field(default=16, ge=1, le=60)
+    ptb_retry_steady_seconds: int = Field(default=10, ge=1, le=60)
 
 
 class PersistenceConfig(BaseModel):
@@ -278,5 +304,6 @@ class AppConfig(BaseModel):
     trading: TradingConfig = TradingConfig()
     discovery: DiscoveryConfig = DiscoveryConfig()
     market_data: MarketDataConfig = MarketDataConfig()
+    network: NetworkConfig = NetworkConfig()
     persistence: PersistenceConfig = PersistenceConfig()
     logging: LoggingConfig = LoggingConfig()

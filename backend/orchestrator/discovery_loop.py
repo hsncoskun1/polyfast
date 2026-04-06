@@ -29,10 +29,10 @@ from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("orchestrator.discovery")
 
-# PTB ile aynı retry schedule
-RETRY_SCHEDULE = [2, 4, 8, 16]
-RETRY_STEADY_INTERVAL = 10
-SLOT_SECONDS = 300  # 5 dakika
+# Default retry schedule — schema'dan override edilebilir (DiscoveryConfig)
+DEFAULT_RETRY_SCHEDULE = [2, 4, 8, 16]
+DEFAULT_RETRY_STEADY_INTERVAL = 10
+SLOT_SECONDS = 300  # venue sabiti — degismez
 
 
 def _current_slot_start() -> int:
@@ -60,10 +60,14 @@ class DiscoveryLoop:
         discovery_engine: DiscoveryEngine,
         safe_sync: SafeSync,
         on_events_found=None,
+        retry_schedule: list[int] | None = None,
+        retry_steady_seconds: int = DEFAULT_RETRY_STEADY_INTERVAL,
     ):
         self._engine = discovery_engine
         self._sync = safe_sync
-        self._on_events_found = on_events_found  # callback: eligible→subscribe
+        self._on_events_found = on_events_found
+        self._retry_schedule = retry_schedule or list(DEFAULT_RETRY_SCHEDULE)
+        self._retry_steady = retry_steady_seconds
         self._running = False
         self._task: asyncio.Task | None = None
         self._current_slot: int = 0
@@ -239,10 +243,10 @@ class DiscoveryLoop:
                 ))
 
             # Bulunamadı — retry schedule
-            if attempt < len(RETRY_SCHEDULE):
-                wait = RETRY_SCHEDULE[attempt]
+            if attempt < len(self._retry_schedule):
+                wait = self._retry_schedule[attempt]
             else:
-                wait = RETRY_STEADY_INTERVAL
+                wait = self._retry_steady
 
             self._retry_count += 1
             attempt += 1
