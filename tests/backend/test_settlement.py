@@ -408,6 +408,177 @@ class TestPendingSettlementTradeBlock:
 
 
 # ===================================================================
+# RESOLUTION MODEL (v0.6.7)
+# ===================================================================
+
+class MockPTBFetcher:
+    """PTBFetcher mock — PTB degerlerini condition_id bazli tutar."""
+    def __init__(self):
+        self._records = {}
+
+    def set_ptb(self, condition_id, asset, value):
+        from backend.ptb.models import PTBRecord
+        rec = PTBRecord(condition_id=condition_id, asset=asset)
+        rec.lock(value, "test_mock")
+        self._records[condition_id] = rec
+
+    def get_record(self, condition_id):
+        return self._records.get(condition_id)
+
+
+class MockCoinPriceClient:
+    """CoinPriceClient mock — coin USD fiyatlarini tutar."""
+    def __init__(self):
+        self._prices = {}
+
+    def set_price(self, coin, usd_price):
+        self._prices[coin] = usd_price
+
+    def get_usd_price(self, coin):
+        return self._prices.get(coin, 0.0)
+
+
+def _setup_with_resolution(ptb_value=67000.0, coin_usd=67500.0,
+                            asset="BTC", condition_id="0x1"):
+    """Resolution model testleri icin setup."""
+    tracker = PositionTracker()
+    balance = BalanceManager()
+    balance.update(available=50.0)
+    claim_mgr = ClaimManager(balance, paper_mode=True)
+    relayer = RelayerClientWrapper()
+
+    ptb = MockPTBFetcher()
+    ptb.set_ptb(condition_id, asset, ptb_value)
+
+    coin = MockCoinPriceClient()
+    coin.set_price(asset, coin_usd)
+
+    orch = SettlementOrchestrator(
+        tracker, claim_mgr, relayer, paper_mode=True,
+        ptb_fetcher=ptb, coin_price_client=coin,
+    )
+    return tracker, balance, claim_mgr, orch, ptb, coin
+
+
+class TestResolutionModel:
+
+    @pytest.mark.asyncio
+    async def test_up_wins_when_coin_above_ptb(self):
+        """coin_usd > ptb -> UP kazanir, UP pozisyon WON."""
+        tracker, balance, claim_mgr, orch, _, _ = _setup_with_resolution(
+            ptb_value=67000.0, coin_usd=67500.0,
+        )
+        # UP pozisyon ac ve kapat
+        pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
+        assert pos.side == "UP"
+
+        await orch.process_settlements()
+        claims = claim_mgr.get_claims_by_position(pos.position_id)
+        assert claims[0].outcome == ClaimOutcome.REDEEMED_WON
+        assert claims[0].claimed_amount_usdc > 0
+        assert orch._last_resolution_method == "resolution"
+
+    @pytest.mark.asyncio
+    async def test_down_wins_when_coin_below_ptb(self):
+        """coin_usd < ptb -> DOWN kazanir, UP pozisyon LOST."""
+        tracker, balance, claim_mgr, orch, _, _ = _setup_with_resolution(
+            ptb_value=67000.0, coin_usd=66500.0,
+        )
+        pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
+        assert pos.side == "UP"
+
+        await orch.process_settlements()
+        claims = claim_mgr.get_claims_by_position(pos.position_id)
+        # UP pozisyon ama DOWN kazandi -> LOST
+        assert claims[0].outcome == ClaimOutcome.REDEEMED_LOST
+        assert claims[0].claimed_amount_usdc == 0.0
+        assert orch._last_resolution_method == "resolution"
+
+    @pytest.mark.asyncio
+    async def test_down_wins_when_coin_equals_ptb(self):
+        """coin_usd == ptb -> DOWN kazanir (esitlikte DOWN)."""
+        tracker, balance, claim_mgr, orch, _, _ = _setup_with_resolution(
+            ptb_value=67000.0, coin_usd=67000.0,
+        )
+        pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
+
+        await orch.process_settlements()
+        claims = claim_mgr.get_claims_by_position(pos.position_id)
+        assert claims[0].outcome == ClaimOutcome.REDEEMED_LOST  # UP, ama DOWN kazandi
+        assert orch._last_resolution_method == "resolution"
+
+    @pytest.mark.asyncio
+    async def test_resolution_independent_of_pnl(self):
+        """Resolution PnL'den bagimsiz — pozisyon kar'da kapansa bile kazanan taraf belirleyici."""
+        tracker, balance, claim_mgr, orch, _, _ = _setup_with_resolution(
+            ptb_value=67000.0, coin_usd=66500.0,  # DOWN kazanir
+        )
+        # UP pozisyon, kar'da kapanmis (fill=0.85, exit=0.92 -> PnL pozitif)
+        pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
+        assert pos.net_realized_pnl > 0  # PnL pozitif
+
+        await orch.process_settlements()
+        claims = claim_mgr.get_claims_by_position(pos.position_id)
+        # PnL pozitif olsa bile, DOWN kazandigi icin UP pozisyon LOST
+        assert claims[0].outcome == ClaimOutcome.REDEEMED_LOST
+        assert orch._last_resolution_method == "resolution"
+
+    @pytest.mark.asyncio
+    async def test_pnl_fallback_when_no_ptb(self):
+        """PTB yoksa PnL fallback kullanilir."""
+        tracker, balance, claim_mgr, _, orch = _setup()  # PTB/coin inject yok
+        pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
+
+        await orch.process_settlements()
+        claims = claim_mgr.get_claims_by_position(pos.position_id)
+        assert claims[0].outcome == ClaimOutcome.REDEEMED_WON  # PnL > 0
+        assert orch._last_resolution_method == "pnl_fallback"
+
+    @pytest.mark.asyncio
+    async def test_pnl_fallback_when_no_coin_price(self):
+        """Coin USD fiyati yoksa PnL fallback."""
+        tracker = PositionTracker()
+        balance = BalanceManager()
+        balance.update(available=50.0)
+        claim_mgr = ClaimManager(balance, paper_mode=True)
+        relayer = RelayerClientWrapper()
+
+        ptb = MockPTBFetcher()
+        ptb.set_ptb("0x1", "BTC", 67000.0)
+        # coin_price_client = None
+
+        orch = SettlementOrchestrator(
+            tracker, claim_mgr, relayer, paper_mode=True,
+            ptb_fetcher=ptb, coin_price_client=None,
+        )
+        pos = _make_closed_position(tracker, balance)
+        await orch.process_settlements()
+        assert orch._last_resolution_method == "pnl_fallback"
+
+    @pytest.mark.asyncio
+    async def test_balance_correct_on_resolution_win(self):
+        """Resolution WON -> balance artar."""
+        tracker, balance, claim_mgr, orch, _, _ = _setup_with_resolution(
+            ptb_value=67000.0, coin_usd=67500.0,
+        )
+        before = balance.available_balance
+        _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
+        await orch.process_settlements()
+        assert balance.available_balance > before
+
+    @pytest.mark.asyncio
+    async def test_balance_unchanged_on_resolution_loss(self):
+        """Resolution LOST -> balance degismez."""
+        tracker, balance, claim_mgr, orch, _, _ = _setup_with_resolution(
+            ptb_value=67000.0, coin_usd=66500.0,
+        )
+        _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
+        before = balance.available_balance
+        await orch.process_settlements()
+        assert balance.available_balance == before  # LOST -> $0
+
+
+# ===================================================================
 # BOUNDARY
 # ===================================================================
 
