@@ -6,7 +6,7 @@ Local-first, single-user trading application that automatically discovers, monit
 
 ## Status
 
-**v0.6.10** — Faz 6 complete (Exit & Claim/Redeem)
+**v0.7.8** — Faz 7 complete (Recovery + Config + Persistence)
 
 ### Completed
 
@@ -20,16 +20,17 @@ Local-first, single-user trading application that automatically discovers, monit
 
 **Faz 5 (v0.5.0-v0.5.3):** Order intent, validation, position state machine (6-state), fee-aware PnL, order execution, balance lifecycle, CLOB SDK wrapper, paper mode e2e.
 
-**Faz 6 (v0.6.0-v0.6.10):** Exit evaluator (TP/SL/force sell), latch + reevaluate, exit executor with retry bands, manual close, claim/redeem lifecycle, settlement orchestrator + retry, relayer wrapper, resolution-based settlement (getMarket API), exit orchestrator, external reconciliation, balance accounting fix (close vs settlement separation).
+**Faz 6 (v0.6.0-v0.6.10):** Exit evaluator (TP/SL/force sell), latch + reevaluate, exit executor with retry bands, manual close, claim/redeem lifecycle, settlement orchestrator + retry, relayer wrapper, resolution-based settlement (getMarket API), exit orchestrator, external reconciliation, balance accounting fix.
+
+**Faz 7 (v0.7.0-v0.7.8):** Credential lifecycle, ExitOrchestrator wiring, getMarket live validation, hardcoded->schema (27 values), config->runtime wiring, position+claim+settings+registry+PTB persistence, 7/24 startup restore, degraded mode, balance verify retry, full recovery e2e.
 
 ### Not yet started
-- Faz 7: Recovery, operational readiness, config hygiene
-- Faz 8: UI (frontend, settings panel, trade cards)
+- Faz 8: UI (frontend, settings panel, trade cards, history, analytics)
 
 ### Notes
-- 711 backend tests, all passing.
+- 774 backend tests, all passing.
 - Paper mode only — LIVE_ORDER_ENABLED=False, LIVE_SETTLEMENT_ENABLED=False.
-- Registry is in-memory (persistence deferred to Faz 7).
+- 7/24 ready: positions, claims, settings, registry persist in SQLite. Restart = automatic resume.
 
 ## Tech Stack
 
