@@ -367,6 +367,166 @@ class TestDegradedMode:
         assert orch.trading_enabled is True
 
 
+class TestBalanceVerifyRetry:
+
+    @pytest.mark.asyncio
+    async def test_verify_retry_task_created_on_degraded(self):
+        """Degraded mode'da verify retry task olusturulur."""
+        from backend.config_loader.schema import AppConfig
+        from backend.orchestrator.wiring import Orchestrator
+        orch = Orchestrator(config=AppConfig())
+        orch.trading_enabled = False
+        orch._start_verify_retry()
+        assert orch._verify_retry_running is True
+        # Temizlik
+        orch._verify_retry_running = False
+        if orch._verify_retry_task:
+            orch._verify_retry_task.cancel()
+            try:
+                await orch._verify_retry_task
+            except asyncio.CancelledError:
+                pass
+
+    def test_normal_mode_no_retry(self):
+        """Normal mode'da verify retry baslatilmaz."""
+        from backend.config_loader.schema import AppConfig
+        from backend.orchestrator.wiring import Orchestrator
+        orch = Orchestrator(config=AppConfig())
+        assert orch.trading_enabled is True
+        assert orch._verify_retry_running is False
+
+
+class TestFullRecoveryE2E:
+    """SQLite'a yaz -> restore et -> state tutarli mi kontrol et."""
+
+    @pytest.mark.asyncio
+    async def test_position_roundtrip(self, db):
+        """Position: save -> load -> memory state tutarli."""
+        store = PositionStore()
+        tracker = PositionTracker()
+
+        # Orijinal pozisyon
+        pos = PositionRecord(
+            position_id="rt1", asset="BTC", side="UP",
+            condition_id="0x1", token_id="tok1",
+            state=PositionState.OPEN_CONFIRMED,
+            fill_price=0.85, net_position_shares=5.88,
+            requested_amount_usd=5.0, fee_rate=0.072,
+        )
+        await store.save(pos)
+
+        # "Restart" — yeni tracker, SQLite'tan oku
+        tracker2 = PositionTracker()
+        loaded = await store.load_all()
+        for p in loaded:
+            tracker2.restore_position(p)
+
+        assert tracker2.open_position_count == 1
+        assert tracker2.session_trade_count == 1
+        restored = tracker2.get_position("rt1")
+        assert restored.fill_price == 0.85
+        assert restored.state == PositionState.OPEN_CONFIRMED
+
+    @pytest.mark.asyncio
+    async def test_claim_roundtrip(self, db):
+        """Claim: save -> load -> pending state korunur."""
+        from backend.persistence.claim_store import ClaimStore
+
+        claim_store = ClaimStore()
+        balance = BalanceManager()
+        balance.update(available=100.0)
+
+        claim = ClaimRecord(
+            claim_id="crt1", condition_id="0x1", position_id="p1",
+            asset="BTC", side="UP",
+            claim_status=ClaimStatus.PENDING,
+            retry_count=3,
+        )
+        await claim_store.save(claim)
+
+        # "Restart"
+        mgr2 = ClaimManager(balance, paper_mode=True)
+        loaded = await claim_store.load_all()
+        for c in loaded:
+            mgr2.restore_claim(c)
+
+        assert mgr2.has_pending_claims() is True
+        assert mgr2.pending_count == 1
+        restored = mgr2.get_claim("crt1")
+        assert restored.retry_count == 3
+
+    @pytest.mark.asyncio
+    async def test_settings_roundtrip(self, db):
+        """Settings: save -> load -> coin config korunur."""
+        from backend.persistence.settings_store_db import SettingsStoreDB
+        from backend.settings.settings_store import SettingsStore
+        from backend.settings.coin_settings import CoinSettings, SideMode
+
+        db_store = SettingsStoreDB()
+        settings = CoinSettings(
+            coin="ETH", coin_enabled=True,
+            side_mode=SideMode.UP_ONLY,
+            order_amount=15.0,
+        )
+        await db_store.save(settings)
+
+        # "Restart"
+        store2 = SettingsStore()
+        loaded = await db_store.load_all()
+        for s in loaded:
+            store2.set(s)
+
+        restored = store2.get("ETH")
+        assert restored is not None
+        assert restored.coin_enabled is True
+        assert restored.side_mode == SideMode.UP_ONLY
+        assert restored.order_amount == 15.0
+
+    @pytest.mark.asyncio
+    async def test_multi_component_roundtrip(self, db):
+        """Tum component'lar birlikte: save -> restore -> tutarli."""
+        pos_store = PositionStore()
+        claim_store = ClaimStore()
+
+        # 2 pozisyon + 1 claim kaydet
+        pos1 = PositionRecord(
+            position_id="m1", asset="BTC", side="UP",
+            condition_id="0x1", token_id="t1",
+            state=PositionState.OPEN_CONFIRMED, fill_price=0.85,
+            requested_amount_usd=5.0,
+        )
+        pos2 = PositionRecord(
+            position_id="m2", asset="ETH", side="DOWN",
+            condition_id="0x2", token_id="t2",
+            state=PositionState.CLOSED, fill_price=0.60,
+            close_reason=CloseReason.TAKE_PROFIT,
+            requested_amount_usd=10.0,
+        )
+        claim1 = ClaimRecord(
+            claim_id="mc1", condition_id="0x1", position_id="m1",
+            asset="BTC", claim_status=ClaimStatus.PENDING,
+        )
+        await pos_store.save(pos1)
+        await pos_store.save(pos2)
+        await claim_store.save(claim1)
+
+        # "Restart"
+        tracker = PositionTracker()
+        balance = BalanceManager()
+        balance.update(available=50.0)
+        claim_mgr = ClaimManager(balance, paper_mode=True)
+
+        for p in await pos_store.load_all():
+            tracker.restore_position(p)
+        for c in await claim_store.load_all():
+            claim_mgr.restore_claim(c)
+
+        assert tracker.open_position_count == 1  # sadece m1
+        assert tracker.session_trade_count == 2  # m1 + m2
+        assert claim_mgr.has_pending_claims() is True
+        assert claim_mgr.pending_count == 1
+
+
 class TestPersistenceBoundaries:
 
     def test_store_write_failure_no_crash(self):
