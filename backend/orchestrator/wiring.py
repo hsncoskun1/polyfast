@@ -134,6 +134,8 @@ class Orchestrator:
 
         # ── Trading mode ──
         self.trading_enabled: bool = True  # False = degraded mode
+        self._verify_retry_task: asyncio.Task | None = None
+        self._verify_retry_running: bool = False
 
         # ── Execution layer ──
         self.position_tracker = PositionTracker(position_store=self.position_store)
@@ -347,8 +349,13 @@ class Orchestrator:
             self.trading_enabled = False
             result["trading_mode"] = "DEGRADED"
             result["balance_source"] = "snapshot_only"
+            # Degraded mode — periodic verify retry baslat
+            self._start_verify_retry()
 
-        # 7. Self-check raporu
+        # 7. Session bilgisi
+        result["session"] = "resumed" if result["positions_restored"] > 0 else "new"
+
+        # 8. Self-check raporu
         self._log_self_check(result)
 
         return result
@@ -389,6 +396,7 @@ class Orchestrator:
         log_event(
             logger, logging.INFO,
             f"=== STARTUP SELF-CHECK === "
+            f"Session: {result.get('session', 'unknown')} | "
             f"Positions: {result['positions_restored']} ({result['open_positions']} open) | "
             f"Claims: {result['claims_restored']} ({result['pending_claims']} pending) | "
             f"Settings: {result['settings_restored']} coins | "
@@ -447,6 +455,15 @@ class Orchestrator:
             entity_id="stop",
         )
 
+        # Verify retry durdur
+        self._verify_retry_running = False
+        if self._verify_retry_task and not self._verify_retry_task.done():
+            self._verify_retry_task.cancel()
+            try:
+                await self._verify_retry_task
+            except asyncio.CancelledError:
+                pass
+
         # Exit cycle durdur
         self._exit_cycle_running = False
         if self._exit_cycle_task and not self._exit_cycle_task.done():
@@ -470,6 +487,52 @@ class Orchestrator:
             entity_type="orchestrator",
             entity_id="stopped",
         )
+
+    def _start_verify_retry(self) -> None:
+        """Degraded mode'da balance verify periodic retry baslat."""
+        if self._verify_retry_running:
+            return
+        self._verify_retry_running = True
+        self._verify_retry_task = asyncio.create_task(
+            self._verify_retry_loop(),
+            name="balance_verify_retry",
+        )
+
+    async def _verify_retry_loop(self) -> None:
+        """Balance verify periodic retry — degraded -> normal gecis.
+
+        30s araliklarla API'ye balance verify dener.
+        Basarili olunca trading_enabled=True, loop durur.
+        Normal balance refresh (20s) ile AYRI — karistirilmaz.
+        """
+        verify_interval = 30.0  # 30s — agresif degil
+        attempt = 0
+
+        while self._verify_retry_running and not self.trading_enabled:
+            attempt += 1
+            await asyncio.sleep(verify_interval)
+
+            if not self._verify_retry_running:
+                break
+
+            ok = await self._verify_balance()
+            if ok:
+                self.trading_enabled = True
+                self._verify_retry_running = False
+                log_event(
+                    logger, logging.INFO,
+                    f"Balance verified on retry #{attempt} — DEGRADED -> NORMAL",
+                    entity_type="orchestrator",
+                    entity_id="verify_retry_ok",
+                )
+                return
+
+            log_event(
+                logger, logging.WARNING,
+                f"Balance verify retry #{attempt}: STILL DEGRADED",
+                entity_type="orchestrator",
+                entity_id="verify_retry_fail",
+            )
 
     async def _flush_state(self) -> None:
         """Final state flush — tum memory state'i SQLite'a yaz.
