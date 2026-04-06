@@ -93,30 +93,36 @@ class RelayerClientWrapper:
                 "error": "Relayer credentials not initialized",
             }
 
-        # TODO: gercek relayer v2 gasless TX
-        # PolyFlow relayer.py referansiyla:
-        # 1. Nonce al
-        # 2. redeemPositions calldata olustur
-        # 3. Safe TX imzala
-        # 4. Relayer submit
-        # 5. TX state poll
-        # 6. Confirmed → payout al
+        # Live path iskelet — guard acildiginda calismasi gereken adimlar:
+        #
+        # Adim 1: Signer olustur
+        #   from eth_account import Account
+        #   signer = Account.from_key(self._private_key)
+        #
+        # Adim 2: redeemPositions calldata
+        #   CTF_CONTRACT.functions.redeemPositions(
+        #       collateralToken=USDC_ADDRESS,
+        #       parentCollectionId=bytes32(0),
+        #       conditionId=condition_id,
+        #       indexSets=[1, 2]  # her iki outcome
+        #   )
+        #
+        # Adim 3: Relayer v2 submit
+        #   POST {RELAYER_HOST}/submit
+        #   headers: {"Authorization": f"Bearer {self._relayer_api_key}"}
+        #   body: {"to": CTF_CONTRACT, "data": calldata, "from": self._relayer_address}
+        #
+        # Adim 4: TX durumu kontrol
+        #   GET {RELAYER_HOST}/status/{tx_hash}
+        #   -> confirmed/pending/failed
+        #
+        # Adim 5: Payout hesapla
+        #   Kazanan token: shares * $1.00 USDC
+        #   Kaybeden token: $0.00
+        #
+        # Bu adimlar LIVE_SETTLEMENT_ENABLED=True olana kadar calismaz.
 
         return {
             "success": False,
-            "error": "Relayer TX not implemented",
+            "error": "Relayer TX not implemented — awaiting LIVE_SETTLEMENT_ENABLED",
         }
-
-    async def check_redeemable(self, condition_id: str) -> bool:
-        """Event resolved ve redeemable mi kontrol et.
-
-        event_end_ts gecmis olmasi YETMEZ.
-        Oracle sonucu bildirilmis ve on-chain resolved olmali.
-
-        TODO: gercek resolved kontrol — su an placeholder.
-        """
-        # Placeholder: event_end_ts + 60s gecmisse resolved varsay (paper mode icin)
-        # Gercek implementasyonda:
-        # - CLOB API'den market resolved status kontrol
-        # - veya CTF contract'tan condition resolved kontrol
-        return True  # paper mode placeholder

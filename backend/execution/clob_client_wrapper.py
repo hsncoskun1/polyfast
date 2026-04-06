@@ -4,6 +4,7 @@ SDK sorumlulukları:
 - Auth (private key + API creds)
 - Balance okuma (get_balance_allowance)
 - Fee rate okuma (neg_risk endpoint)
+- Market resolution okuma (getMarket) — v0.6.8
 - Order gönderme (create_and_post_order) — v0.5.3'te KAPALI
 
 Fee rate authoritative path (öncelik sırası):
@@ -18,11 +19,35 @@ Bu surumde order gonderme TEKNIK GUARD ile KAPALI:
 """
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("execution.clob_wrapper")
+
+
+@dataclass
+class MarketResolution:
+    """Market resolution durumu — wrapper seviyesinde uretilir.
+
+    Settlement katmani ham API cevabina bagli kalmaz,
+    bu model uzerinden calisir.
+
+    Kavram ayrimi:
+    - closed: market kapandi, islem yapilamaz
+    - resolved: closed + kazanan taraf belli (winner bilgisi mevcut)
+    - winning_side: "UP" veya "DOWN" (resolved=True ise dolu)
+
+    Not: "redeemable" bu modelde YOK.
+    Redeemable = resolved + shares > 0, bu bot tarafli uygulama karari,
+    Polymarket'ten gelen kesin alan degil.
+    """
+    condition_id: str
+    closed: bool = False
+    resolved: bool = False       # closed + winner bilgisi mevcut
+    winning_side: str = ""       # "UP" veya "DOWN", resolved=True ise dolu
+    raw_response: dict | None = None  # debug/log icin ham API cevabi
 
 # TEKNIK GUARD — bu False oldukca gercek order CIKMAZ
 LIVE_ORDER_ENABLED = False
@@ -178,6 +203,71 @@ class ClobClientWrapper:
                 entity_id="fee_rate_error",
             )
         return None
+
+    # ─── Market Resolution ───
+
+    async def get_market_resolution(self, condition_id: str) -> MarketResolution:
+        """Market resolution durumunu sorgula.
+
+        CLOB API getMarket(condition_id) ile:
+        - Market closed mi
+        - Winner belli mi (tokens[].winner)
+        - Kazanan taraf (UP/DOWN)
+
+        SDK yoksa veya API erisimsiz ise bos MarketResolution doner.
+        """
+        result = MarketResolution(condition_id=condition_id)
+
+        if not self._initialized or self._client is None:
+            return result
+
+        try:
+            # SDK call: get_market(condition_id)
+            market = self._client.get_market(condition_id)
+            if market is None:
+                return result
+
+            result.raw_response = market if isinstance(market, dict) else None
+            market_data = market if isinstance(market, dict) else {}
+
+            # closed kontrolu
+            result.closed = bool(market_data.get("closed", False))
+
+            if result.closed:
+                # Winner kontrolu — tokens listesinde winner=True olan
+                tokens = market_data.get("tokens", [])
+                for token in tokens:
+                    if token.get("winner", False):
+                        outcome = token.get("outcome", "").upper()
+                        if outcome in ("UP", "DOWN"):
+                            result.resolved = True
+                            result.winning_side = outcome
+                        break
+
+            if result.resolved:
+                log_event(
+                    logger, logging.INFO,
+                    f"Market resolved: {condition_id} -> {result.winning_side} wins",
+                    entity_type="resolution",
+                    entity_id=condition_id,
+                )
+            elif result.closed:
+                log_event(
+                    logger, logging.WARNING,
+                    f"Market closed but winner not found: {condition_id}",
+                    entity_type="resolution",
+                    entity_id=condition_id,
+                )
+
+        except Exception as e:
+            log_event(
+                logger, logging.WARNING,
+                f"Market resolution check failed: {condition_id} — {e}",
+                entity_type="resolution",
+                entity_id=condition_id,
+            )
+
+        return result
 
     # ─── Order (TEKNIK GUARD ILE KAPALI) ───
 

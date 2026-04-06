@@ -100,6 +100,7 @@ class SettlementOrchestrator:
         claim_manager: ClaimManager,
         relayer: RelayerClientWrapper,
         paper_mode: bool = True,
+        clob_client=None,
         ptb_fetcher=None,
         coin_price_client=None,
     ):
@@ -107,11 +108,13 @@ class SettlementOrchestrator:
         self._claims = claim_manager
         self._relayer = relayer
         self._paper_mode = paper_mode
-        self._ptb_fetcher = ptb_fetcher          # PTBFetcher — event PTB bilgisi
-        self._coin_price = coin_price_client      # CoinPriceClient — coin USD fiyati
+        self._clob = clob_client                  # ClobClientWrapper — getMarket() icin
+        self._ptb_fetcher = ptb_fetcher           # PTBFetcher — paper heuristic icin
+        self._coin_price = coin_price_client      # CoinPriceClient — paper heuristic icin
         self._settlement_count: int = 0
         self._retry_states: dict[str, SettlementRetryState] = {}  # position_id -> state
-        self._last_resolution_method: str = ""  # "resolution" veya "pnl_fallback"
+        self._winner_cache: dict[str, str] = {}   # condition_id -> winning_side
+        self._last_resolution_method: str = ""    # "api", "paper_heuristic", "pnl_fallback"
 
     async def process_settlements(self) -> int:
         """Tum closed pozisyonlari tara, resolved olanlari settle et.
@@ -266,7 +269,7 @@ class SettlementOrchestrator:
     async def _execute_redeem_for_claim(self, pos, claim) -> bool:
         """Settlement redeem execution — paper veya live. Retry'da da kullanilir."""
         if self._paper_mode:
-            won = self._resolve_paper_outcome(pos)
+            won = self._determine_winner(pos)
             payout = pos.net_position_shares * 1.0 if won else 0.0
 
             success = await self._claims.execute_redeem(
@@ -304,31 +307,82 @@ class SettlementOrchestrator:
             claim.last_error = result.get("error", "unknown")
             return False
 
-    def _resolve_paper_outcome(self, pos) -> bool:
-        """Paper mode: event resolution mantigiyla kazanan tarafi TAHMIN ET.
-
-        ONEMLI: Bu heuristic AUTHORITATIVE DEGILDIR.
-        Sadece paper mode test/gelistirme icin kullanilir.
-        Live mode'da Polymarket redeem payout sonucu authoritative kaynaktir.
+    async def _check_resolved(self, condition_id: str) -> bool:
+        """Event resolved mi? Winner belli mi?
 
         Oncelik sirasi:
-        1. PTB + coin USD mevcut -> coin_usd vs ptb karsilastirmasi
-           coin_usd > ptb -> UP kazanir, aksi halde DOWN
-           pos.side == kazanan taraf -> WON
-        2. PTB veya coin USD eksik -> PnL fallback (net_realized_pnl > 0)
-           Bu fallback sadece veri eksikligi durumunda kullanilir
+        1. CLOB API getMarket() — closed + tokens[].winner (birincil)
+        2. Paper fallback — API erisimsiz ortam icin
+
+        Resolved = closed + winner bilgisi mevcut.
+        event_end_ts gecmis olmasi YETMEZ.
         """
-        # 1. Resolution-based: PTB + coin USD
+        # 1. BIRINCIL: CLOB API getMarket()
+        if self._clob is not None:
+            resolution = await self._clob.get_market_resolution(condition_id)
+            if resolution.resolved:
+                self._winner_cache[condition_id] = resolution.winning_side
+                return True
+            if resolution.closed:
+                # Closed ama winner yok — henuz resolved degil
+                log_event(
+                    logger, logging.INFO,
+                    f"Market closed but not resolved: {condition_id}",
+                    entity_type="settlement",
+                    entity_id=condition_id,
+                )
+                return False
+            # closed=False — henuz kapanmamis
+            return False
+
+        # 2. Paper fallback — API erisimsiz ortam
+        if self._paper_mode:
+            log_event(
+                logger, logging.WARNING,
+                f"Resolution check: paper fallback (no CLOB client): {condition_id}",
+                entity_type="settlement",
+                entity_id=condition_id,
+            )
+            return True
+
+        return False
+
+    def _determine_winner(self, pos) -> bool:
+        """Pozisyon kazandi mi?
+
+        Oncelik sirasi:
+        1. API winner cache — getMarket()'tan gelen kesin bilgi (birincil)
+        2. Paper heuristic — coin_usd vs ptb (offline test/dev icin)
+        3. PnL fallback — hicbir veri yoksa (WARNING)
+
+        Returns:
+            True = pozisyon kazandi (WON), False = kaybetti (LOST)
+        """
+        # 1. API winner cache (birincil)
+        cached_winner = self._winner_cache.get(pos.condition_id)
+        if cached_winner:
+            won = pos.side == cached_winner
+            self._last_resolution_method = "api"
+            log_event(
+                logger, logging.INFO,
+                f"Resolution (API): {pos.asset} winner={cached_winner}, "
+                f"pos_side={pos.side} -> {'WON' if won else 'LOST'}",
+                entity_type="settlement",
+                entity_id=pos.position_id,
+            )
+            return won
+
+        # 2. Paper heuristic — coin_usd vs ptb
         ptb_value = self._get_ptb_value(pos.condition_id)
         coin_usd = self._get_coin_usd(pos.asset)
 
         if ptb_value is not None and ptb_value > 0 and coin_usd > 0:
             winning_side = "UP" if coin_usd > ptb_value else "DOWN"
             won = pos.side == winning_side
-            self._last_resolution_method = "resolution"
+            self._last_resolution_method = "paper_heuristic"
             log_event(
-                logger, logging.INFO,
-                f"Resolution: {pos.asset} ptb=${ptb_value:.2f} "
+                logger, logging.WARNING,
+                f"Resolution (paper heuristic): {pos.asset} ptb=${ptb_value:.2f} "
                 f"coin_usd=${coin_usd:.2f} -> {winning_side} wins, "
                 f"pos_side={pos.side} -> {'WON' if won else 'LOST'}",
                 entity_type="settlement",
@@ -336,11 +390,11 @@ class SettlementOrchestrator:
             )
             return won
 
-        # 2. PnL fallback — veri eksik
+        # 3. PnL fallback — hicbir veri yok
         self._last_resolution_method = "pnl_fallback"
         log_event(
             logger, logging.WARNING,
-            f"Resolution fallback (PnL): {pos.asset} "
+            f"Resolution (PnL fallback): {pos.asset} "
             f"ptb={'missing' if ptb_value is None else ptb_value} "
             f"coin_usd={coin_usd} -> using net_realized_pnl={pos.net_realized_pnl:.4f}",
             entity_type="settlement",
@@ -349,7 +403,6 @@ class SettlementOrchestrator:
         return pos.net_realized_pnl > 0
 
     def _get_ptb_value(self, condition_id: str) -> float | None:
-        """PTB degerini al. Fetcher yoksa None."""
         if self._ptb_fetcher is None:
             return None
         record = self._ptb_fetcher.get_record(condition_id)
@@ -358,21 +411,9 @@ class SettlementOrchestrator:
         return record.ptb_value
 
     def _get_coin_usd(self, asset: str) -> float:
-        """Coin USD fiyatini al. Client yoksa 0.0."""
         if self._coin_price is None:
             return 0.0
         return self._coin_price.get_usd_price(asset)
-
-    async def _check_resolved(self, condition_id: str) -> bool:
-        """Event resolved ve redeemable mi?
-
-        event_end_ts gecmis olmasi YETMEZ.
-        Relayer wrapper ile resolved kontrol yapilir.
-        """
-        if self._paper_mode:
-            return True  # paper placeholder
-
-        return await self._relayer.check_redeemable(condition_id)
 
     def _is_settled(self, position_id: str) -> bool:
         """Pozisyon basarili settle edilmis mi?"""
