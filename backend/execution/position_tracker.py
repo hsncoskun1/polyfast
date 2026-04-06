@@ -14,6 +14,7 @@ Sayac kurallari:
 ARTIRMAYAN olaylar: FOK rejected, satis fill, claim, dolmayan order
 """
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -29,15 +30,60 @@ logger = get_logger("execution.tracker")
 
 
 class PositionTracker:
-    """Pozisyon lifecycle yoneticisi + authoritative sayaclar."""
+    """Pozisyon lifecycle yoneticisi + authoritative sayaclar.
 
-    def __init__(self, fee_calculator: FeeCalculator | None = None):
-        self._positions: dict[str, PositionRecord] = {}  # position_id → record
+    Persist hook: position_store set edilmisse state transition'da otomatik save.
+    Write failure authority'yi kaydirmaz — health/log uretir, memory authoritative kalir.
+    """
+
+    def __init__(self, fee_calculator: FeeCalculator | None = None, position_store=None):
+        self._positions: dict[str, PositionRecord] = {}  # position_id -> record
         self._fee_calc = fee_calculator or FeeCalculator()
+        self._store = position_store  # PositionStore (optional)
 
         # Authoritative sayaclar
-        self._event_fills: dict[str, int] = {}  # condition_id → fill count
+        self._event_fills: dict[str, int] = {}  # condition_id -> fill count
         self._session_trade_count: int = 0
+
+    def _persist(self, record: PositionRecord) -> None:
+        """State degisiminde SQLite'a kaydet. Fire-and-forget.
+
+        Write failure authority'yi kaydirmaz — memory authoritative kalir.
+        """
+        if self._store is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._store.save(record))
+        except RuntimeError:
+            pass  # event loop yoksa (test/sync context) sessizce gec
+
+    def restore_position(self, record: PositionRecord) -> None:
+        """Startup restore: SQLite'tan okunan pozisyonu memory'ye yukle.
+
+        Sayaclari da gunceller:
+        - Acik pozisyon sayaci
+        - Event fill sayaci (OPEN/CLOSING durumundakiler icin)
+        - Session trade count (tum fill'ler icin)
+        """
+        self._positions[record.position_id] = record
+
+        # Sayaclari restore et
+        if record.state in (
+            PositionState.OPEN_CONFIRMED,
+            PositionState.CLOSING_REQUESTED,
+            PositionState.CLOSE_PENDING,
+            PositionState.CLOSE_FAILED,
+        ):
+            # Acik pozisyon — fill sayaci var demek
+            cid = record.condition_id
+            self._event_fills[cid] = self._event_fills.get(cid, 0) + 1
+            self._session_trade_count += 1
+        elif record.state == PositionState.CLOSED:
+            # Kapanmis — fill sayacina dahil ama acik degil
+            cid = record.condition_id
+            self._event_fills[cid] = self._event_fills.get(cid, 0) + 1
+            self._session_trade_count += 1
 
     # ─── Fill (Entry) ───
 
@@ -70,6 +116,7 @@ class PositionTracker:
             entity_type="position",
             entity_id=position_id,
         )
+        self._persist(record)
 
         return record
 
@@ -118,6 +165,7 @@ class PositionTracker:
             entity_type="position",
             entity_id=position_id,
         )
+        self._persist(record)
 
         return record
 
@@ -163,6 +211,7 @@ class PositionTracker:
             entity_type="position",
             entity_id=position_id,
         )
+        self._persist(record)
 
         return record
 
@@ -208,6 +257,7 @@ class PositionTracker:
             entity_type="position",
             entity_id=position_id,
         )
+        self._persist(record)
 
         return record
 
