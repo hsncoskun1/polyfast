@@ -25,10 +25,10 @@ async def db():
     """In-memory SQLite for tests."""
     conn = await init_db(":memory:")
     # Run migration 005
-    migration = Path(__file__).resolve().parent.parent.parent / \
-        "backend" / "persistence" / "migrations" / "005_positions_claims.sql"
-    sql = migration.read_text(encoding="utf-8")
-    await conn.executescript(sql)
+    mig_dir = Path(__file__).resolve().parent.parent.parent / "backend" / "persistence" / "migrations"
+    for mig_file in sorted(mig_dir.glob("*.sql")):
+        sql = mig_file.read_text(encoding="utf-8")
+        await conn.executescript(sql)
     await conn.commit()
     yield conn
     await close_db()
@@ -273,6 +273,100 @@ class TestSessionContinuity:
 # BOUNDARY
 # ═══════════════════════════════════════════════════
 
+class TestSettingsRestore:
+
+    @pytest.mark.asyncio
+    async def test_save_and_load_settings(self, db):
+        from backend.persistence.settings_store_db import SettingsStoreDB
+        from backend.settings.coin_settings import CoinSettings, SideMode
+
+        store = SettingsStoreDB()
+        settings = CoinSettings(
+            coin="BTC", coin_enabled=True, side_mode=SideMode.DOMINANT_ONLY,
+            delta_threshold=50.0, price_min=55, price_max=80,
+            order_amount=10.0,
+        )
+        ok = await store.save(settings)
+        assert ok is True
+
+        loaded = await store.load_all()
+        assert len(loaded) == 1
+        assert loaded[0].coin == "BTC"
+        assert loaded[0].coin_enabled is True
+        assert loaded[0].order_amount == 10.0
+
+
+class TestRegistryRestore:
+
+    @pytest.mark.asyncio
+    async def test_save_and_load_registry(self, db):
+        from backend.persistence.registry_store import RegistryStore
+        from backend.registry.models import RegistryRecord, EventStatus
+
+        store = RegistryStore()
+        rec = RegistryRecord(
+            event_id="ev1", condition_id="0x1", asset="BTC",
+            question="BTC up?", slug="btc-5m", status=EventStatus.ACTIVE,
+            first_seen_at=datetime.now(timezone.utc),
+            last_seen_at=datetime.now(timezone.utc),
+            status_changed_at=datetime.now(timezone.utc),
+            end_date=datetime.now(timezone.utc),
+        )
+        ok = await store.save(rec)
+        assert ok is True
+
+        loaded = await store.load_active()
+        assert len(loaded) == 1
+        assert loaded[0].condition_id == "0x1"
+        assert loaded[0].status == EventStatus.ACTIVE
+
+
+class TestPTBRestore:
+
+    @pytest.mark.asyncio
+    async def test_save_and_load_ptb(self, db):
+        from backend.persistence.ptb_store import PTBStore
+        from backend.ptb.models import PTBRecord
+
+        store = PTBStore()
+        rec = PTBRecord(condition_id="0x1", asset="BTC")
+        rec.lock(67000.12, "ssr_open_price")
+
+        ok = await store.save(rec)
+        assert ok is True
+
+        loaded = await store.load_locked()
+        assert len(loaded) == 1
+        assert loaded[0].ptb_value == 67000.12
+        assert loaded[0].is_locked is True
+
+    @pytest.mark.asyncio
+    async def test_clear_event_ptb(self, db):
+        from backend.persistence.ptb_store import PTBStore
+        from backend.ptb.models import PTBRecord
+
+        store = PTBStore()
+        rec = PTBRecord(condition_id="0x1", asset="BTC")
+        rec.lock(67000.0, "test")
+        await store.save(rec)
+
+        ok = await store.clear_event("0x1")
+        assert ok is True
+
+        loaded = await store.load_locked()
+        assert len(loaded) == 0
+
+
+class TestDegradedMode:
+
+    def test_trading_enabled_default(self):
+        """Default: trading_enabled = True."""
+        from backend.config_loader.schema import AppConfig
+        from backend.orchestrator.wiring import Orchestrator
+        orch = Orchestrator(config=AppConfig())
+        assert orch.trading_enabled is True
+
+
 class TestPersistenceBoundaries:
 
     def test_store_write_failure_no_crash(self):
@@ -280,5 +374,4 @@ class TestPersistenceBoundaries:
         tracker = PositionTracker()  # store=None
         pos = tracker.create_pending("BTC", "UP", "0x1", "tok1", 5.0)
         tracker.confirm_fill(pos.position_id, fill_price=0.85)
-        # Hata yok — store olmadan da calisiyor
         assert pos.is_open

@@ -1,27 +1,27 @@
-"""In-memory coin settings store.
+"""In-memory coin settings store with optional SQLite persistence.
 
 CRUD: get/set/delete per coin.
-Persistence (SQLite) sonraki fazda eklenecek.
-Coin ayarı kalıcı — coin listeden çıksa bile ayar saklanır.
-Coin geri geldiğinde reactivate_on_return=True ise otomatik devam eder.
+Memory authoritative — SQLite durable backup.
+Persist hook: set() cagirildiginda otomatik save.
 """
 
+import asyncio
 from backend.settings.coin_settings import CoinSettings
 
 
 class SettingsStore:
     """In-memory coin settings store."""
 
-    def __init__(self):
+    def __init__(self, db_store=None):
         self._settings: dict[str, CoinSettings] = {}
+        self._db_store = db_store  # SettingsStoreDB (optional)
 
     def get(self, coin: str) -> CoinSettings | None:
-        """Coin ayarını getir. Yoksa None."""
         return self._settings.get(coin.upper())
 
     def set(self, settings: CoinSettings) -> None:
-        """Coin ayarını kaydet/güncelle."""
         self._settings[settings.coin.upper()] = settings
+        self._persist(settings)
 
     def delete(self, coin: str) -> None:
         """Coin ayarını sil."""
@@ -50,3 +50,12 @@ class SettingsStore:
     @property
     def eligible_count(self) -> int:
         return len(self.get_eligible_coins())
+
+    def _persist(self, settings: CoinSettings) -> None:
+        if self._db_store is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._db_store.save(settings))
+        except RuntimeError:
+            pass

@@ -34,6 +34,9 @@ from backend.execution.relayer_client_wrapper import RelayerClientWrapper
 from backend.execution.order_validator import OrderValidator
 from backend.persistence.position_store import PositionStore
 from backend.persistence.claim_store import ClaimStore
+from backend.persistence.settings_store_db import SettingsStoreDB
+from backend.persistence.registry_store import RegistryStore
+from backend.persistence.ptb_store import PTBStore
 from backend.orchestrator.discovery_loop import DiscoveryLoop
 from backend.orchestrator.eligibility_gate import EligibilityGate
 from backend.orchestrator.subscription_manager import SubscriptionManager
@@ -125,6 +128,12 @@ class Orchestrator:
         # ── Persistence stores ──
         self.position_store = PositionStore()
         self.claim_store = ClaimStore()
+        self.settings_store_db = SettingsStoreDB()
+        self.registry_store = RegistryStore()
+        self.ptb_store = PTBStore()
+
+        # ── Trading mode ──
+        self.trading_enabled: bool = True  # False = degraded mode
 
         # ── Execution layer ──
         self.position_tracker = PositionTracker(position_store=self.position_store)
@@ -278,39 +287,118 @@ class Orchestrator:
     async def restore_state(self) -> dict:
         """Startup state restore — SQLite'tan memory'ye yukle.
 
-        Acik pozisyonlar + pending claim'ler restore edilir.
-        Session devam eder — yeni session acilmaz.
+        7/24: restart sonrasi ayni session devam eder. Kullanici mudahale ETMEZ.
 
         Returns:
-            {"positions_restored": int, "claims_restored": int, "stale_detected": int}
+            Restore sonuc raporu.
         """
-        result = {"positions_restored": 0, "claims_restored": 0, "stale_detected": 0}
+        result = {
+            "positions_restored": 0,
+            "claims_restored": 0,
+            "settings_restored": 0,
+            "registry_restored": 0,
+            "ptb_restored": 0,
+            "open_positions": 0,
+            "pending_claims": 0,
+            "trading_mode": "NORMAL",
+            "balance_source": "none",
+        }
 
-        # 1. Pozisyonlari restore et
+        # 1. Settings restore
+        settings_list = await self.settings_store_db.load_all()
+        for s in settings_list:
+            self.settings_store.set(s)
+            result["settings_restored"] += 1
+
+        # 2. Registry restore
+        registry_records = await self.registry_store.load_active()
+        for rec in registry_records:
+            self.registry._records[rec.condition_id] = rec
+            result["registry_restored"] += 1
+
+        # 3. PTB cache restore (sadece locked)
+        ptb_records = await self.ptb_store.load_locked()
+        for rec in ptb_records:
+            self.ptb_fetcher._records[rec.condition_id] = rec
+            result["ptb_restored"] += 1
+
+        # 4. Pozisyonlari restore
         positions = await self.position_store.load_all()
         for pos in positions:
             self.position_tracker.restore_position(pos)
             result["positions_restored"] += 1
 
-        # 2. Claim'leri restore et
+        # 5. Claim'leri restore
         claims = await self.claim_store.load_all()
         for claim in claims:
             self.claim_manager.restore_claim(claim)
             result["claims_restored"] += 1
 
-        open_count = self.position_tracker.open_position_count
-        pending_claims = self.claim_manager.pending_count
+        result["open_positions"] = self.position_tracker.open_position_count
+        result["pending_claims"] = self.claim_manager.pending_count
 
-        log_event(
-            logger, logging.INFO,
-            f"State restored: {result['positions_restored']} positions "
-            f"({open_count} open), {result['claims_restored']} claims "
-            f"({pending_claims} pending)",
-            entity_type="orchestrator",
-            entity_id="restore",
-        )
+        # 6. Balance verify
+        balance_ok = await self._verify_balance()
+        if balance_ok:
+            self.trading_enabled = True
+            result["trading_mode"] = "NORMAL"
+            result["balance_source"] = "verified"
+        else:
+            self.trading_enabled = False
+            result["trading_mode"] = "DEGRADED"
+            result["balance_source"] = "snapshot_only"
+
+        # 7. Self-check raporu
+        self._log_self_check(result)
 
         return result
+
+    async def _verify_balance(self) -> bool:
+        """Balance API ile dogrula. Basarisiz ise degraded mode.
+
+        Degraded mode:
+        - trading_enabled = False → yeni trade/order YOK
+        - exit cycle DEVAM EDER (acik pozisyon yonetimi)
+        - claim/redeem retry DEVAM EDER
+        """
+        try:
+            balance_data = await self.clob_client.get_balance()
+            if balance_data:
+                self.balance_manager.update(
+                    available=balance_data["available"],
+                    total=balance_data.get("total", balance_data["available"]),
+                )
+                log_event(
+                    logger, logging.INFO,
+                    f"Balance verified: ${balance_data['available']:.2f}",
+                    entity_type="orchestrator",
+                    entity_id="balance_verify",
+                )
+                return True
+        except Exception as e:
+            log_event(
+                logger, logging.WARNING,
+                f"Balance verify failed: {e}",
+                entity_type="orchestrator",
+                entity_id="balance_verify_fail",
+            )
+        return False
+
+    def _log_self_check(self, result: dict) -> None:
+        """Startup self-check raporu."""
+        log_event(
+            logger, logging.INFO,
+            f"=== STARTUP SELF-CHECK === "
+            f"Positions: {result['positions_restored']} ({result['open_positions']} open) | "
+            f"Claims: {result['claims_restored']} ({result['pending_claims']} pending) | "
+            f"Settings: {result['settings_restored']} coins | "
+            f"Registry: {result['registry_restored']} events | "
+            f"PTB: {result['ptb_restored']} locked | "
+            f"Trading: {result['trading_mode']} | "
+            f"Balance: {result['balance_source']}",
+            entity_type="orchestrator",
+            entity_id="self_check",
+        )
 
     async def start(self) -> None:
         """Tum loop'lari baslat."""
@@ -384,21 +472,28 @@ class Orchestrator:
         )
 
     async def _flush_state(self) -> None:
-        """Final state flush — tum memory state'i SQLite'a yaz."""
-        flushed_pos = 0
-        flushed_claims = 0
+        """Final state flush — tum memory state'i SQLite'a yaz.
+
+        Shutdown sirasinda yeni state URETILMEZ — sadece mevcut state yazilir.
+        """
+        flushed = {"positions": 0, "claims": 0, "settings": 0}
 
         for pos in self.position_tracker.get_all_positions():
             if await self.position_store.save(pos):
-                flushed_pos += 1
+                flushed["positions"] += 1
 
         for claim in self.claim_manager.get_pending_claims():
             if await self.claim_store.save(claim):
-                flushed_claims += 1
+                flushed["claims"] += 1
+
+        for settings in self.settings_store.get_all():
+            if await self.settings_store_db.save(settings):
+                flushed["settings"] += 1
 
         log_event(
             logger, logging.INFO,
-            f"State flushed: {flushed_pos} positions, {flushed_claims} pending claims",
+            f"State flushed: {flushed['positions']} positions, "
+            f"{flushed['claims']} claims, {flushed['settings']} settings",
             entity_type="orchestrator",
             entity_id="flush",
         )
