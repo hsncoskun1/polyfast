@@ -1,4 +1,4 @@
-"""Settlement + RelayerWrapper tests -- v0.6.5 + v0.6.6 retry lifecycle."""
+"""Settlement + RelayerWrapper tests -- v0.6.5 + v0.6.6 retry + v0.6.7 resolution + v0.6.8 getMarket."""
 
 import time
 import pytest
@@ -14,9 +14,25 @@ from backend.execution.claim_manager import (
 )
 from backend.execution.balance_manager import BalanceManager
 from backend.execution.close_reason import CloseReason
+from backend.execution.clob_client_wrapper import MarketResolution
 from backend.execution.relayer_client_wrapper import (
     RelayerClientWrapper, LIVE_SETTLEMENT_ENABLED,
 )
+
+
+class MockClobClient:
+    """Mock CLOB client — get_market_resolution() icin."""
+    def __init__(self, resolved=True, winning_side="UP"):
+        self._resolved = resolved
+        self._winning_side = winning_side
+
+    async def get_market_resolution(self, condition_id):
+        return MarketResolution(
+            condition_id=condition_id,
+            closed=self._resolved,
+            resolved=self._resolved,
+            winning_side=self._winning_side if self._resolved else "",
+        )
 
 
 def _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92,
@@ -28,13 +44,13 @@ def _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92,
     return pos
 
 
-def _setup(paper=True):
+def _setup(paper=True, clob=None):
     tracker = PositionTracker()
     balance = BalanceManager()
     balance.update(available=50.0)
     claim_mgr = ClaimManager(balance, paper_mode=paper)
     relayer = RelayerClientWrapper()
-    orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=paper)
+    orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=paper, clob_client=clob)
     return tracker, balance, claim_mgr, relayer, orch
 
 
@@ -55,11 +71,10 @@ class TestRelayerWrapper:
         assert result["success"] is False
         assert result["guard"] is True
 
-    @pytest.mark.asyncio
-    async def test_check_redeemable_placeholder(self):
+    def test_relayer_no_check_redeemable(self):
+        """check_redeemable kaldirildi — resolution kontrolu CLOB API'de (v0.6.8)."""
         relayer = RelayerClientWrapper()
-        result = await relayer.check_redeemable("0x1")
-        assert result is True
+        assert not hasattr(relayer, "check_redeemable")
 
     def test_not_initialized_without_creds(self):
         relayer = RelayerClientWrapper()
@@ -219,7 +234,8 @@ class TestSettlementRetryLifecycle:
     @pytest.mark.asyncio
     async def test_failed_settlement_enters_retry(self):
         """Basarisiz settlement retry state olusturur."""
-        tracker, balance, claim_mgr, _, orch = _setup(paper=False)
+        clob = MockClobClient(resolved=True, winning_side="UP")
+        tracker, balance, claim_mgr, _, orch = _setup(paper=False, clob=clob)
         _make_closed_position(tracker, balance)
 
         # Live mode + guard = settlement basarisiz
@@ -231,8 +247,9 @@ class TestSettlementRetryLifecycle:
     @pytest.mark.asyncio
     async def test_retry_succeeds_after_mode_switch(self):
         """Retry basarili olunca retry state temizlenir."""
-        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False)
-        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False)
+        clob = MockClobClient(resolved=True, winning_side="UP")
+        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False, clob=clob)
+        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False, clob_client=clob)
         pos = _make_closed_position(tracker, balance)
 
         # Ilk deneme basarisiz (live guard)
@@ -252,8 +269,9 @@ class TestSettlementRetryLifecycle:
     @pytest.mark.asyncio
     async def test_retry_not_ready_skipped(self):
         """Retry zamani gelmemis pozisyon atlanir."""
-        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False)
-        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False)
+        clob = MockClobClient(resolved=True, winning_side="UP")
+        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False, clob=clob)
+        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False, clob_client=clob)
         _make_closed_position(tracker, balance)
 
         await orch.process_settlements()
@@ -267,8 +285,9 @@ class TestSettlementRetryLifecycle:
     @pytest.mark.asyncio
     async def test_retry_exhausted_marked_failed(self):
         """Max retry asilinca exhausted=True ve retry state temizlenir."""
-        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False)
-        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False)
+        clob = MockClobClient(resolved=True, winning_side="UP")
+        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False, clob=clob)
+        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False, clob_client=clob)
         _make_closed_position(tracker, balance)
 
         # Ilk deneme
@@ -289,8 +308,9 @@ class TestSettlementRetryLifecycle:
     @pytest.mark.asyncio
     async def test_multiple_positions_independent_retry(self):
         """Birden fazla pozisyon bagimsiz retry."""
-        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False)
-        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False)
+        clob = MockClobClient(resolved=True, winning_side="UP")
+        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False, clob=clob)
+        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False, clob_client=clob)
         pos1 = _make_closed_position(tracker, balance, asset="BTC")
         pos2 = _make_closed_position(tracker, balance, asset="ETH")
 
@@ -303,8 +323,9 @@ class TestPendingSettlementTradeBlock:
     @pytest.mark.asyncio
     async def test_has_pending_settlements_during_retry(self):
         """Retry surecinde has_pending_settlements=True."""
-        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False)
-        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False)
+        clob = MockClobClient(resolved=True, winning_side="UP")
+        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False, clob=clob)
+        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False, clob_client=clob)
         _make_closed_position(tracker, balance)
 
         assert orch.has_pending_settlements() is False  # basta yok
@@ -366,8 +387,9 @@ class TestPendingSettlementTradeBlock:
     @pytest.mark.asyncio
     async def test_settlement_retry_keeps_trade_blocked(self):
         """Settlement retry surecinde claim PENDING -> trade blocked."""
-        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False)
-        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False)
+        clob = MockClobClient(resolved=True, winning_side="UP")
+        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False, clob=clob)
+        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False, clob_client=clob)
         _make_closed_position(tracker, balance)
 
         # Settlement basarisiz -> retry -> claim PENDING
@@ -381,8 +403,9 @@ class TestPendingSettlementTradeBlock:
     @pytest.mark.asyncio
     async def test_full_cycle_block_then_unblock(self):
         """Tam dongu: close -> settlement fail -> retry -> success -> trade unblock."""
-        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False)
-        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False)
+        clob = MockClobClient(resolved=True, winning_side="UP")
+        tracker, balance, claim_mgr, relayer, _ = _setup(paper=False, clob=clob)
+        orch = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=False, clob_client=clob)
         pos = _make_closed_position(tracker, balance)
 
         # 1. Settlement basarisiz -> trade blocked
@@ -439,8 +462,13 @@ class MockCoinPriceClient:
 
 
 def _setup_with_resolution(ptb_value=67000.0, coin_usd=67500.0,
-                            asset="BTC", condition_id="0x1"):
-    """Resolution model testleri icin setup."""
+                            asset="BTC", condition_id="0x1",
+                            winning_side=None):
+    """Resolution model testleri icin setup.
+
+    winning_side verilirse MockClobClient ile API resolution kullanilir.
+    Verilmezse paper heuristic (ptb+coin_usd) kullanilir.
+    """
     tracker = PositionTracker()
     balance = BalanceManager()
     balance.update(available=50.0)
@@ -453,9 +481,13 @@ def _setup_with_resolution(ptb_value=67000.0, coin_usd=67500.0,
     coin = MockCoinPriceClient()
     coin.set_price(asset, coin_usd)
 
+    clob = None
+    if winning_side is not None:
+        clob = MockClobClient(resolved=True, winning_side=winning_side)
+
     orch = SettlementOrchestrator(
         tracker, claim_mgr, relayer, paper_mode=True,
-        ptb_fetcher=ptb, coin_price_client=coin,
+        clob_client=clob, ptb_fetcher=ptb, coin_price_client=coin,
     )
     return tracker, balance, claim_mgr, orch, ptb, coin
 
@@ -463,12 +495,11 @@ def _setup_with_resolution(ptb_value=67000.0, coin_usd=67500.0,
 class TestResolutionModel:
 
     @pytest.mark.asyncio
-    async def test_up_wins_when_coin_above_ptb(self):
-        """coin_usd > ptb -> UP kazanir, UP pozisyon WON."""
+    async def test_api_resolution_up_wins(self):
+        """API resolution: UP kazanir, UP pozisyon WON."""
         tracker, balance, claim_mgr, orch, _, _ = _setup_with_resolution(
-            ptb_value=67000.0, coin_usd=67500.0,
+            winning_side="UP",
         )
-        # UP pozisyon ac ve kapat
         pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
         assert pos.side == "UP"
 
@@ -476,52 +507,49 @@ class TestResolutionModel:
         claims = claim_mgr.get_claims_by_position(pos.position_id)
         assert claims[0].outcome == ClaimOutcome.REDEEMED_WON
         assert claims[0].claimed_amount_usdc > 0
-        assert orch._last_resolution_method == "resolution"
+        assert orch._last_resolution_method == "api"
 
     @pytest.mark.asyncio
-    async def test_down_wins_when_coin_below_ptb(self):
-        """coin_usd < ptb -> DOWN kazanir, UP pozisyon LOST."""
+    async def test_api_resolution_down_wins(self):
+        """API resolution: DOWN kazanir, UP pozisyon LOST."""
         tracker, balance, claim_mgr, orch, _, _ = _setup_with_resolution(
-            ptb_value=67000.0, coin_usd=66500.0,
+            winning_side="DOWN",
         )
         pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
         assert pos.side == "UP"
 
         await orch.process_settlements()
         claims = claim_mgr.get_claims_by_position(pos.position_id)
-        # UP pozisyon ama DOWN kazandi -> LOST
         assert claims[0].outcome == ClaimOutcome.REDEEMED_LOST
         assert claims[0].claimed_amount_usdc == 0.0
-        assert orch._last_resolution_method == "resolution"
+        assert orch._last_resolution_method == "api"
 
     @pytest.mark.asyncio
-    async def test_down_wins_when_coin_equals_ptb(self):
-        """coin_usd == ptb -> DOWN kazanir (esitlikte DOWN)."""
+    async def test_paper_heuristic_up_wins(self):
+        """Paper heuristic (no API): coin_usd > ptb -> UP kazanir."""
         tracker, balance, claim_mgr, orch, _, _ = _setup_with_resolution(
-            ptb_value=67000.0, coin_usd=67000.0,
+            ptb_value=67000.0, coin_usd=67500.0,
         )
         pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
 
         await orch.process_settlements()
         claims = claim_mgr.get_claims_by_position(pos.position_id)
-        assert claims[0].outcome == ClaimOutcome.REDEEMED_LOST  # UP, ama DOWN kazandi
-        assert orch._last_resolution_method == "resolution"
+        assert claims[0].outcome == ClaimOutcome.REDEEMED_WON
+        assert orch._last_resolution_method == "paper_heuristic"
 
     @pytest.mark.asyncio
-    async def test_resolution_independent_of_pnl(self):
-        """Resolution PnL'den bagimsiz — pozisyon kar'da kapansa bile kazanan taraf belirleyici."""
+    async def test_api_resolution_independent_of_pnl(self):
+        """API resolution PnL'den bagimsiz — DOWN kazanirsa UP pozisyon kar'da bile LOST."""
         tracker, balance, claim_mgr, orch, _, _ = _setup_with_resolution(
-            ptb_value=67000.0, coin_usd=66500.0,  # DOWN kazanir
+            winning_side="DOWN",
         )
-        # UP pozisyon, kar'da kapanmis (fill=0.85, exit=0.92 -> PnL pozitif)
         pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92)
         assert pos.net_realized_pnl > 0  # PnL pozitif
 
         await orch.process_settlements()
         claims = claim_mgr.get_claims_by_position(pos.position_id)
-        # PnL pozitif olsa bile, DOWN kazandigi icin UP pozisyon LOST
         assert claims[0].outcome == ClaimOutcome.REDEEMED_LOST
-        assert orch._last_resolution_method == "resolution"
+        assert orch._last_resolution_method == "api"
 
     @pytest.mark.asyncio
     async def test_pnl_fallback_when_no_ptb(self):
