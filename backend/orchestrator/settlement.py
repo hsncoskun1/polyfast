@@ -8,19 +8,28 @@ Akis:
 5. Payout sonucu authoritative kayit: claimed_amount_usdc
 6. Post-redeem balance refresh
 
+Settlement modeli — IKI KATMAN:
+
+PAPER MODE (gecici heuristic, test/gelistirme icin):
+- coin_usd vs ptb karsilastirmasi ile kazanan taraf TAHMIN edilir
+- Bu tahmin yanlis olabilir (stale veri, gecikme, yanlis ptb)
+- Paper mode sonucu AUTHORITATIVE DEGILDIR
+- Fallback: PTB/coin_usd eksikse net_realized_pnl > 0 kullanilir
+
+LIVE MODE (authoritative, production):
+- Bot kazanan/kaybeden HESAPLAMAZ
+- Polymarket'e resolved/redeemable mi sorar
+- redeemPositions() cagirir
+- Payout sonucu ($USDC) AUTHORITATIVE kaynaktir
+- payout > 0 -> WON, payout == 0 -> LOST
+- Botun kendi hesabi overrule EDILEMEZ
+
 ONEMLI:
 - event_end_ts gecmis olmasi = resolved demek DEGIL
 - Settlement baslatmadan once resolved/redeemable durumu NET dogrulanir
 - LIVE_SETTLEMENT_ENABLED=False oldukca gercek TX cikmaz
 - Paper mode'da simulated redeem yapilir
 - process_settlements() periyodik cagrilir — retry state'i kontrol eder
-
-Retry Schedule:
-- 1. deneme: hemen
-- 2. deneme: 5s sonra
-- 3. deneme: 10s sonra
-- 4+: 20s arayla
-- Max 20 deneme sonra FAILED
 """
 
 import logging
@@ -91,13 +100,18 @@ class SettlementOrchestrator:
         claim_manager: ClaimManager,
         relayer: RelayerClientWrapper,
         paper_mode: bool = True,
+        ptb_fetcher=None,
+        coin_price_client=None,
     ):
         self._tracker = tracker
         self._claims = claim_manager
         self._relayer = relayer
         self._paper_mode = paper_mode
+        self._ptb_fetcher = ptb_fetcher          # PTBFetcher — event PTB bilgisi
+        self._coin_price = coin_price_client      # CoinPriceClient — coin USD fiyati
         self._settlement_count: int = 0
         self._retry_states: dict[str, SettlementRetryState] = {}  # position_id -> state
+        self._last_resolution_method: str = ""  # "resolution" veya "pnl_fallback"
 
     async def process_settlements(self) -> int:
         """Tum closed pozisyonlari tara, resolved olanlari settle et.
@@ -252,7 +266,7 @@ class SettlementOrchestrator:
     async def _execute_redeem_for_claim(self, pos, claim) -> bool:
         """Settlement redeem execution — paper veya live. Retry'da da kullanilir."""
         if self._paper_mode:
-            won = pos.net_realized_pnl > 0
+            won = self._resolve_paper_outcome(pos)
             payout = pos.net_position_shares * 1.0 if won else 0.0
 
             success = await self._claims.execute_redeem(
@@ -265,7 +279,8 @@ class SettlementOrchestrator:
                     logger, logging.INFO,
                     f"Settlement: {pos.asset} {pos.side} "
                     f"outcome={'WON' if won else 'LOST'} "
-                    f"payout=${payout:.4f}",
+                    f"payout=${payout:.4f} "
+                    f"resolution_method={self._last_resolution_method}",
                     entity_type="settlement",
                     entity_id=pos.position_id,
                 )
@@ -288,6 +303,65 @@ class SettlementOrchestrator:
             # FAILED sadece max retry asildiginda konur
             claim.last_error = result.get("error", "unknown")
             return False
+
+    def _resolve_paper_outcome(self, pos) -> bool:
+        """Paper mode: event resolution mantigiyla kazanan tarafi TAHMIN ET.
+
+        ONEMLI: Bu heuristic AUTHORITATIVE DEGILDIR.
+        Sadece paper mode test/gelistirme icin kullanilir.
+        Live mode'da Polymarket redeem payout sonucu authoritative kaynaktir.
+
+        Oncelik sirasi:
+        1. PTB + coin USD mevcut -> coin_usd vs ptb karsilastirmasi
+           coin_usd > ptb -> UP kazanir, aksi halde DOWN
+           pos.side == kazanan taraf -> WON
+        2. PTB veya coin USD eksik -> PnL fallback (net_realized_pnl > 0)
+           Bu fallback sadece veri eksikligi durumunda kullanilir
+        """
+        # 1. Resolution-based: PTB + coin USD
+        ptb_value = self._get_ptb_value(pos.condition_id)
+        coin_usd = self._get_coin_usd(pos.asset)
+
+        if ptb_value is not None and ptb_value > 0 and coin_usd > 0:
+            winning_side = "UP" if coin_usd > ptb_value else "DOWN"
+            won = pos.side == winning_side
+            self._last_resolution_method = "resolution"
+            log_event(
+                logger, logging.INFO,
+                f"Resolution: {pos.asset} ptb=${ptb_value:.2f} "
+                f"coin_usd=${coin_usd:.2f} -> {winning_side} wins, "
+                f"pos_side={pos.side} -> {'WON' if won else 'LOST'}",
+                entity_type="settlement",
+                entity_id=pos.position_id,
+            )
+            return won
+
+        # 2. PnL fallback — veri eksik
+        self._last_resolution_method = "pnl_fallback"
+        log_event(
+            logger, logging.WARNING,
+            f"Resolution fallback (PnL): {pos.asset} "
+            f"ptb={'missing' if ptb_value is None else ptb_value} "
+            f"coin_usd={coin_usd} -> using net_realized_pnl={pos.net_realized_pnl:.4f}",
+            entity_type="settlement",
+            entity_id=pos.position_id,
+        )
+        return pos.net_realized_pnl > 0
+
+    def _get_ptb_value(self, condition_id: str) -> float | None:
+        """PTB degerini al. Fetcher yoksa None."""
+        if self._ptb_fetcher is None:
+            return None
+        record = self._ptb_fetcher.get_record(condition_id)
+        if record is None:
+            return None
+        return record.ptb_value
+
+    def _get_coin_usd(self, asset: str) -> float:
+        """Coin USD fiyatini al. Client yoksa 0.0."""
+        if self._coin_price is None:
+            return 0.0
+        return self._coin_price.get_usd_price(asset)
 
     async def _check_resolved(self, condition_id: str) -> bool:
         """Event resolved ve redeemable mi?
