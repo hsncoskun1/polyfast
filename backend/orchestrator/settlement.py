@@ -133,13 +133,14 @@ class SettlementOrchestrator:
         # 1. Retry bekleyen pozisyonlar
         settled += await self._process_retries()
 
-        # 2. Yeni closed pozisyonlar (henuz settlement denenmemis)
-        closed_positions = [
+        # 2. Yeni closed pozisyonlar — sadece redeem gerektiren (token elde kalmis)
+        # Satis ile close olanlar (TP/SL/FS/manual) ATLANIR — token zaten satildi
+        redeemable_positions = [
             p for p in self._tracker.get_all_positions()
-            if p.is_closed and p.closed_at is not None
+            if p.is_closed and p.closed_at is not None and p.needs_redeem
         ]
 
-        for pos in closed_positions:
+        for pos in redeemable_positions:
             # Zaten retry state'de mi?
             if pos.position_id in self._retry_states:
                 continue
