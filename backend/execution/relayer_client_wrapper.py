@@ -34,6 +34,11 @@ USDC_ADDRESS = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
 class RelayerClientWrapper:
     """Gasless settlement / redeem wrapper.
 
+    Credential lifecycle (v0.7.0):
+    - CredentialStore referansi alir (tercihen)
+    - Her islemde credential version kontrol edilir
+    - Credential degistiyse reinitialize
+
     Paper mode: simulated redeem
     Live mode: relayer v2 gasless TX (LIVE_SETTLEMENT_ENABLED guard ile kapali)
     """
@@ -43,15 +48,46 @@ class RelayerClientWrapper:
         private_key: str = "",
         relayer_api_key: str = "",
         relayer_address: str = "",
+        credential_store=None,
     ):
+        self._credential_store = credential_store
         self._private_key = private_key
         self._relayer_api_key = relayer_api_key
         self._relayer_address = relayer_address
         self._initialized = bool(private_key and relayer_api_key and relayer_address)
         self._redeem_count: int = 0
+        self._last_cred_version: int = -1
+
+    def _ensure_initialized(self) -> None:
+        """Credential version kontrol et, degistiyse reinitialize."""
+        if self._credential_store is None:
+            return
+
+        current_version = self._credential_store.version
+        if current_version == self._last_cred_version:
+            return
+
+        creds = self._credential_store.credentials
+        self._private_key = creds.private_key
+        self._relayer_api_key = creds.relayer_key
+        self._relayer_address = creds.funder_address
+
+        if self._initialized:
+            log_event(
+                logger, logging.WARNING,
+                f"Relayer credential change detected (v{self._last_cred_version} -> v{current_version})",
+                entity_type="relayer",
+                entity_id="cred_change",
+            )
+
+        self._last_cred_version = current_version
+        self._initialized = bool(
+            self._private_key and self._relayer_api_key and self._relayer_address
+        )
 
     @property
     def is_initialized(self) -> bool:
+        self._ensure_initialized()
         return self._initialized
 
     @property
@@ -74,6 +110,7 @@ class RelayerClientWrapper:
         Returns:
             {"success": bool, "payout_usdc": float, ...}
         """
+        self._ensure_initialized()
         if not LIVE_SETTLEMENT_ENABLED:
             log_event(
                 logger, logging.WARNING,

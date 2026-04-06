@@ -56,16 +56,13 @@ LIVE_ORDER_ENABLED = False
 class ClobClientWrapper:
     """py-clob-client SDK wrapper.
 
-    Production'da:
-    - from py_clob_client.client import ClobClient
-    - client = ClobClient(host, key, chain_id, ...)
-    - client.get_balance_allowance(...)
-    - client.create_and_post_order(...)
+    Credential lifecycle (v0.7.0):
+    - CredentialStore referansi alir (tercihen)
+    - Her islemde _ensure_initialized() ile credential version kontrol edilir
+    - Credential degistiyse SDK reinitialize edilir
+    - Eski credential ile sessiz calisma engellenir
 
-    v0.5.3'te:
-    - Balance okuma: HAZIR (SDK veya simulated)
-    - Fee rate okuma: HAZIR
-    - Order gönderme: TEKNIK GUARD İLE KAPALI
+    Backward compat: string params ile de olusturulabilir (test/paper icin).
     """
 
     def __init__(
@@ -75,7 +72,10 @@ class ClobClientWrapper:
         api_secret: str = "",
         api_passphrase: str = "",
         chain_id: int = 137,
+        credential_store=None,
     ):
+        self._credential_store = credential_store
+        # Fallback: direkt string params (backward compat / test)
         self._private_key = private_key
         self._api_key = api_key
         self._api_secret = api_secret
@@ -83,6 +83,35 @@ class ClobClientWrapper:
         self._chain_id = chain_id
         self._client = None
         self._initialized = False
+        self._last_cred_version: int = -1
+
+    def _ensure_initialized(self) -> None:
+        """Credential version kontrol et, degistiyse reinitialize."""
+        if self._credential_store is None:
+            return  # string params mode — version tracking yok
+
+        current_version = self._credential_store.version
+        if current_version == self._last_cred_version:
+            return  # degismemis
+
+        # Credential degisti — reinitialize
+        creds = self._credential_store.credentials
+        self._private_key = creds.private_key
+        self._api_key = creds.api_key
+        self._api_secret = creds.api_secret
+        self._api_passphrase = creds.api_passphrase
+
+        if self._initialized:
+            log_event(
+                logger, logging.WARNING,
+                f"Credential change detected (v{self._last_cred_version} -> v{current_version}) "
+                f"— reinitializing SDK",
+                entity_type="execution",
+                entity_id="cred_change",
+            )
+
+        self._last_cred_version = current_version
+        self.initialize()
 
     def initialize(self) -> bool:
         """SDK client olustur. Credentials varsa gercek SDK, yoksa simulated."""
@@ -128,6 +157,7 @@ class ClobClientWrapper:
 
     @property
     def is_initialized(self) -> bool:
+        self._ensure_initialized()
         return self._initialized
 
     # ─── Balance ───
@@ -138,6 +168,7 @@ class ClobClientWrapper:
         Returns:
             {"available": float, "total": float} veya None.
         """
+        self._ensure_initialized()
         if not self._initialized or self._client is None:
             return None
 
@@ -165,6 +196,7 @@ class ClobClientWrapper:
         1. neg_risk endpoint (token bazli)
         2. market endpoint (fallback)
         """
+        self._ensure_initialized()
         if not self._initialized or self._client is None:
             return None
 
@@ -216,6 +248,7 @@ class ClobClientWrapper:
 
         SDK yoksa veya API erisimsiz ise bos MarketResolution doner.
         """
+        self._ensure_initialized()
         result = MarketResolution(condition_id=condition_id)
 
         if not self._initialized or self._client is None:
@@ -282,6 +315,7 @@ class ClobClientWrapper:
         TEKNIK GUARD: LIVE_ORDER_ENABLED = False oldukca CALISMAZ.
         Gercek order CIKMAZ.
         """
+        self._ensure_initialized()
         if not LIVE_ORDER_ENABLED:
             log_event(
                 logger, logging.WARNING,
