@@ -11,7 +11,7 @@ import pytest
 from datetime import datetime, timezone
 
 from backend.execution.order_intent import OrderIntent, OrderSide
-from backend.execution.order_validator import OrderValidator, MINIMUM_ORDER_USD
+from backend.execution.order_validator import OrderValidator, DEFAULT_MINIMUM_ORDER_USD
 from backend.execution.models import ValidationStatus, RejectReason
 
 
@@ -131,8 +131,8 @@ class TestOrderValidator:
         result = self._validate(intent)
         assert result.is_valid
 
-    def test_minimum_is_one_dollar(self):
-        assert MINIMUM_ORDER_USD == 1.0
+    def test_minimum_default_one_dollar(self):
+        assert DEFAULT_MINIMUM_ORDER_USD == 1.0
 
     # --- Balance ---
 

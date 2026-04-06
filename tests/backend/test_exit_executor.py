@@ -1,7 +1,7 @@
 """ExitExecutor tests — v0.6.2."""
 
 import pytest
-from backend.execution.exit_executor import ExitExecutor, RETRY_INTERVALS_MS, MAX_CLOSE_RETRIES
+from backend.execution.exit_executor import ExitExecutor, DEFAULT_RETRY_INTERVALS_MS, DEFAULT_MAX_CLOSE_RETRIES
 from backend.execution.position_tracker import PositionTracker
 from backend.execution.position_record import PositionState
 from backend.execution.balance_manager import BalanceManager
@@ -131,15 +131,19 @@ class TestTPReevaluateInExecutor:
 
 class TestRetry:
 
-    def test_retry_intervals(self):
-        assert RETRY_INTERVALS_MS[CloseReason.TAKE_PROFIT] == 400
-        assert RETRY_INTERVALS_MS[CloseReason.STOP_LOSS] == 250
-        assert RETRY_INTERVALS_MS[CloseReason.FORCE_SELL] == 200
-        assert RETRY_INTERVALS_MS[CloseReason.MANUAL_CLOSE] == 400
+    def test_retry_intervals_defaults(self):
+        assert DEFAULT_RETRY_INTERVALS_MS[CloseReason.TAKE_PROFIT] == 400
+        assert DEFAULT_RETRY_INTERVALS_MS[CloseReason.STOP_LOSS] == 250
+        assert DEFAULT_RETRY_INTERVALS_MS[CloseReason.FORCE_SELL] == 200
+        assert DEFAULT_RETRY_INTERVALS_MS[CloseReason.MANUAL_CLOSE] == 400
 
-    def test_get_retry_interval(self):
-        assert ExitExecutor.get_retry_interval_ms(CloseReason.STOP_LOSS) == 250
-        assert ExitExecutor.get_retry_interval_ms(CloseReason.FORCE_SELL) == 200
+    def test_get_retry_interval_instance(self):
+        tracker = PositionTracker()
+        balance = BalanceManager()
+        balance.update(available=50.0)
+        executor = ExitExecutor(tracker, balance, paper_mode=True)
+        assert executor.get_retry_interval_ms(CloseReason.STOP_LOSS) == 250
+        assert executor.get_retry_interval_ms(CloseReason.FORCE_SELL) == 200
 
     @pytest.mark.asyncio
     async def test_latch_preserved_on_retry(self):
