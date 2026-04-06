@@ -8,13 +8,21 @@ Akis:
 5. Payout sonucu authoritative kayit: claimed_amount_usdc
 6. Post-redeem balance refresh
 
-Resolution modeli (v0.6.7):
-- PnL heuristic KALDIRILDI
-- Kazanan taraf event resolution mantigindan turetilir
-- Paper mode: coin_usd_at_close > ptb -> UP kazanir, aksi halde DOWN kazanir
-- Pozisyonun tarafi == kazanan taraf -> WON, degilse LOST
-- Payout: WON -> net_position_shares x $1.00, LOST -> $0.00
-- PnL ile tutarlilik BEKLENIR ama settlement karari PnL'den BAGIMSIZ
+Settlement modeli — IKI KATMAN:
+
+PAPER MODE (gecici heuristic, test/gelistirme icin):
+- coin_usd vs ptb karsilastirmasi ile kazanan taraf TAHMIN edilir
+- Bu tahmin yanlis olabilir (stale veri, gecikme, yanlis ptb)
+- Paper mode sonucu AUTHORITATIVE DEGILDIR
+- Fallback: PTB/coin_usd eksikse net_realized_pnl > 0 kullanilir
+
+LIVE MODE (authoritative, production):
+- Bot kazanan/kaybeden HESAPLAMAZ
+- Polymarket'e resolved/redeemable mi sorar
+- redeemPositions() cagirir
+- Payout sonucu ($USDC) AUTHORITATIVE kaynaktir
+- payout > 0 -> WON, payout == 0 -> LOST
+- Botun kendi hesabi overrule EDILEMEZ
 
 ONEMLI:
 - event_end_ts gecmis olmasi = resolved demek DEGIL
@@ -297,19 +305,18 @@ class SettlementOrchestrator:
             return False
 
     def _resolve_paper_outcome(self, pos) -> bool:
-        """Paper mode: event resolution mantigiyla kazanan tarafi belirle.
+        """Paper mode: event resolution mantigiyla kazanan tarafi TAHMIN ET.
+
+        ONEMLI: Bu heuristic AUTHORITATIVE DEGILDIR.
+        Sadece paper mode test/gelistirme icin kullanilir.
+        Live mode'da Polymarket redeem payout sonucu authoritative kaynaktir.
 
         Oncelik sirasi:
-        1. PTB + coin USD fiyati mevcut -> resolution-based (authoritative)
-           coin_usd > ptb -> UP kazanir, aksi halde DOWN kazanir
+        1. PTB + coin USD mevcut -> coin_usd vs ptb karsilastirmasi
+           coin_usd > ptb -> UP kazanir, aksi halde DOWN
            pos.side == kazanan taraf -> WON
         2. PTB veya coin USD eksik -> PnL fallback (net_realized_pnl > 0)
            Bu fallback sadece veri eksikligi durumunda kullanilir
-
-        Neden PnL fallback kaldi:
-        - PTB/coin USD inject edilmeden olusturulan SettlementOrchestrator (eski testler)
-        - Veri kaybi durumunda settlement tamamen durmasin
-        - Ama fallback kullanildiginda log UYARI uretir
         """
         # 1. Resolution-based: PTB + coin USD
         ptb_value = self._get_ptb_value(pos.condition_id)
