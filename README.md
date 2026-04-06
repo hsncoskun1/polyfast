@@ -6,34 +6,32 @@ Local-first, single-user trading application that automatically discovers, monit
 
 ## Status
 
-**v0.2.8** — Faz 2 complete (Session & Discovery)
+**v0.6.5** — Faz 6 in progress (Exit & Claim/Redeem)
 
 ### Completed
 
-**Faz 1 (v0.1.0-v0.1.7):** Foundation — FastAPI skeleton, config loader, SQLite persistence, structured logging with credential masking, frontend skeleton, docs/contracts.
+**Faz 1 (v0.1.0-v0.1.7):** Foundation — FastAPI, config, SQLite, logging, frontend skeleton, docs.
 
-**Faz 2 progress:**
-- v0.2.0: Auth client separation (Public / Trading / Relayer)
-- v0.2.1: Balance fetch + startup guard
-- v0.2.2: Session accounting bootstrap
-- v0.2.3: Discovery engine skeleton (candidate discovery, not yet live-validated)
-- v0.2.4: Event registry skeleton (7-state machine)
-- v0.2.5: Live validation (event liveness check)
-- v0.2.6: Safe sync (controlled registry update, soft-remove, open position protection)
+**Faz 2 (v0.2.0-v0.2.8):** Auth client separation, balance fetch, session accounting, discovery engine, event registry (7-state), live validation, safe sync, persistence expansion.
 
-- v0.2.7: Persistence expansion (checkpoints + balance snapshots)
-- v0.2.8: Faz 2 final tests + delivery report
+**Faz 3 (v0.3.0-v0.3.6):** RTDS WebSocket, market mapping, PTB fetch with lock, live price pipeline, snapshot production, persistent coin USD price (150ms resubscribe).
 
-### Not yet completed
-- Faz 3: Market data (RTDS WS, PTB, live price pipeline)
-- Faz 3.5: Credential lifecycle (propagation, rebind)
-- Faz 4+: Rule engine, execution, exit/claim, recovery, UI
+**Faz 4 (v0.4.0-v0.4.6):** Rule engine (6 rules), coin-based settings, side mode (dominant/up/down), discovery loop, eligibility gate, subscription manager, evaluation loop, orchestrator wiring.
 
-### Important notes
-- Discovery finds **candidate** 5M events. Live validation confirms event liveness but does **not** validate market data, PTB, or prices.
-- No live API testing has been performed yet. Codebase uses mock-based unit tests.
-- Registry is in-memory (persistence deferred to Faz 7 recovery).
-- 191 backend tests, all passing.
+**Faz 5 (v0.5.0-v0.5.3):** Order intent, validation, position state machine (6-state), fee-aware PnL, order execution, balance lifecycle, CLOB SDK wrapper, paper mode e2e.
+
+### In Progress
+
+**Faz 6 (v0.6.0-v0.6.5+):** Exit evaluator (TP/SL/force sell), latch + reevaluate, exit executor with retry bands, manual close, claim/redeem lifecycle, settlement orchestrator, relayer wrapper.
+
+### Not yet started
+- Faz 7: Recovery (restart, persistence, profiles)
+- Faz 8: UI (frontend, settings panel, trade cards)
+
+### Notes
+- 673 backend tests, all passing.
+- Paper mode only — LIVE_ORDER_ENABLED=False, LIVE_SETTLEMENT_ENABLED=False.
+- Registry is in-memory (persistence deferred to Faz 7).
 
 ## Tech Stack
 

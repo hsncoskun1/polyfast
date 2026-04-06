@@ -2,12 +2,12 @@
 
 ## HEMEN DÜZELTİLEBİLİR (bu sürümde)
 
-### 1. CoinPriceClient poll_once() tek sefer — sürekli polling yok
+### 1. CoinPriceClient — COZULDU (v0.3.6+)
 - **Dosya:** backend/market_data/coin_price_client.py
-- **Risk:** Coin USD fiyatı bir kez çekilip bir daha güncellenmez
-- **Durum:** poll_once() one-shot, continuous loop YOK
-- **Not:** Orchestrator katmanında periyodik çağrı yapılacak (ileri faz)
-- **Şimdilik:** Docstring'de "orchestrator tarafından periyodik çağrılmalı" notu eklendi
+- **Eski Risk:** poll_once() one-shot, surekli loop yoktu
+- **Cozum:** run_forever() persistent WS + 150ms resubscribe ile degistirildi
+- **Durum:** COZULDU — telemetry (resub_count, reconnect_count, connection_uptime) eklendi
+- **Kalan Risk:** Unofficial endpoint — soak test yapilmadi, rate limit bilinmiyor
 
 ### 2. Config stale threshold'ları coin_price_client'a bağlı değil
 - **Dosya:** backend/market_data/coin_price_client.py

@@ -1,53 +1,50 @@
-# Discovery → Trade Pipeline Zinciri — Mevcut Durum
+# Discovery -> Trade Pipeline Zinciri -- Mevcut Durum
 
-## Zincir Halkaları
+Son guncelleme: v0.6.5
 
-| # | Halka | Durum | Dosya | Açıklama |
+## Zincir Halkalari
+
+| # | Halka | Durum | Dosya | Aciklama |
 |---|-------|-------|-------|----------|
-| 1 | Discovery engine | ✅ VAR | backend/discovery/engine.py | scan() çağrıldığında slug bazlı zaman filtresiyle aktif eventleri bulur |
-| 2 | Periyodik discovery loop | ❌ YOK | — | scan()'ı düzenli aralıklarla çağıran background loop yok |
-| 3 | Registry sync | ⚠️ KOD VAR, ÇAĞIRAN YOK | backend/registry/safe_sync.py | SafeSync.sync() var ama onu çağıran orchestrator yok |
-| 4 | Registry expiration | ❌ YOK | — | Event süre dolunca EXPIRED'a otomatik geçiş yapan kod yok |
-| 5 | Eligibility gate caller | ⚠️ MODEL VAR, ÇAĞIRAN YOK | backend/settings/coin_settings.py | is_trade_eligible var ama kontrol eden katman yok |
-| 6 | Subscription orchestrator | ❌ YOK | — | Eligible event için WS subscribe, ineligible için unsubscribe yok |
-| 7 | Evaluation loop | ❌ YOK | — | Context oluşturup RuleEngine.evaluate() çağıran periyodik döngü yok |
+| 1 | Discovery engine | VAR | backend/discovery/engine.py | scan() slug bazli zaman filtresiyle aktif eventleri bulur |
+| 2 | Periyodik discovery loop | VAR | backend/orchestrator/discovery_loop.py | Slot-aware bul-ve-bekle modeli, retry schedule |
+| 3 | Registry sync | VAR | backend/registry/safe_sync.py | SafeSync.sync() orchestrator tarafindan cagriliyor |
+| 4 | Registry expiration | VAR | backend/orchestrator/cleanup.py | Event sure dolunca EXPIRED gecisi |
+| 5 | Eligibility gate | VAR | backend/orchestrator/eligibility_gate.py | coin_enabled + is_configured = trade eligible |
+| 6 | Subscription orchestrator | VAR | backend/orchestrator/subscription_manager.py | Eligible event icin WS subscribe, diff bazli |
+| 7 | Evaluation loop | VAR | backend/orchestrator/evaluation_loop.py | Context olusturup RuleEngine.evaluate() cagirir |
+| 8 | Orchestrator wiring | VAR | backend/orchestrator/wiring.py | Tum parcalari birlestiren Orchestrator class |
 
-## Discovery Doğal Event Geçişi
+## Discovery Davranis Modeli (Baglayici Karar)
 
-Discovery engine tek başına çağrıldığında doğru event'i bulur:
-- scan() her çağrıda slug timestamp'ini current time'a göre filtreler
-- Event bittiyse (timestamp < now) otomatik olarak exclude edilir
-- Yeni event (timestamp > now ama < now + 1800) dahil edilir
-
-AMA: Onu çağıran, registry'yi güncelleyen, eligibility kontrol eden,
-subscription yöneten ve evaluation tetikleyen orchestrator TAMAMEN EKSİK.
-
-## Discovery Davranış Modeli (Bağlayıcı Karar)
-
-Discovery PTB mantığıyla çalışır — bul ve bekle:
+Discovery PTB mantigiyla calisir -- bul ve bekle:
 
 ```
-1. Yeni 5dk slot başladı → discovery tara
+1. Yeni 5dk slot basladi -> discovery tara
 2. Event bulundu mu?
-   EVET → discovery DUR
-          → PTB fetch başlat
-          → WS subscribe
-          → evaluation döngüsüne al
-          → slot bitene kadar TEKRAR TARAMA (gereksiz API yükü)
-          → slot bittikten sonra → adım 1'e dön (yeni slot)
-   HAYIR → retry schedule: 2s→4s→8s→16s→10s→10s... (event bulunana kadar)
-           → health warning üret
-           → mevcut açık pozisyonlar ETKİLENMEZ
+   EVET -> discovery DUR
+          -> PTB fetch baslat
+          -> WS subscribe
+          -> evaluation dongusune al
+          -> slot bitene kadar TEKRAR TARAMA YOK
+          -> slot bittikten sonra -> adim 1'e don (yeni slot)
+   HAYIR -> retry schedule: 2s->4s->8s->16s->10s->10s... (event bulunana kadar)
+           -> health warning uret
+           -> mevcut acik pozisyonlar ETKILENMEZ
 ```
 
 Kritik kurallar:
 - Event bulunduysa tekrar taramaya GEREK YOK
-- Bulunmadıysa retry sonsuz — sistem discovery failure'da DURMAZ
-- Gereksiz API çağrısı YOK
-- Discovery retry admin/advanced safety altında, normal kullanıcı ayarı DEĞİL
-- Mevcut açık pozisyonlar discovery failure yüzünden DURMAZ
+- Bulunmadiysa retry sonsuz -- sistem discovery failure'da DURMAZ
+- Gereksiz API cagrisi YOK
+- Discovery retry admin/advanced safety altinda, normal kullanici ayari DEGIL
+- Mevcut acik pozisyonlar discovery failure yuzunden DURMAZ
 
-## Sonuç
+## Zincir Tamamlanma Gecmisi
 
-Parçalar hazır ama birbirine BAĞLI DEĞİL. Orchestrator katmanı olmadan
-sistem otomatik çalışmaz. Bu ileri fazda (v0.4.2+) implement edilecek.
+- v0.4.0: RuleEngine omurga
+- v0.4.2: DiscoveryLoop + side mode wiring
+- v0.4.3: EligibilityGate + SubscriptionManager + EvaluationLoop
+- v0.4.4: Cleanup + health + expiration
+- v0.4.5: Orchestrator wiring (tum parcalar baglandi)
+- v0.4.6: Full chain calisiyor (delta PASS + ENTRY signal dogrulandi)
