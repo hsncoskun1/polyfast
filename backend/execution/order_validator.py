@@ -21,18 +21,15 @@ from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("execution.validator")
 
-# Polymarket minimum order — guard/default.
-# ileride config/venue validation katmanina tasinabilir.
-MINIMUM_ORDER_USD = 1.0
+# Default minimum — schema'dan override edilebilir (TradingConfig.min_amount_usd)
+DEFAULT_MINIMUM_ORDER_USD = 1.0
 
 
 class OrderValidator:
-    """Order intent validation.
+    """Order intent validation."""
 
-    Event Max / Bot Max kontrolleri v0.5.0'da read seviyesinde:
-    - Disaridan inject edilen sayaclarla calisir
-    - Gercek sayac enforcement v0.5.1'de PositionTracker ile gelecek
-    """
+    def __init__(self, min_order_usd: float = DEFAULT_MINIMUM_ORDER_USD):
+        self._min_order_usd = min_order_usd
 
     def validate(
         self,
@@ -82,13 +79,13 @@ class OrderValidator:
             )
 
         # 2. Minimum tutar kontrolu
-        if intent.amount_usd < MINIMUM_ORDER_USD:
+        if intent.amount_usd < self._min_order_usd:
             return self._reject(
                 RejectReason.BELOW_MINIMUM_AMOUNT,
                 intent,
                 {
                     "amount_usd": intent.amount_usd,
-                    "minimum": MINIMUM_ORDER_USD,
+                    "minimum": self._min_order_usd,
                 },
             )
 

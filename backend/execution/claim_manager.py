@@ -40,9 +40,10 @@ from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("execution.claim")
 
-CLAIM_REDEEM_RETRY_SCHEDULE = [5, 10]  # ilk 2 retry: 5s, 10s
-CLAIM_REDEEM_RETRY_STEADY = 20        # 3. ve sonraki: 20s
-CLAIM_REDEEM_MAX_RETRIES = 20         # toplam max 20 deneme
+# Default degerler — schema'dan override edilebilir (ClaimRedeemConfig)
+CLAIM_REDEEM_RETRY_SCHEDULE = [5, 10]
+CLAIM_REDEEM_RETRY_STEADY = 20
+CLAIM_REDEEM_MAX_RETRIES = 20
 
 
 class ClaimStatus(str, Enum):
@@ -109,11 +110,19 @@ class ClaimManager:
         self,
         balance_manager: BalanceManager,
         paper_mode: bool = True,
+        retry_initial_seconds: int = CLAIM_REDEEM_RETRY_SCHEDULE[0],
+        retry_second_seconds: int = CLAIM_REDEEM_RETRY_SCHEDULE[1],
+        retry_steady_seconds: int = CLAIM_REDEEM_RETRY_STEADY,
+        max_retry_attempts: int = CLAIM_REDEEM_MAX_RETRIES,
     ):
         self._balance = balance_manager
         self._paper_mode = paper_mode
-        self._claims: dict[str, ClaimRecord] = {}  # claim_id → record
+        self._claims: dict[str, ClaimRecord] = {}
         self._claim_count: int = 0
+        # Retry config — schema'dan override edilebilir
+        self.retry_schedule = [retry_initial_seconds, retry_second_seconds]
+        self.retry_steady = retry_steady_seconds
+        self.max_retries = max_retry_attempts
 
     def create_claim(
         self,
@@ -283,7 +292,7 @@ class ClaimManager:
     def get_health_incidents(self) -> list[HealthIncident]:
         incidents = []
         for r in self._claims.values():
-            if r.is_failed and r.retry_count >= CLAIM_REDEEM_MAX_RETRIES:
+            if r.is_failed and r.retry_count >= self.max_retries:
                 incidents.append(HealthIncident(
                     severity=HealthSeverity.WARNING,
                     category="claim",

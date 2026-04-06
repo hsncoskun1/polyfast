@@ -37,8 +37,8 @@ from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("execution.exit_executor")
 
-# Retry intervaller — admin/advanced (ms)
-RETRY_INTERVALS_MS = {
+# Default retry intervaller — schema'dan override edilebilir
+DEFAULT_RETRY_INTERVALS_MS = {
     CloseReason.TAKE_PROFIT: 400,
     CloseReason.STOP_LOSS: 250,
     CloseReason.FORCE_SELL: 200,
@@ -48,7 +48,7 @@ RETRY_INTERVALS_MS = {
 }
 
 DEFAULT_RETRY_INTERVAL_MS = 400
-MAX_CLOSE_RETRIES = 10
+DEFAULT_MAX_CLOSE_RETRIES = 10
 
 
 class ExitExecutor:
@@ -65,11 +65,25 @@ class ExitExecutor:
         exit_evaluator: ExitEvaluator | None = None,
         fee_fetcher: FeeRateFetcher | None = None,
         paper_mode: bool = True,
+        tp_retry_interval_ms: int = 400,
+        sl_retry_interval_ms: int = 250,
+        fs_retry_interval_ms: int = 200,
+        manual_close_retry_interval_ms: int = 400,
+        max_close_retries: int = DEFAULT_MAX_CLOSE_RETRIES,
     ):
         self._tracker = tracker
         self._balance = balance_manager
         self._evaluator = exit_evaluator
         self._fee_fetcher = fee_fetcher or FeeRateFetcher()
+        self._retry_intervals = {
+            CloseReason.TAKE_PROFIT: tp_retry_interval_ms,
+            CloseReason.STOP_LOSS: sl_retry_interval_ms,
+            CloseReason.FORCE_SELL: fs_retry_interval_ms,
+            CloseReason.MANUAL_CLOSE: manual_close_retry_interval_ms,
+            CloseReason.EXPIRY: 200,
+            CloseReason.SYSTEM_SHUTDOWN: 100,
+        }
+        self._max_close_retries = max_close_retries
         self._paper_mode = paper_mode
         self._close_count: int = 0
         self._retry_count: int = 0
@@ -183,41 +197,37 @@ class ExitExecutor:
         self,
         position: PositionRecord,
         current_price: float,
-        max_retries: int = MAX_CLOSE_RETRIES,
+        max_retries: int | None = None,
     ) -> bool:
         """Retry ile pozisyon kapat.
 
         Retry interval close_reason'a gore belirlenir.
         Latch korunur — close_reason/trigger_set silinmez.
-
-        Returns:
-            True: basarili close, False: tum retryler tukendi
         """
+        retries = max_retries if max_retries is not None else self._max_close_retries
         reason = position.close_reason or CloseReason.MANUAL_CLOSE
-        interval_ms = RETRY_INTERVALS_MS.get(reason, DEFAULT_RETRY_INTERVAL_MS)
+        interval_ms = self._retry_intervals.get(reason, DEFAULT_RETRY_INTERVAL_MS)
         interval_sec = interval_ms / 1000.0
 
-        for attempt in range(max_retries):
+        for attempt in range(retries):
             success = await self.execute_close(position, current_price)
             if success:
                 return True
 
-            # TP reevaluate iptal ettiyse → pozisyon acik, retry durur
             if position.is_open:
                 return False
 
-            if attempt < max_retries - 1:
+            if attempt < retries - 1:
                 await asyncio.sleep(interval_sec)
 
         log_event(
             logger, logging.ERROR,
-            f"Close retries exhausted: {position.asset} after {max_retries} attempts",
+            f"Close retries exhausted: {position.asset} after {retries} attempts",
             entity_type="exit_executor",
             entity_id=position.position_id,
         )
         return False
 
-    @staticmethod
-    def get_retry_interval_ms(reason: CloseReason) -> int:
+    def get_retry_interval_ms(self, reason: CloseReason) -> int:
         """Close reason'a gore retry interval (ms)."""
-        return RETRY_INTERVALS_MS.get(reason, DEFAULT_RETRY_INTERVAL_MS)
+        return self._retry_intervals.get(reason, DEFAULT_RETRY_INTERVAL_MS)

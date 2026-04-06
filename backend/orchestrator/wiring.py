@@ -43,7 +43,8 @@ from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("orchestrator.wiring")
 
-EXIT_CYCLE_INTERVAL_SEC = 0.25  # exit cycle periyodu (250ms) — admin/advanced'a tasinacak
+# Default — schema'dan override edilebilir (MarketDataConfig.exit_cycle_interval_ms)
+DEFAULT_EXIT_CYCLE_INTERVAL_SEC = 0.05  # 50ms — in-memory ops only, no API call per cycle
 
 
 class Orchestrator:
@@ -125,7 +126,8 @@ class Orchestrator:
         # WS message callback
         self.rtds_client.set_message_callback(self.bridge.on_ws_message)
 
-        # Exit cycle task
+        # Exit cycle
+        self._exit_cycle_interval_sec = DEFAULT_EXIT_CYCLE_INTERVAL_SEC
         self._exit_cycle_task: asyncio.Task | None = None
         self._exit_cycle_running: bool = False
 
@@ -253,7 +255,7 @@ class Orchestrator:
     async def _run_exit_cycle_loop(self) -> None:
         """Exit orchestrator periyodik cycle loop.
 
-        Her EXIT_CYCLE_INTERVAL_SEC'de bir run_cycle() cagrilir.
+        Her exit_cycle_interval_sec'de bir run_cycle() cagrilir.
         Acik pozisyonlarin fiyatlarini pipeline'dan alir.
         """
         while self._exit_cycle_running:
@@ -302,7 +304,7 @@ class Orchestrator:
                     entity_id="exit_cycle_error",
                 )
 
-            await asyncio.sleep(EXIT_CYCLE_INTERVAL_SEC)
+            await asyncio.sleep(self._exit_cycle_interval_sec)
 
     def get_health(self):
         """Orchestrator sağlık durumu."""

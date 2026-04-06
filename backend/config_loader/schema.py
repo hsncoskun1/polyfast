@@ -112,17 +112,19 @@ class EntryRulesConfig(BaseModel):
 # --- Exit Rules ---
 
 class TakeProfitConfig(BaseModel):
-    """Take Profit — PnL bazlı kar alma.
+    """Take Profit — PnL bazli kar alma.
 
     PnL % = (current_held_side_price - fill_price) / fill_price * 100
-    - UP pozisyonunda: current_up_price kullanılır
-    - DOWN pozisyonunda: current_down_price kullanılır
-    - Reference: actual fill price (order/requested price DEĞİL)
-    - Market FOK — partial fill olmaz, tek fill price
-    Kullanıcı yüzde girer: 5 = %5 kar.
+    Kullanici yuzde girer: 5 = %5 kar.
+
+    reevaluate_on_retry: True ise retry oncesi TP kosulu tekrar kontrol edilir.
+    Fiyat geri cekildiyse close IPTAL edilir (open_confirmed'a doner).
+    False ise latch — ilk tetikten sonra iptal yok.
     """
     enabled: bool = True
     percentage: float = Field(default=5.0, ge=0.1, le=100.0)
+    retry_interval_ms: int = Field(default=400, ge=100, le=10000)
+    reevaluate_on_retry: bool = True
 
 
 class StopLossConfig(BaseModel):
@@ -182,22 +184,35 @@ class ForceSellConfig(BaseModel):
 
 
 class ExitRulesConfig(BaseModel):
+    """Exit kurallari + genel exit retry ayarlari."""
     take_profit: TakeProfitConfig = TakeProfitConfig()
     stop_loss: StopLossConfig = StopLossConfig()
     force_sell: ForceSellConfig = ForceSellConfig()
+    manual_close_retry_interval_ms: int = Field(default=400, ge=100, le=10000)
+    max_close_retries: int = Field(default=10, ge=1, le=30)
 
 
-class ClaimConfig(BaseModel):
+class ClaimRedeemConfig(BaseModel):
+    """Claim/redeem retry ayarlari — advanced admin.
+
+    Claim/redeem basarisiz olduktan sonraki yeniden deneme parametreleri.
+    Evaluation araligi DEGIL.
+    Retry schedule: initial -> second -> steady -> steady... max attempts.
+    """
     wait_for_claim_before_new_trade: bool = True
+    retry_initial_seconds: int = Field(default=5, ge=1, le=60)
+    retry_second_seconds: int = Field(default=10, ge=1, le=60)
+    retry_steady_seconds: int = Field(default=20, ge=5, le=120)
+    max_retry_attempts: int = Field(default=20, ge=1, le=50)
 
 
 # --- Trading ---
 
 class TradingConfig(BaseModel):
-    min_amount_usd: float = Field(default=5.0, ge=1.0, le=10000.0)
+    min_amount_usd: float = Field(default=1.0, ge=0.1, le=10000.0)
     entry_rules: EntryRulesConfig = EntryRulesConfig()
     exit_rules: ExitRulesConfig = ExitRulesConfig()
-    claim: ClaimConfig = ClaimConfig()
+    claim: ClaimRedeemConfig = ClaimRedeemConfig()
 
 
 # --- Infrastructure ---
@@ -234,6 +249,8 @@ class MarketDataConfig(BaseModel):
     coin_price_stale_threshold_seconds: int = Field(default=15, ge=5, le=120)
     coin_price_resub_interval_ms: int = Field(default=150, ge=50, le=5000)
     balance_stale_threshold_seconds: int = Field(default=90, ge=30, le=300)
+    balance_refresh_interval_seconds: int = Field(default=20, ge=5, le=60)
+    exit_cycle_interval_ms: int = Field(default=50, ge=10, le=2000)
 
 
 class PersistenceConfig(BaseModel):
