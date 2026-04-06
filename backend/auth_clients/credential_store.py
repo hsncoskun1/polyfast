@@ -1,11 +1,18 @@
-"""CredentialStore — minimum skeleton for auth client credential access.
+"""CredentialStore — credential lifecycle with change detection.
 
-This version provides basic in-memory credential storage to support
-client instantiation. Full lifecycle (persistence, propagation, rebind)
-will be implemented in Faz 3.5.
+Credential lifecycle (v0.7.0):
+- load/load_from_dict ile credential yuklenir
+- version counter her degisiklikte artar
+- Wrapper'lar version'i kontrol eder — degistiyse reinitialize
+- Eski credential ile sessiz calisma ENGELLENIR
 """
 
+import logging
 from dataclasses import dataclass, field
+
+from backend.logging_config.service import get_logger, log_event
+
+logger = get_logger("auth.credential_store")
 
 
 @dataclass
@@ -32,22 +39,31 @@ class Credentials:
 
 
 class CredentialStore:
-    """Minimal in-memory credential store.
+    """In-memory credential store with change detection.
 
-    Supports loading credentials and checking availability.
-    Full secure storage, masking, persistence, and propagation
-    will be added in Faz 3.5 (v0.3.8+).
+    version: her load/update'te artar
+    Wrapper'lar last_seen_version ile karsilastirir:
+    - version degistiyse reinitialize gerekli
+    - eski credential ile sessiz calisma engellenir
     """
 
     def __init__(self) -> None:
         self._credentials = Credentials()
+        self._version: int = 0
 
     def load(self, credentials: Credentials) -> None:
-        """Load a complete set of credentials."""
+        """Load a complete set of credentials. Version artar."""
         self._credentials = credentials
+        self._version += 1
+        log_event(
+            logger, logging.INFO,
+            f"Credentials loaded (version={self._version})",
+            entity_type="credential",
+            entity_id="store",
+        )
 
     def load_from_dict(self, data: dict[str, str]) -> None:
-        """Load credentials from a dictionary (e.g., from .env)."""
+        """Load credentials from a dictionary (e.g., from .env). Version artar."""
         self._credentials = Credentials(
             api_key=data.get("API_KEY", ""),
             api_secret=data.get("SECRET", ""),
@@ -56,10 +72,22 @@ class CredentialStore:
             funder_address=data.get("FUNDER", ""),
             relayer_key=data.get("RELAYER_KEY", ""),
         )
+        self._version += 1
+        log_event(
+            logger, logging.INFO,
+            f"Credentials loaded from dict (version={self._version})",
+            entity_type="credential",
+            entity_id="store",
+        )
 
     @property
     def credentials(self) -> Credentials:
         return self._credentials
+
+    @property
+    def version(self) -> int:
+        """Credential version — her degisiklikte artar."""
+        return self._version
 
     def get_trading_headers(self) -> dict[str, str]:
         """Build CLOB API auth headers for trading operations."""
@@ -71,13 +99,10 @@ class CredentialStore:
         }
 
     def get_relayer_key(self) -> str:
-        """Get the relayer API key."""
         return self._credentials.relayer_key
 
     def get_private_key(self) -> str:
-        """Get the private key for signing."""
         return self._credentials.private_key
 
     def get_funder_address(self) -> str:
-        """Get the funder address."""
         return self._credentials.funder_address
