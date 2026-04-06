@@ -448,5 +448,11 @@ class SettlementOrchestrator:
         """Bekleyen settlement var mi? (retry dahil)."""
         if self._retry_states:
             return any(not s.exhausted for s in self._retry_states.values())
-        # Ayrica claim_manager'daki pending'leri de kontrol et
         return self._claims.has_pending_claims()
+
+    def is_position_in_retry(self, position_id: str) -> bool:
+        """Pozisyon settlement retry'da mi?"""
+        state = self._retry_states.get(position_id)
+        if state is None:
+            return False
+        return not state.exhausted

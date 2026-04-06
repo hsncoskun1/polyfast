@@ -248,6 +248,38 @@ class ClaimManager:
     def pending_count(self) -> int:
         return sum(1 for r in self._claims.values() if r.is_pending)
 
+    def mark_externally_settled(self, claim_id: str) -> bool:
+        """Disaridan yapilan claim/redeem algilandi — local pending kapat.
+
+        Kullanici bot calisirken Polymarket UI'dan manuel redeem yaparsa,
+        bot bunu algilar ve local pending kaydi kapatir.
+        Bu HATA DEGIL — taninan outcome: external_settlement_detected.
+
+        Returns:
+            True basarili, False claim bulunamadi.
+        """
+        record = self._claims.get(claim_id)
+        if record is None:
+            return False
+
+        if record.is_success:
+            return True  # zaten settled
+
+        record.claim_status = ClaimStatus.SUCCESS
+        record.outcome = ClaimOutcome.REDEEMED_WON  # exact outcome bilinmiyor
+        record.claimed_at = datetime.now(timezone.utc)
+        record.last_error = "external_settlement_detected"
+        self._claim_count += 1
+
+        log_event(
+            logger, logging.WARNING,
+            f"External settlement detected: {record.asset} pos={record.position_id} "
+            f"— local pending closed",
+            entity_type="claim",
+            entity_id=claim_id,
+        )
+        return True
+
     def get_health_incidents(self) -> list[HealthIncident]:
         incidents = []
         for r in self._claims.values():
