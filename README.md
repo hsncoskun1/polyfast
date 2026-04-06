@@ -6,7 +6,7 @@ Local-first, single-user trading application that automatically discovers, monit
 
 ## Status
 
-**v0.6.5** — Faz 6 in progress (Exit & Claim/Redeem)
+**v0.6.10** — Faz 6 complete (Exit & Claim/Redeem)
 
 ### Completed
 
@@ -20,16 +20,14 @@ Local-first, single-user trading application that automatically discovers, monit
 
 **Faz 5 (v0.5.0-v0.5.3):** Order intent, validation, position state machine (6-state), fee-aware PnL, order execution, balance lifecycle, CLOB SDK wrapper, paper mode e2e.
 
-### In Progress
-
-**Faz 6 (v0.6.0-v0.6.5+):** Exit evaluator (TP/SL/force sell), latch + reevaluate, exit executor with retry bands, manual close, claim/redeem lifecycle, settlement orchestrator, relayer wrapper.
+**Faz 6 (v0.6.0-v0.6.10):** Exit evaluator (TP/SL/force sell), latch + reevaluate, exit executor with retry bands, manual close, claim/redeem lifecycle, settlement orchestrator + retry, relayer wrapper, resolution-based settlement (getMarket API), exit orchestrator, external reconciliation, balance accounting fix (close vs settlement separation).
 
 ### Not yet started
-- Faz 7: Recovery (restart, persistence, profiles)
+- Faz 7: Recovery, operational readiness, config hygiene
 - Faz 8: UI (frontend, settings panel, trade cards)
 
 ### Notes
-- 673 backend tests, all passing.
+- 711 backend tests, all passing.
 - Paper mode only — LIVE_ORDER_ENABLED=False, LIVE_SETTLEMENT_ENABLED=False.
 - Registry is in-memory (persistence deferred to Faz 7).
 
