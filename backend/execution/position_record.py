@@ -116,6 +116,40 @@ class PositionRecord:
     def is_pending(self) -> bool:
         return self.state == PositionState.PENDING_OPEN
 
+    @property
+    def was_sold(self) -> bool:
+        """Pozisyon satis ile mi kapandi (token satildi, USDC alindi)?
+
+        True = token satildi, redeem YAPILAMAZ
+        False = token elde, redeem YAPILABILIR (expiry/claim)
+
+        Satis close reason'lari: TP, SL, FORCE_SELL, MANUAL_CLOSE,
+        SYSTEM_SHUTDOWN, ERROR_RECOVERY
+        Satissiz: EXPIRY, CLAIM (token elde kaldi, redeem gerekli)
+        """
+        if not self.is_closed:
+            return False
+        sold_reasons = {
+            CloseReason.TAKE_PROFIT,
+            CloseReason.STOP_LOSS,
+            CloseReason.FORCE_SELL,
+            CloseReason.MANUAL_CLOSE,
+            CloseReason.SYSTEM_SHUTDOWN,
+            CloseReason.ERROR_RECOVERY,
+        }
+        return self.close_reason in sold_reasons
+
+    @property
+    def needs_redeem(self) -> bool:
+        """Pozisyon redeem gerektiriyor mu (token elde, satilmamis)?
+
+        Sadece EXPIRY veya CLAIM ile kapanan pozisyonlar redeem gerektirir.
+        Satis ile kapananlar ZATEN USDC almis — cift ekleme YAPILMAZ.
+        """
+        if not self.is_closed:
+            return False
+        return not self.was_sold
+
     # ── Fee-aware hesaplanan alanlar (canli) ──
 
     def calculate_unrealized_pnl(self, current_price: float, fee_rate: float | None = None) -> dict:

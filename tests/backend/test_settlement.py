@@ -36,7 +36,13 @@ class MockClobClient:
 
 
 def _make_closed_position(tracker, balance, fill=0.85, exit_price=0.92,
-                           reason=CloseReason.TAKE_PROFIT, asset="BTC"):
+                           reason=CloseReason.EXPIRY, asset="BTC"):
+    """Pozisyon olustur ve kapat.
+
+    Default: EXPIRY (token elde, redeem gerekli).
+    TP/SL/FS/manual icin reason parametresi ver — bu durumda token satilmis,
+    settlement/redeem ATLANIR (was_sold=True).
+    """
     pos = tracker.create_pending(asset, "UP", "0x1", "tok1", 5.0)
     tracker.confirm_fill(pos.position_id, fill_price=fill)
     tracker.request_close(pos.position_id, reason)
@@ -115,10 +121,9 @@ class TestSettlementOrchestrator:
 
     @pytest.mark.asyncio
     async def test_settle_losing_position(self):
-        """Kaybeden pozisyon: redeem -> $0, outcome=REDEEMED_LOST."""
+        """Kaybeden pozisyon (expiry, token elde): redeem -> $0."""
         tracker, balance, claim_mgr, _, orch = _setup()
-        pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.78,
-                                     reason=CloseReason.STOP_LOSS)
+        pos = _make_closed_position(tracker, balance, fill=0.85, exit_price=0.78)
         assert pos.net_realized_pnl < 0
 
         settled = await orch.process_settlements()
@@ -137,6 +142,17 @@ class TestSettlementOrchestrator:
         assert settled1 == 1
         settled2 = await orch.process_settlements()
         assert settled2 == 0
+
+    @pytest.mark.asyncio
+    async def test_sold_position_not_settled(self):
+        """Satis ile close olan pozisyon (TP/SL) settle EDILMEZ — token zaten satildi."""
+        tracker, balance, claim_mgr, _, orch = _setup()
+        pos = _make_closed_position(tracker, balance, reason=CloseReason.TAKE_PROFIT)
+        assert pos.was_sold is True
+        assert pos.needs_redeem is False
+
+        settled = await orch.process_settlements()
+        assert settled == 0  # satilmis pozisyon redeem edilmez
 
     @pytest.mark.asyncio
     async def test_open_position_not_settled(self):
@@ -159,8 +175,7 @@ class TestSettlementOrchestrator:
     @pytest.mark.asyncio
     async def test_balance_unchanged_on_loss(self):
         tracker, balance, claim_mgr, _, orch = _setup()
-        _make_closed_position(tracker, balance, fill=0.85, exit_price=0.78,
-                               reason=CloseReason.STOP_LOSS)
+        _make_closed_position(tracker, balance, fill=0.85, exit_price=0.78)
         before = balance.available_balance
         await orch.process_settlements()
         assert balance.available_balance == before

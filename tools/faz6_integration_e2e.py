@@ -100,7 +100,7 @@ def _open_pos(tracker, fill=0.85, asset="BTC"):
 
 
 async def test_full_tp_cycle():
-    header("1) FULL TP CYCLE: entry -> TP -> close -> settlement -> balance")
+    header("1) FULL TP CYCLE: entry -> TP -> close (token satildi)")
     tracker, balance, claim_mgr, _, orch, _ = _full_setup(winning_side="UP")
     before = balance.available_balance
     pos = _open_pos(tracker)
@@ -108,18 +108,16 @@ async def test_full_tp_cycle():
     result = await orch.run_cycle(current_prices={"BTC": 0.92}, remaining_seconds={"BTC": 200})
     check("TP trigger fired", result["triggers"] == 1)
     check("Close executed", result["closes"] == 1)
-    check("Settlement done", result["settlements"] == 1)
+    check("Settlement=0 (token satildi, redeem yok)", result["settlements"] == 0)
     check("Position closed", pos.is_closed)
     check("Close reason: TAKE_PROFIT", pos.close_reason == CloseReason.TAKE_PROFIT)
-
-    claims = claim_mgr.get_claims_by_position(pos.position_id)
-    check("Claim: REDEEMED_WON (API)", claims[0].outcome == ClaimOutcome.REDEEMED_WON)
-    check("Balance increased", balance.available_balance > before,
+    check("was_sold=True (satis geliri balance'ta)", pos.was_sold is True)
+    check("Balance increased (satis geliri)", balance.available_balance > before,
           f"${before:.2f} -> ${balance.available_balance:.2f}")
 
 
 async def test_full_sl_cycle():
-    header("2) FULL SL CYCLE: entry -> SL -> close -> settlement (lost)")
+    header("2) FULL SL CYCLE: entry -> SL -> close (token satildi)")
     tracker, balance, claim_mgr, _, orch, _ = _full_setup(winning_side="DOWN")
     pos = _open_pos(tracker)
 
@@ -127,10 +125,8 @@ async def test_full_sl_cycle():
     check("SL trigger fired", result["triggers"] == 1)
     check("Position closed", pos.is_closed)
     check("Close reason: STOP_LOSS", pos.close_reason == CloseReason.STOP_LOSS)
-
-    claims = claim_mgr.get_claims_by_position(pos.position_id)
-    check("Claim: REDEEMED_LOST (DOWN wins)", claims[0].outcome == ClaimOutcome.REDEEMED_LOST)
-    check("Claimed amount = $0", claims[0].claimed_amount_usdc == 0.0)
+    check("Settlement=0 (token satildi)", result["settlements"] == 0)
+    check("was_sold=True", pos.was_sold is True)
 
 
 async def test_full_force_sell_cycle():
@@ -142,19 +138,20 @@ async def test_full_force_sell_cycle():
     check("Force sell trigger fired", result["triggers"] == 1)
     check("Position closed", pos.is_closed)
     check("Close reason: FORCE_SELL", pos.close_reason == CloseReason.FORCE_SELL)
+    check("Settlement=0 (token satildi)", result["settlements"] == 0)
 
 
 async def test_full_manual_close_cycle():
-    header("4) FULL MANUAL CLOSE CYCLE: manual request -> close -> settlement")
+    header("4) FULL MANUAL CLOSE CYCLE: manual request -> close (token satildi)")
     tracker, balance, claim_mgr, _, orch, _ = _full_setup(winning_side="UP")
     pos = _open_pos(tracker)
 
-    # Manuel close request
     tracker.request_close(pos.position_id, CloseReason.MANUAL_CLOSE)
     result = await orch.run_cycle(current_prices={"BTC": 0.88}, remaining_seconds={"BTC": 200})
     check("Close executed", result["closes"] == 1)
     check("Position closed", pos.is_closed)
     check("Close reason: MANUAL_CLOSE", pos.close_reason == CloseReason.MANUAL_CLOSE)
+    check("Settlement=0 (token satildi)", result["settlements"] == 0)
 
 
 async def test_pending_trade_block():
@@ -173,8 +170,9 @@ async def test_pending_trade_block():
     orch = ExitOrchestrator(tracker, evaluator, executor, settlement, claim_mgr)
     validator = OrderValidator()
 
+    # EXPIRY ile kapat — token elde, redeem gerekli
     pos = _open_pos(tracker)
-    tracker.request_close(pos.position_id, CloseReason.TAKE_PROFIT)
+    tracker.request_close(pos.position_id, CloseReason.EXPIRY)
     tracker.confirm_close(pos.position_id, exit_fill_price=0.92)
 
     await settlement.process_settlements()
@@ -210,21 +208,25 @@ async def test_external_reconciliation():
 
 
 async def test_idempotent_settlement():
-    header("7) IDEMPOTENT SETTLEMENT: ikinci settle skip")
-    tracker, balance, claim_mgr, _, orch, _ = _full_setup(winning_side="UP")
-    pos = _open_pos(tracker)
+    header("7) IDEMPOTENT SETTLEMENT: EXPIRY redeem -> ikinci skip")
+    tracker, balance, claim_mgr, settlement, orch, _ = _full_setup(winning_side="UP")
 
-    r1 = await orch.run_cycle(current_prices={"BTC": 0.92}, remaining_seconds={"BTC": 200})
+    # EXPIRY ile kapat — token elde, redeem gerekli
+    pos = _open_pos(tracker)
+    tracker.request_close(pos.position_id, CloseReason.EXPIRY)
+    tracker.confirm_close(pos.position_id, exit_fill_price=0.92)
+
+    r1 = await orch.run_cycle(current_prices={}, remaining_seconds={})
     check("First cycle: settlement=1", r1["settlements"] == 1)
     b1 = balance.available_balance
 
-    r2 = await orch.run_cycle(current_prices={"BTC": 0.92}, remaining_seconds={"BTC": 200})
+    r2 = await orch.run_cycle(current_prices={}, remaining_seconds={})
     check("Second cycle: settlement=0 (skip)", r2["settlements"] == 0)
     check("Balance unchanged", balance.available_balance == b1)
 
 
 async def test_balance_consistency():
-    header("8) BALANCE CONSISTENCY: entry -> close -> settlement -> verify")
+    header("8) BALANCE CONSISTENCY: close = satis geliri ONLY (cift ekleme YOK)")
     tracker, balance, claim_mgr, _, orch, _ = _full_setup(winning_side="UP")
 
     start_balance = balance.available_balance
@@ -232,17 +234,15 @@ async def test_balance_consistency():
 
     await orch.run_cycle(current_prices={"BTC": 0.92}, remaining_seconds={"BTC": 200})
 
-    # Balance = start + close_exit_usdc (satis geliri) + settlement_payout (redeem)
-    claims = claim_mgr.get_claims_by_position(pos.position_id)
-    payout = claims[0].claimed_amount_usdc
+    # TP close = token satildi. Balance = start + exit_usdc. Settlement payout YOK.
     exit_usdc = pos.net_exit_usdc
-    expected = start_balance + exit_usdc + payout
+    expected = start_balance + exit_usdc
 
-    check("Balance = start + exit_usdc + payout",
+    check("Balance = start + exit_usdc (settlement payout YOK)",
           abs(balance.available_balance - expected) < 0.01,
-          f"${start_balance:.2f} + ${exit_usdc:.4f} + ${payout:.4f} = ${balance.available_balance:.2f}")
+          f"${start_balance:.2f} + ${exit_usdc:.4f} = ${balance.available_balance:.2f}")
     check("Close exit_usdc > 0", exit_usdc > 0, f"${exit_usdc:.4f}")
-    check("Settlement payout > 0", payout > 0, f"${payout:.4f}")
+    check("No claims created (token satildi)", len(claim_mgr.get_claims_by_position(pos.position_id)) == 0)
 
 
 async def main():

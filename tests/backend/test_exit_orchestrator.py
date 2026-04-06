@@ -39,7 +39,7 @@ class TestExitOrchestratorTP:
 
     @pytest.mark.asyncio
     async def test_tp_trigger_and_close_single_cycle(self):
-        """TP tetik + close + settlement tek cycle'da olur."""
+        """TP tetik + close tek cycle'da. Settlement YOK — token satildi."""
         tracker, balance, _, _, _, claim_mgr, orch = _setup(tp_pct=5.0)
         pos = _open_position(tracker)
 
@@ -49,10 +49,9 @@ class TestExitOrchestratorTP:
         )
         assert result["triggers"] == 1
         assert result["closes"] == 1
-        assert result["settlements"] == 1
+        assert result["settlements"] == 0  # token satildi, redeem yok
         assert pos.is_closed
-        claims = claim_mgr.get_claims_by_position(pos.position_id)
-        assert len(claims) == 1
+        assert pos.was_sold is True
 
     @pytest.mark.asyncio
     async def test_tp_reevaluate_cancels_close(self):
@@ -115,20 +114,20 @@ class TestExitOrchestratorForceSell:
 class TestExitOrchestratorSettlement:
 
     @pytest.mark.asyncio
-    async def test_full_cycle_trigger_close_settle(self):
-        """Tek cycle: TP tetik + close + settlement."""
+    async def test_tp_close_no_settlement(self):
+        """TP close -> token satildi -> settlement YOK."""
         tracker, balance, _, _, _, claim_mgr, orch = _setup()
         pos = _open_position(tracker)
 
         result = await orch.run_cycle(current_prices={"BTC": 0.92}, remaining_seconds={"BTC": 200})
         assert result["triggers"] == 1
         assert result["closes"] == 1
-        assert result["settlements"] == 1
+        assert result["settlements"] == 0  # was_sold -> no redeem
         assert pos.is_closed
+        assert pos.was_sold is True
 
         claims = claim_mgr.get_claims_by_position(pos.position_id)
-        assert len(claims) == 1
-        assert claims[0].claim_status == ClaimStatus.SUCCESS
+        assert len(claims) == 0  # satis ile kapandi, claim olusturmadi
 
 
 class TestExternalReconciliation:
@@ -206,10 +205,11 @@ class TestExternalReconciliation:
         executor = ExitExecutor(tracker, balance, paper_mode=True)
         orch = ExitOrchestrator(tracker, evaluator, executor, settlement, claim_mgr)
 
-        # Pozisyon ac ve kapat
+        # Pozisyon ac ve EXPIRY ile kapat (token elde, redeem gerekli)
         pos = _open_position(tracker)
-        tracker.request_close(pos.position_id, CloseReason.TAKE_PROFIT)
+        tracker.request_close(pos.position_id, CloseReason.EXPIRY)
         tracker.confirm_close(pos.position_id, exit_fill_price=0.92)
+        assert pos.needs_redeem is True
 
         # Settlement basarisiz -> retry'a girer
         await settlement.process_settlements()
