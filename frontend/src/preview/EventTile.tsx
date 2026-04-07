@@ -39,7 +39,6 @@ import type {
   ActivityContract,
   ClaimStatusContract,
   RuleSpecContract,
-  PositionLiveContract,
   PositionExitsContract,
 } from '../api/dashboard';
 
@@ -48,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v27',
+  'eventtile-v28',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -747,22 +746,36 @@ function IdlePanel({ msg }: { msg: string }) {
 // ╚══════════════════════════════════════════════════════════════╝
 
 function OpenBody({
-  live,
+  position,
   activity,
 }: {
-  live?: PositionLiveContract | null;
+  position: PositionSummary;
   activity?: ActivityContract | null;
 }) {
-  const cells = live
+  const live = position.live;
+  // Row 1 — Giris / Canli / Delta
+  const liveCells = live
     ? [
         { label: 'Giriş', value: `${live.side === 'UP' ? '▲' : '▼'} ${live.entry}` },
         { label: 'Canlı', value: live.live },
         { label: 'Delta', value: live.delta_text ?? '—' },
       ]
     : [];
+  // Row 2 — Maliyet / NET PNL % / NET PNL USD
+  const cost = position.requested_amount_usd != null
+    ? `$${position.requested_amount_usd.toFixed(2)}`
+    : '—';
+  const netPct = position.pnl_big ?? '—';
+  const netUsd = position.pnl_amount ?? '—';
+  const pnlCells = [
+    { label: 'Maliyet', value: cost },
+    { label: 'Net %', value: netPct },
+    { label: 'Net USD', value: netUsd },
+  ];
   return (
     <div className="dsp-tile-m">
-      {cells.length > 0 && <MidCells cells={cells} />}
+      {liveCells.length > 0 && <MidCells cells={liveCells} />}
+      <MidCells cells={pnlCells} />
       <ActivityStatusLine activity={activity} />
     </div>
   );
@@ -844,6 +857,25 @@ function IdleBody({ msg, activity }: { msg: string; activity?: ActivityContract 
 // ║  Variant tile components (4 ayri small fn)                   ║
 // ╚══════════════════════════════════════════════════════════════╝
 
+/** deriveOpenStatus — activity text + tone'dan lifecycle status etiketi.
+ *  Eski dashboard mantigi: NEW / TP-NEAR / T-PROFIT / SL-NEAR / S-LOSS /
+ *  F-WAIT / F-SELL / KAR / ZARAR / — */
+function deriveOpenStatus(position: PositionSummary): string {
+  const text = position.activity?.text ?? '';
+  // Lifecycle pattern eslestirme (en spesifikten en genele)
+  if (/Emir doldu|pozisyon a[çc]ild/i.test(text)) return 'NEW';
+  if (/TP\s*tetik|TP\s*@/i.test(text)) return 'T-PROFIT';
+  if (/TP\s*yakla[şs]/i.test(text)) return 'TP-NEAR';
+  if (/SL\s*tetik|SL\s*@/i.test(text)) return 'S-LOSS';
+  if (/SL\s*yakla[şs]/i.test(text)) return 'SL-NEAR';
+  if (/Force\s*sell\s*—?\s*\d+\s*saniye|FS\s*countdown/i.test(text)) return 'F-WAIT';
+  if (/Force\s*sell|FS\s*@/i.test(text)) return 'F-SELL';
+  // Default fallback: tone bazli KAR / ZARAR
+  if (position.pnl_tone === 'profit') return 'KAR';
+  if (position.pnl_tone === 'loss') return 'ZARAR';
+  return '—';
+}
+
 function OpenTile({
   position,
   coins,
@@ -859,15 +891,18 @@ function OpenTile({
       : tone === 'loss'
       ? 'dsp-tile open-loss'
       : 'dsp-tile';
+  // Sol kolon PnL box: islem durumu (NEW / TP-NEAR / T-PROFIT / SL-NEAR /
+  // S-LOSS / F-WAIT / F-SELL / KAR / ZARAR)
+  const statusLabel = deriveOpenStatus(position);
   return (
     <div className={klass}>
       <CoinIdentityBlock
         coin={coin}
-        big={position.pnl_big ?? null}
-        amount={position.pnl_amount ?? null}
+        big={statusLabel}
+        amount={null}
         tone={tone}
       />
-      <OpenBody live={position.live} activity={position.activity} />
+      <OpenBody position={position} activity={position.activity} />
       <div className="dsp-tile-r">
         <ExitGrid exits={position.exits} />
       </div>
