@@ -2,7 +2,7 @@
 
 > **Bu dosya her anlamlı commit'te güncellenir** ve push edilir. Olası bir kayıpta GitHub'dan baktığında en son durumu ve devam edilmesi gereken adımı görürsün.
 >
-> **Son güncelleme:** 2026-04-07 (sol kolon 3 satir grid + 19 mock cap kaldirildi)
+> **Son güncelleme:** 2026-04-07 (tile h 138 + ID row \$ buton + count badge title yanina + grid ic ferah)
 > **Aktif branch:** `main`
 > **Aktif önizleme URL:** `localhost:5173/?preview=sidebar&mock=full`
 > **Çalışma dizini:** `C:\polyfast`
@@ -33,12 +33,16 @@
 - ✅ SectionFilterStrip — 38px, görünür tab'lar, tone'lu dot
 - ✅ EventTile — 4 variant (open/claim/search/idle), vertical divider sol|orta|sağ
 - ✅ Sol kolon **3 eşit satır grid** (id/pnl/actions her biri ~37px)
-  - Row 1: kare logo + ticker (sembol)
+  - Row 1: kare logo (24px) + ticker (5 char yer) + **$ butonu** — 3 col grid
   - Row 2: PnL big ortalı (veya 6/6 search)
-  - Row 3: $/⚙ butonları 2 col yan yana
+  - Row 3: ⚙ ayarlar tek buton (full width)
 - ✅ Gerçek coin logoları (jsdelivr CDN: atomiclabs/cryptocurrency-icons)
 - ✅ Mock 19 senaryo — **CAP KALDIRILDI**, hepsi gözüküyor (10 open/claim + 6 search + 3 idle, scrollable)
-- ✅ Tile h 138 (sabit, defensive 820 viewport)
+- ✅ Tile h 138 (sabit), 8 tile defensive 800/820/850 viewport hepsinde sığar
+- ✅ Grid içi (ExitGrid cell, sol kolon row, RuleGrid) padding/gap **ferah**
+- ✅ Tile dış padding **az** (5/14 → 6/14)
+- ✅ Section header **count badge title yanında** (sağda uzakta değil)
+- ✅ ExitGrid cell padding 6/11, val 14px, gap 6 (TP/SL/FS/FS PnL)
 - ✅ Status / Retry / Payout (claim) — wired claims listesinden lookup
 - ✅ Ürün kararları kayıtlı: `~/.claude/projects/C--polyfast/memory/`
 
@@ -125,6 +129,7 @@
 |---|---|---|
 | 2026-04-07 17:24 | `C:\polyfast-backups\polyfast_2026-04-07_17-24_turn3-bitti` | `a5e7db9` |
 | 2026-04-07 23:12 | `C:\polyfast-backups\polyfast_2026-04-07_23-12_8tile-fit` | `bb239fe` |
+| 2026-04-08 00:30 | `C:\polyfast-backups\polyfast_2026-04-08_00-30_id-row-dollar` | `65574f0` |
 
 GitHub remote: `github.com/hsncoskun1/polyfast` (her commit + push güvende)
 
