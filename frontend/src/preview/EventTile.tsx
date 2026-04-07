@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v37',
+  'eventtile-v38',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -152,7 +152,7 @@ ensureStyles(
 .dsp-tile-l-symbol {
   font-size: 13px;
   font-weight: ${FONT.weight.bold};
-  color: ${COLOR.text};
+  color: ${COLOR.brand};
   letter-spacing: 0.03em;
   line-height: 1.1;
   text-align: center;

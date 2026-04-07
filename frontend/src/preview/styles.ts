@@ -193,7 +193,7 @@ export const ACTIVITY_TONE: Record<ActivitySeverity, { fg: string; dot: string }
   success: { fg: COLOR.green, dot: COLOR.green },
   warning: { fg: COLOR.yellow, dot: COLOR.yellow },
   error: { fg: COLOR.red, dot: COLOR.red },
-  info: { fg: COLOR.text, dot: COLOR.brand },
+  info: { fg: COLOR.brand, dot: COLOR.brand },
   pending: { fg: COLOR.yellow, dot: COLOR.yellow },
   off: { fg: COLOR.textDim, dot: COLOR.textDim },
 };
