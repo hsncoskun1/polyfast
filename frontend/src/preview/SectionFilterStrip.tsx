@@ -23,59 +23,67 @@ import { COLOR, FONT, SIZE, ensureStyles } from './styles';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sectionstrip',
+  'sectionstrip-v2',
   `
 .dsp-sfs {
   height: ${SIZE.sectionStripHeight}px;
   flex-shrink: 0;
-  background: ${COLOR.bg};
-  border-bottom: 1px solid ${COLOR.divider};
+  background: ${COLOR.bgRaised};
+  border-bottom: 1px solid ${COLOR.border};
   display: flex;
   align-items: center;
-  padding: 0 18px;
-  gap: 6px;
+  padding: 0 20px;
+  gap: 7px;
   font-family: ${FONT.sans};
 }
 .dsp-sfs-tab {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: ${SIZE.radius}px;
-  background: transparent;
-  border: 1px solid transparent;
-  font-size: ${FONT.size.md};
-  font-weight: ${FONT.weight.medium};
-  color: ${COLOR.textMuted};
+  background: ${COLOR.surface};
+  border: 1px solid ${COLOR.divider};
+  font-size: 12.5px;
+  font-weight: ${FONT.weight.semibold};
+  color: ${COLOR.text};
   cursor: pointer;
   font-family: ${FONT.sans};
   white-space: nowrap;
+  opacity: 0.78;
 }
-.dsp-sfs-tab:hover { color: ${COLOR.text}; }
+.dsp-sfs-tab:hover {
+  opacity: 1;
+  background: ${COLOR.surfaceHover};
+}
 .dsp-sfs-tab.active {
+  opacity: 1;
   background: ${COLOR.brandSoft};
   border-color: ${COLOR.borderStrong};
   color: ${COLOR.text};
 }
 .dsp-sfs-tab .dsp-sfs-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 .dsp-sfs-tab .dsp-sfs-count {
   font-family: ${FONT.mono};
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: ${FONT.weight.bold};
-  padding: 1px 6px;
-  border-radius: 8px;
-  background: ${COLOR.surface};
-  color: ${COLOR.textMuted};
-  min-width: 18px;
+  padding: 2px 8px;
+  border-radius: 9px;
+  background: ${COLOR.bgRaised};
+  color: ${COLOR.text};
+  min-width: 20px;
   text-align: center;
+  border: 1px solid ${COLOR.divider};
 }
 .dsp-sfs-tab.active .dsp-sfs-count {
   background: ${COLOR.brand};
   color: ${COLOR.bg};
+  border-color: ${COLOR.brand};
 }
 `
 );
@@ -128,7 +136,13 @@ export default function SectionFilterStrip({
             onClick={() => onFilterChange(tab.key)}
           >
             {tab.dot && (
-              <span className="dsp-sfs-dot" style={{ background: tab.dot }} />
+              <span
+                className="dsp-sfs-dot"
+                style={{
+                  background: tab.dot,
+                  boxShadow: `0 0 5px ${tab.dot}88`,
+                }}
+              />
             )}
             <span>{tab.label}</span>
             <span className="dsp-sfs-count">{count}</span>
