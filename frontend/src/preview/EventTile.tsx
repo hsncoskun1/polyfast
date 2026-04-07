@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v8',
+  'eventtile-v9',
   `
 .dsp-tile {
   display: grid;
@@ -60,7 +60,7 @@ ensureStyles(
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  min-height: 0;
+  height: 149px;
   align-items: stretch;
   min-width: 0;
   line-height: 1.2;
