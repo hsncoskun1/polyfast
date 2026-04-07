@@ -28,14 +28,16 @@ import {
   ACTIVITY_TONE,
   ensureStyles,
 } from './styles';
-import { lookupCoin, type CoinFallback } from './coinRegistry';
+import { lookupCoin, DEFAULT_COIN_TONE, type CoinFallback } from './coinRegistry';
 import type {
   PositionSummary,
+  ClaimSummary,
   SearchTileContract,
   IdleTileContract,
   CoinInfoContract,
   PnlTone,
   ActivityContract,
+  ClaimStatusContract,
   RuleSpecContract,
   PositionLiveContract,
   PositionExitsContract,
@@ -46,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile',
+  'eventtile-v2',
   `
 .dsp-tile {
   display: grid;
@@ -66,46 +68,46 @@ ensureStyles(
 .dsp-tile.search      { }
 .dsp-tile.idle        { opacity: 0.86; }
 
-/* SOL kolon */
+/* SOL kolon — turn 3: avatar tone + symbol bold + display ferah */
 .dsp-tile-l {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 .dsp-tile-l-id {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .dsp-tile-l-avatar {
-  width: 28px; height: 28px;
+  width: 36px; height: 36px;
   border-radius: 50%;
-  background: ${COLOR.surface};
-  border: 1px solid ${COLOR.border};
   display: flex; align-items: center; justify-content: center;
-  font-size: ${FONT.size.md};
+  font-size: ${FONT.size.lg};
   font-weight: ${FONT.weight.bold};
-  color: ${COLOR.text};
+  flex-shrink: 0;
+  /* bg + border-color inline style ile coin tone'dan gelir */
 }
 .dsp-tile-l-name {
   display: flex; flex-direction: column; min-width: 0;
 }
 .dsp-tile-l-symbol {
-  font-size: ${FONT.size.lg};
+  font-size: 16px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
+  letter-spacing: 0.02em;
 }
 .dsp-tile-l-display {
-  font-size: ${FONT.size.xs};
-  color: ${COLOR.textMuted};
-  font-weight: ${FONT.weight.medium};
+  font-size: 11px;
+  color: ${COLOR.text};
+  font-weight: ${FONT.weight.semibold};
+  opacity: 0.7;
 }
 .dsp-tile-l-pnl {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: 2px;
 }
 .dsp-tile-l-big {
   font-family: ${FONT.mono};
@@ -119,7 +121,7 @@ ensureStyles(
   color: ${COLOR.textMuted};
 }
 .dsp-tile-l-actions {
-  display: flex; gap: 6px; margin-top: 4px;
+  display: flex; gap: 6px; margin-top: 6px;
 }
 .dsp-tile-l-act {
   width: 26px; height: 26px;
@@ -237,60 +239,80 @@ ensureStyles(
 .dsp-eg-cell.fs .dsp-eg-val { color: ${COLOR.yellow}; }
 .dsp-eg-cell.fspnl .dsp-eg-val { color: ${COLOR.red}; }
 
-/* ClaimStatusPanel */
+/* ClaimStatusPanel — turn 3: tone bagli + payout vurgulu */
 .dsp-csp {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
 }
 .dsp-csp-hero {
   grid-column: 1 / -1;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: ${SIZE.radius}px;
-  background: ${COLOR.brandSoft};
-  border: 1px solid ${COLOR.borderStrong};
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 9px;
+  /* bg + border-color inline (tone bagli) */
 }
-.dsp-csp-hero-dot { width: 8px; height: 8px; border-radius: 50%; background: ${COLOR.brand}; }
+.dsp-csp-hero-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  flex-shrink: 0;
+  /* bg + glow inline (tone bagli) */
+}
 .dsp-csp-hero-lbl {
   font-size: 9px; text-transform: uppercase;
-  font-weight: ${FONT.weight.semibold}; color: ${COLOR.textMuted};
-  letter-spacing: 0.05em;
+  font-weight: ${FONT.weight.bold}; color: ${COLOR.textMuted};
+  letter-spacing: 0.06em;
 }
 .dsp-csp-hero-val {
   font-family: ${FONT.mono};
-  font-size: ${FONT.size.lg};
+  font-size: ${FONT.size.xl};
   font-weight: ${FONT.weight.bold};
-  color: ${COLOR.brand};
   margin-left: auto;
+  letter-spacing: 0.04em;
+  /* color inline (tone bagli) */
 }
 .dsp-csp-cell {
-  padding: 6px 10px;
+  padding: 8px 11px;
   border-radius: ${SIZE.radius}px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
-  display: flex; flex-direction: column; gap: 1px;
+  display: flex; flex-direction: column; gap: 2px;
 }
 .dsp-csp-cell-lbl {
   font-size: 9px; text-transform: uppercase;
-  font-weight: ${FONT.weight.semibold}; color: ${COLOR.textMuted};
-  letter-spacing: 0.05em;
+  font-weight: ${FONT.weight.bold}; color: ${COLOR.textMuted};
+  letter-spacing: 0.06em;
 }
 .dsp-csp-cell-val {
   font-family: ${FONT.mono};
-  font-size: ${FONT.size.md};
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
 }
 .dsp-csp-payout {
   grid-column: 1 / -1;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: ${SIZE.radius}px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   display: flex; justify-content: space-between; align-items: center;
 }
+.dsp-csp-payout-lbl {
+  font-size: 10px; text-transform: uppercase;
+  font-weight: ${FONT.weight.bold}; color: ${COLOR.textMuted};
+  letter-spacing: 0.06em;
+}
+.dsp-csp-payout-val {
+  font-family: ${FONT.mono};
+  font-size: 16px;
+  font-weight: ${FONT.weight.bold};
+  /* color inline (tone bagli) */
+}
+.dsp-csp.ok .dsp-csp-payout {
+  background: ${COLOR.greenSoft};
+  border-color: ${COLOR.greenSoft};
+}
+.dsp-csp.ok .dsp-csp-payout-val { color: ${COLOR.green}; }
 
 /* IdlePanel (sag taraf) */
 .dsp-ip {
@@ -311,9 +333,19 @@ ensureStyles(
 // ╚══════════════════════════════════════════════════════════════╝
 
 function CoinAvatar({ coin }: { coin: CoinFallback }) {
-  // 1. tur: harf avatari (logo_url ile asset bazli render sonraki tur)
+  // turn 3: tone'lu avatar (coin marka rengi soft bg + ince border)
+  // Ileride logo_url ile asset bazli render eklenebilir
+  const tone = coin.tone ?? DEFAULT_COIN_TONE;
   return (
-    <div className="dsp-tile-l-avatar" title={coin.display_name}>
+    <div
+      className="dsp-tile-l-avatar"
+      title={coin.display_name}
+      style={{
+        background: `${tone}14`, // %8 alpha
+        border: `1.5px solid ${tone}55`, // %33 alpha
+        color: tone,
+      }}
+    >
       {coin.symbol[0]}
     </div>
   );
@@ -485,12 +517,32 @@ function ExitGrid({ exits }: { exits?: PositionExitsContract | null }) {
 }
 
 interface ClaimPanelProps {
-  status: string | null | undefined; // RETRY/OK/FAIL
+  status: ClaimStatusContract | null | undefined; // RETRY/OK/FAIL
   retry: number | null | undefined;
   maxRetry: number | null | undefined;
   nextSec: number | null | undefined;
   payout: string | null | undefined;
 }
+
+/** Claim status -> tone (RETRY=yellow, OK=green, FAIL=red, null=brand). */
+function claimTone(status: ClaimStatusContract | null | undefined): {
+  fg: string;
+  bg: string;
+  glow: string;
+  klass: string;
+} {
+  switch (status) {
+    case 'OK':
+      return { fg: COLOR.green, bg: COLOR.greenSoft, glow: COLOR.greenGlow, klass: 'ok' };
+    case 'FAIL':
+      return { fg: COLOR.red, bg: COLOR.redSoft, glow: COLOR.redGlow, klass: 'fail' };
+    case 'RETRY':
+      return { fg: COLOR.yellow, bg: COLOR.yellowSoft, glow: COLOR.yellowGlow, klass: 'retry' };
+    default:
+      return { fg: COLOR.brand, bg: COLOR.brandSoft, glow: COLOR.brandGlow, klass: 'pending' };
+  }
+}
+
 function ClaimStatusPanel({
   status,
   retry,
@@ -498,12 +550,27 @@ function ClaimStatusPanel({
   nextSec,
   payout,
 }: ClaimPanelProps) {
+  const tone = claimTone(status);
   return (
-    <div className="dsp-csp">
-      <div className="dsp-csp-hero">
-        <span className="dsp-csp-hero-dot" />
+    <div className={`dsp-csp ${tone.klass}`}>
+      <div
+        className="dsp-csp-hero"
+        style={{
+          background: tone.bg,
+          border: `1px solid ${tone.fg}55`,
+        }}
+      >
+        <span
+          className="dsp-csp-hero-dot"
+          style={{
+            background: tone.fg,
+            boxShadow: `0 0 6px ${tone.fg}99`,
+          }}
+        />
         <span className="dsp-csp-hero-lbl">STATUS</span>
-        <span className="dsp-csp-hero-val">{status ?? '—'}</span>
+        <span className="dsp-csp-hero-val" style={{ color: tone.fg }}>
+          {status ?? '—'}
+        </span>
       </div>
       <div className="dsp-csp-cell">
         <div className="dsp-csp-cell-lbl">Retry</div>
@@ -518,8 +585,15 @@ function ClaimStatusPanel({
         </div>
       </div>
       <div className="dsp-csp-payout">
-        <span className="dsp-csp-cell-lbl">Payout</span>
-        <span className="dsp-csp-cell-val">{payout ?? '—'}</span>
+        <span className="dsp-csp-payout-lbl">Payout</span>
+        <span
+          className="dsp-csp-payout-val"
+          style={{
+            color: status === 'OK' ? COLOR.green : COLOR.text,
+          }}
+        >
+          {payout ?? '—'}
+        </span>
       </div>
     </div>
   );
@@ -555,9 +629,33 @@ function OpenBody({
   );
 }
 
-function ClaimBody({ activity }: { activity?: ActivityContract | null }) {
+function ClaimBody({
+  position,
+  activity,
+}: {
+  position: PositionSummary;
+  activity?: ActivityContract | null;
+}) {
+  // Q3=a karari: KAPANIS -> OUTCOME -> ENTRY
+  const closeReason = position.close_reason ?? '—';
+  // Outcome: legacy alanlardan turetilemez, claim summary'den lookup edilirse
+  // dolu gelir; su an yoksa close_reason'dan turetelim (basit map)
+  const outcome = position.net_realized_pnl > 0
+    ? 'WIN'
+    : position.net_realized_pnl < 0
+    ? 'LOSS'
+    : closeReason === 'expiry' ? 'PENDING' : '—';
+  const entry = position.fill_price.toFixed(2);
+
   return (
     <div className="dsp-tile-m">
+      <MidCells
+        cells={[
+          { label: 'Kapanış', value: closeReason.toUpperCase() },
+          { label: 'Outcome', value: outcome },
+          { label: 'Entry', value: entry },
+        ]}
+      />
       <ActivityStatusLine activity={activity} />
     </div>
   );
@@ -641,27 +739,31 @@ function OpenTile({
 function ClaimTile({
   position,
   coins,
+  claims,
 }: {
   position: PositionSummary;
   coins: CoinInfoContract[] | null;
+  claims: ClaimSummary[] | null;
 }) {
   const coin = lookupCoin(position.asset, coins);
+  // turn 3: claims listesinden lookup (position_id eslesmesi)
+  const claim = claims?.find((c) => c.position_id === position.position_id);
   return (
     <div className="dsp-tile claim">
       <CoinIdentityBlock
         coin={coin}
-        big="CLAIM"
-        amount="PENDING"
-        tone="pending"
+        big={position.pnl_big ?? 'CLAIM'}
+        amount={position.pnl_amount ?? 'PENDING'}
+        tone={position.pnl_tone ?? 'pending'}
       />
-      <ClaimBody activity={position.activity} />
+      <ClaimBody position={position} activity={position.activity} />
       <div className="dsp-tile-r">
         <ClaimStatusPanel
-          status={null /* legacy claim_summary linkage henuz yok */}
-          retry={null}
-          maxRetry={null}
-          nextSec={null}
-          payout={null}
+          status={claim?.status ?? null}
+          retry={claim?.retry ?? null}
+          maxRetry={claim?.max_retry ?? null}
+          nextSec={claim?.next_sec ?? null}
+          payout={claim?.payout ?? null}
         />
       </div>
     </div>
@@ -741,7 +843,10 @@ export interface EventTileProps {
   search?: SearchTileContract;
   /** idle variant icin */
   idle?: IdleTileContract;
+  /** coin metadata lookup icin */
   coins: CoinInfoContract[] | null;
+  /** claim variant icin claim status lookup (position_id eslesmesi) */
+  claims?: ClaimSummary[] | null;
 }
 
 export default function EventTile(props: EventTileProps) {
@@ -751,7 +856,13 @@ export default function EventTile(props: EventTileProps) {
       return <OpenTile position={props.position} coins={props.coins} />;
     case 'claim':
       if (!props.position) return null;
-      return <ClaimTile position={props.position} coins={props.coins} />;
+      return (
+        <ClaimTile
+          position={props.position}
+          coins={props.coins}
+          claims={props.claims ?? null}
+        />
+      );
     case 'search':
       if (!props.search) return null;
       return <SearchTile tile={props.search} coins={props.coins} />;
