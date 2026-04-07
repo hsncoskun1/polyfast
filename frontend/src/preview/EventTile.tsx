@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v30',
+  'eventtile-v31',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -206,15 +206,13 @@ ensureStyles(
 .dsp-tile-l-act.dollar-active { color: ${COLOR.green}; }
 .dsp-tile-l-act.dollar-passive { color: ${COLOR.cyan}; }
 
-/* ORTA kolon — sol panel ile birebir hizali (3 row grid)
- * Row 1: ilk child (cells) — sol ID box hizasi
- * Row 2: empty (sol PnL box hizasi)
- * Row 3: son child (activity) — sol Ayarlar buton hizasi */
+/* ORTA kolon — sol panel ile birebir hizali (3 row grid), 3 row TAM MID PANEL UZAR
+ * Padding 0 -> child'lar (cells + activity) full width, divider'a kadar uzar */
 .dsp-tile-m {
   display: grid;
   grid-template-rows: 1fr 1fr 1fr;
   gap: 6px;
-  padding: 0 16px;
+  padding: 0;
   min-width: 0;
 }
 .dsp-tile-m > *:first-child {
@@ -231,6 +229,8 @@ ensureStyles(
   grid-template-columns: 1fr 1fr 1fr;
   gap: 5px;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 .dsp-tile-m-cell {
   display: flex; flex-direction: column;
@@ -242,6 +242,7 @@ ensureStyles(
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
   gap: 0;
+  box-sizing: border-box;
 }
 .dsp-tile-m-lbl {
   font-size: 9px;
@@ -264,8 +265,12 @@ ensureStyles(
   max-width: 100%;
   text-align: center;
 }
+/* Activity bar — full width mid panel, ortali (sabit kart, gelen text ortali) */
 .dsp-tile-m-act {
-  display: flex; gap: 8px; align-items: center;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
   padding: 4px 10px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.divider};
@@ -273,6 +278,9 @@ ensureStyles(
   font-size: 12px;
   font-weight: ${FONT.weight.semibold};
   line-height: 1.2;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
 }
 .dsp-tile-m-act-dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -477,10 +485,12 @@ interface SidePnlProps {
   big?: string | null;
   amount?: string | null;
   tone?: PnlTone | null;
+  /** big text rengini override eder (YENİ İŞLEM cyan icin) */
+  colorOverride?: string | null;
 }
-function SidePnl({ big, amount, tone }: SidePnlProps) {
+function SidePnl({ big, amount, tone, colorOverride }: SidePnlProps) {
   const t = tone ?? 'off';
-  const fg = PNL_TONE[t].fg;
+  const fg = colorOverride ?? PNL_TONE[t].fg;
   return (
     <div className="dsp-tile-l-pnl">
       <div className="dsp-tile-l-big" style={{ color: fg }}>
@@ -529,24 +539,24 @@ function CoinIdentityBlock({
   amount,
   tone,
   dollarState,
+  bigColor,
 }: {
   coin: CoinFallback;
   big?: string | null;
   amount?: string | null;
   tone?: PnlTone | null;
   dollarState?: 'active' | 'passive';
+  /** PnL big text rengi override (YENİ İŞLEM cyan icin) */
+  bigColor?: string | null;
 }) {
   return (
     <div className="dsp-tile-l">
-      {/* Row 1: Logo + Ticker (5 char yer) + \$ buton */}
       <div className="dsp-tile-l-id" title={coin.display_name}>
         <CoinAvatar coin={coin} />
         <span className="dsp-tile-l-symbol">{coin.symbol}</span>
         <DollarButton dollarState={dollarState} />
       </div>
-      {/* Row 2: PnL big (veya 6/6 search) */}
-      <SidePnl big={big} amount={amount} tone={tone} />
-      {/* Row 3: ⚙ Ayarlar */}
+      <SidePnl big={big} amount={amount} tone={tone} colorOverride={bigColor} />
       <TileActions />
     </div>
   );
@@ -885,22 +895,29 @@ function IdleBody({ msg, activity }: { msg: string; activity?: ActivityContract 
 // ╚══════════════════════════════════════════════════════════════╝
 
 /** deriveOpenStatus — activity text + tone'dan lifecycle status etiketi.
- *  TR cevrilmis: YENİ / TP-YAKIN / TP-KAR / SL-YAKIN / STOPLOSS / F-RISK /
- *  FORCESELL / KAR / ZARAR / — */
+ *  TR cevrilmis: YENİ İŞLEM / TP-YAKIN / TP-KAR / SL-YAKIN / STOPLOSS /
+ *  F-RISK / FORCESELL / KAR / ZARAR / — */
 function deriveOpenStatus(position: PositionSummary): string {
   const text = position.activity?.text ?? '';
   // Lifecycle pattern eslestirme (en spesifikten en genele)
-  if (/Emir doldu|pozisyon a[çc]ild/i.test(text)) return 'YENİ';
+  if (/Emir doldu|pozisyon a[çc]ild/i.test(text)) return 'YENİ İŞLEM';
   if (/TP\s*tetik|TP\s*@/i.test(text)) return 'TP-KAR';
   if (/TP\s*yakla[şs]/i.test(text)) return 'TP-YAKIN';
   if (/SL\s*tetik|SL\s*@/i.test(text)) return 'STOPLOSS';
   if (/SL\s*yakla[şs]/i.test(text)) return 'SL-YAKIN';
-  if (/Force\s*sell\s*—?\s*\d+\s*saniye|FS\s*countdown/i.test(text)) return 'F-RISK';
+  if (/Force\s*sell\s*—?\s*\d+\s*saniye|FS\s*countdown/i.test(text)) return 'FS-YAKIN';
   if (/Force\s*sell|FS\s*@/i.test(text)) return 'FORCESELL';
-  // Default fallback: tone bazli KAR / ZARAR
   if (position.pnl_tone === 'profit') return 'KAR';
   if (position.pnl_tone === 'loss') return 'ZARAR';
   return '—';
+}
+
+/** Open status -> color override (YENİ İŞLEM cyan, digerleri pnl_tone) */
+function openStatusColor(label: string, pnlTone: PnlTone | null | undefined): string | null {
+  if (label === 'YENİ İŞLEM') return COLOR.cyan;
+  // Diger label'lar pnl_tone uzerinden PNL_TONE[].fg kullanir (SidePnl default)
+  if (pnlTone) return PNL_TONE[pnlTone].fg;
+  return null;
 }
 
 function OpenTile({
@@ -918,9 +935,10 @@ function OpenTile({
       : tone === 'loss'
       ? 'dsp-tile open-loss'
       : 'dsp-tile';
-  // Sol kolon PnL box: islem durumu (NEW / TP-NEAR / T-PROFIT / SL-NEAR /
-  // S-LOSS / F-WAIT / F-SELL / KAR / ZARAR)
+  // Sol kolon PnL box: islem durumu (YENİ İŞLEM / TP-YAKIN / TP-KAR / SL-YAKIN /
+  // STOPLOSS / F-RISK / FORCESELL / KAR / ZARAR)
   const statusLabel = deriveOpenStatus(position);
+  const statusColor = openStatusColor(statusLabel, tone);
   return (
     <div className={klass}>
       <CoinIdentityBlock
@@ -928,6 +946,7 @@ function OpenTile({
         big={statusLabel}
         amount={null}
         tone={tone}
+        bigColor={statusColor}
       />
       <OpenBody position={position} activity={position.activity} />
       <div className="dsp-tile-r">
