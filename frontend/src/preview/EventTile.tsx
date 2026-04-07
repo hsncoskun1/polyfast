@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v31',
+  'eventtile-v32',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -206,13 +206,14 @@ ensureStyles(
 .dsp-tile-l-act.dollar-active { color: ${COLOR.green}; }
 .dsp-tile-l-act.dollar-passive { color: ${COLOR.cyan}; }
 
-/* ORTA kolon — sol panel ile birebir hizali (3 row grid), 3 row TAM MID PANEL UZAR
- * Padding 0 -> child'lar (cells + activity) full width, divider'a kadar uzar */
+/* ORTA kolon — sol panel ile birebir hizali (3 row grid)
+ * Padding 0 14 -> sol/sag divider'larina sol-pad-right (14) ve sag-pad-left
+ * (14) ile esit nefes. Sol+sag panellerle simetrik. */
 .dsp-tile-m {
   display: grid;
   grid-template-rows: 1fr 1fr 1fr;
   gap: 6px;
-  padding: 0;
+  padding: 0 14px;
   min-width: 0;
 }
 .dsp-tile-m > *:first-child {
@@ -292,7 +293,7 @@ ensureStyles(
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding-left: 16px;
+  padding-left: 14px;
   border-left: 1px solid ${COLOR.border};
 }
 
