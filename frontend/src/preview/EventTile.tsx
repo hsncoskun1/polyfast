@@ -48,19 +48,19 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v3',
+  'eventtile-v4',
   `
 .dsp-tile {
   display: grid;
-  grid-template-columns: 200px 1fr 280px;
-  gap: 14px;
-  padding: 14px 16px;
+  grid-template-columns: 190px 1fr 270px;
+  gap: 12px;
+  padding: 10px 14px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  min-height: ${SIZE.tileMinHeight}px;
+  min-height: 110px;
   min-width: 0;
 }
 .dsp-tile.claim { border-color: ${COLOR.brandSoft}; }
@@ -69,23 +69,23 @@ ensureStyles(
 .dsp-tile.search      { }
 .dsp-tile.idle        { opacity: 0.86; }
 
-/* SOL kolon — turn 3: avatar tone + symbol bold + display ferah */
+/* SOL kolon — turn 4: kompakt yukseklik */
 .dsp-tile-l {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
 }
 .dsp-tile-l-id {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
 }
 .dsp-tile-l-avatar {
-  width: 34px; height: 34px;
+  width: 32px; height: 32px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: ${FONT.size.lg};
+  font-size: ${FONT.size.md};
   font-weight: ${FONT.weight.bold};
   flex-shrink: 0;
   /* bg + border-color inline style ile coin tone'dan gelir */
@@ -94,10 +94,11 @@ ensureStyles(
   display: flex; flex-direction: column; min-width: 0;
 }
 .dsp-tile-l-symbol {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   letter-spacing: 0.02em;
+  line-height: 1.1;
 }
 .dsp-tile-l-display {
   font-size: 11px;
@@ -111,30 +112,30 @@ ensureStyles(
 .dsp-tile-l-pnl {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 .dsp-tile-l-big {
   font-family: ${FONT.mono};
-  font-size: ${FONT.size.huge};
+  font-size: 20px;
   font-weight: ${FONT.weight.bold};
-  line-height: 1.1;
+  line-height: 1.05;
 }
 .dsp-tile-l-amt {
   font-family: ${FONT.mono};
-  font-size: ${FONT.size.md};
+  font-size: ${FONT.size.sm};
   color: ${COLOR.textMuted};
 }
 .dsp-tile-l-actions {
-  display: flex; gap: 6px; margin-top: 6px;
+  display: flex; gap: 6px; margin-top: 2px;
 }
 .dsp-tile-l-act {
-  width: 26px; height: 26px;
+  width: 24px; height: 24px;
   display: flex; align-items: center; justify-content: center;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radius}px;
   color: ${COLOR.textMuted};
-  font-size: ${FONT.size.md};
+  font-size: ${FONT.size.sm};
   cursor: pointer;
   font-family: ${FONT.sans};
 }
@@ -146,12 +147,12 @@ ensureStyles(
 .dsp-tile-m {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   justify-content: center;
 }
 .dsp-tile-m-row {
-  display: flex; gap: 18px; align-items: baseline;
+  display: flex; gap: 14px; align-items: baseline;
   min-width: 0; flex-wrap: wrap;
 }
 .dsp-tile-m-cell {
@@ -193,7 +194,7 @@ ensureStyles(
   width: 100%;
 }
 .dsp-rb {
-  padding: 6px 8px;
+  padding: 5px 8px;
   border-radius: ${SIZE.radius}px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
@@ -220,11 +221,11 @@ ensureStyles(
   width: 100%;
 }
 .dsp-eg-cell {
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-radius: ${SIZE.radius}px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
-  display: flex; flex-direction: column; gap: 2px;
+  display: flex; flex-direction: column; gap: 1px;
 }
 .dsp-eg-lbl {
   font-size: 9px;
@@ -247,12 +248,12 @@ ensureStyles(
 .dsp-csp {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 7px;
+  gap: 5px;
   width: 100%;
 }
 .dsp-csp-hero {
   grid-column: 1 / -1;
-  padding: 10px 12px;
+  padding: 7px 12px;
   border-radius: ${SIZE.radius}px;
   display: flex; align-items: center; gap: 9px;
   /* bg + border-color inline (tone bagli) */
@@ -276,11 +277,11 @@ ensureStyles(
   /* color inline (tone bagli) */
 }
 .dsp-csp-cell {
-  padding: 8px 11px;
+  padding: 5px 11px;
   border-radius: ${SIZE.radius}px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
-  display: flex; flex-direction: column; gap: 2px;
+  display: flex; flex-direction: column; gap: 1px;
 }
 .dsp-csp-cell-lbl {
   font-size: 9px; text-transform: uppercase;
@@ -295,7 +296,7 @@ ensureStyles(
 }
 .dsp-csp-payout {
   grid-column: 1 / -1;
-  padding: 10px 12px;
+  padding: 6px 12px;
   border-radius: ${SIZE.radius}px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
