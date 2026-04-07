@@ -1,22 +1,21 @@
 /**
- * mockData — sidebar preview showcase modu icin tum state'leri gosteren
- * statik veri seti.
+ * mockData — sidebar preview showcase modu icin tum activity senaryolarini
+ * tek ekranda gosteren genis mock veri seti.
  *
  * Erisim: localhost:5173/?preview=sidebar&mock=full
  *
  * Kurallar:
  * - Backend contract surface (api/dashboard.ts) ile birebir tip uyumlu
- * - Gercek mod (`?preview=sidebar`) bu dosyayi YUKLEMEZ
- * - Test coplugu degil — anlamli 8 tile, her biri farkli bir senaryo
- * - 8 tile = 4 section x 2 ortalama varyant:
- *   AÇIK   : open profit, open loss, claim retry, claim success-like
- *   ARANAN : search ready, search wait
- *   PASIF  : idle manual off, idle no settings
+ * - Gercek mod (?preview=sidebar) bu dosyayi YUKLEMEZ
+ * - 19 anlamli activity senaryosu (her biri farkli mesaj/severity/state)
+ * - Onceki session'daki 64 unique activity'den damitilan ana senaryolar:
  *
- * Showcase ek kazanim: top bar / sidebar bot status / health hepsi
- * canli gibi gorunsun (gercek bir trading session simulasyonu).
- *
- * Reusable: test, demo, future scenario'lar bu dosyadan yola cikabilir.
+ *   OPEN (7): yeni fill, TP yaklasiyor, TP closed, SL yaklasiyor,
+ *             SL closed, FS countdown, FS closed
+ *   CLAIM (3): pending RETRY, OK, FAIL
+ *   SEARCH (6): sinyal hazir, FOK dolum, Delta wait, Spread fail,
+ *               Bot max, Balance yetersiz
+ *   IDLE (3): aktif et, ayar gir, error
  */
 
 import type {
@@ -34,15 +33,10 @@ import type {
 // ║  Sidebar bot status — canli session                          ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-/**
- * Bot canli, healthy, 5sa+ uptime, 47ms latency.
- * Sidebar BotStatusPanel: NORMAL · Calisiyor · 5sa 06dk
- * HealthIndicator: Baglanti OK
- */
 export const MOCK_HEALTH: HealthResponse = {
   status: 'ok',
   version: '0.8.0',
-  uptime_seconds: 18367, // 5sa 06dk
+  uptime_seconds: 18367,
   components: {},
   bot_status: {
     running: true,
@@ -60,50 +54,31 @@ export const MOCK_HEALTH: HealthResponse = {
 // ║  Top bar overview — dolu KPI strip                           ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-/**
- * Top bar 3 grup KPI'lari canli session simulasyonu:
- *  - MONEY    : Bakiye $1,247.85 / Kullanilabilir $1,036.42 / Oturum PnL +$48.12 (+4.07%)
- *  - ACTIVITY : Acilan 12 / Gorulen 248 / A/G 4.8%
- *  - OUTCOME  : Win 8 / Lost 4 / Bekleyen 2 / Winrate 66.7%
- */
 export const MOCK_OVERVIEW: DashboardOverview = {
-  // Legacy
   trading_enabled: true,
-  balance: {
-    available: 1036.42,
-    total: 1247.85,
-    is_stale: false,
-    age_seconds: 1.2,
-  },
-  open_positions: 2, // BTC + ETH (claim ayri)
-  pending_claims: 2, // SOL retry + DOGE success
-  session_trade_count: 12,
+  balance: { available: 1036.42, total: 1247.85, is_stale: false, age_seconds: 1.2 },
+  open_positions: 7,
+  pending_claims: 3,
+  session_trade_count: 19,
   configured_coins: 9,
   eligible_coins: 6,
-  // Extended
   bot_status: MOCK_HEALTH.bot_status,
   bakiye_text: '$1,247.85',
   kullanilabilir_text: '$1,036.42',
   session_pnl: 48.12,
   session_pnl_pct: 4.07,
-  acilan: 12,
+  acilan: 19,
   gorulen: 248,
-  ag_rate: '4.8%',
-  win: 8,
-  lost: 4,
-  winrate: '66.7%',
+  ag_rate: '7.7%',
+  win: 13,
+  lost: 6,
+  winrate: '68.4%',
 };
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  Coin metadata                                               ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-/**
- * Backend `/api/dashboard/coins` simulasyonu.
- * Frontend lookupCoin() bu listede arar, bulamazsa coinRegistry
- * fallback'e duser. Showcase'de tum sembolleri buraya koyduk ki
- * backend wiring olmadan da tam metadata gozuksun.
- */
 export const MOCK_COINS: CoinInfoContract[] = [
   { symbol: 'BTC',   display_name: 'Bitcoin',   configured: true,  enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 5 },
   { symbol: 'ETH',   display_name: 'Ethereum',  configured: true,  enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 3 },
@@ -118,212 +93,181 @@ export const MOCK_COINS: CoinInfoContract[] = [
 ];
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  Positions — open + claim variant'lar                        ║
+// ║  Helper — base position template                             ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-/**
- * 4 position kaydi:
- *  1. BTC open profit  — TP yaklasiyor (yesil activity)
- *  2. ETH open loss    — SL yaklasiyor (kirmizi activity)
- *  3. SOL claim RETRY  — payout claim ediliyor (sari activity)
- *  4. DOGE claim OK    — claim basarili (yesil activity)
- *
- * NOT: ClaimStatusPanel su an PositionSummary uzerinden status
- * almiyor, claims listesinden lookup yapacak (sonraki tur). Bu
- * mock'ta her ikisini de doldurduk ki gorunum tam olsun.
- */
+const baseOpen = (id: string, asset: string, side: 'UP' | 'DOWN'): PositionSummary => ({
+  position_id: id,
+  asset,
+  side,
+  state: 'open_confirmed',
+  fill_price: 0.65,
+  requested_amount_usd: 2.0,
+  net_position_shares: 3.07,
+  close_reason: null,
+  net_realized_pnl: 0,
+  created_at: '2026-04-07T14:00:00Z',
+  variant: 'open',
+});
+
+const baseClaim = (id: string, asset: string): PositionSummary => ({
+  position_id: id,
+  asset,
+  side: 'UP',
+  state: 'closed',
+  fill_price: 0.65,
+  requested_amount_usd: 2.0,
+  net_position_shares: 3.07,
+  close_reason: 'expiry',
+  net_realized_pnl: 0,
+  created_at: '2026-04-07T13:30:00Z',
+  variant: 'claim',
+  live: null,
+  exits: null,
+});
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  POSITIONS — 10 tile (7 open + 3 claim)                      ║
+// ║  Open lifecycle: yeni fill -> TP appr -> TP closed,          ║
+// ║                 SL appr -> SL closed, FS countdown -> FS closed
+// ║  Claim lifecycle: pending RETRY, OK, FAIL                    ║
+// ╚══════════════════════════════════════════════════════════════╝
+
 export const MOCK_POSITIONS: PositionSummary[] = [
-  // 1) BTC — open profit
+  // ─── OPEN LIFECYCLE 1: yeni fill ───
+  // 1) BTC — yeni fill (pozisyon yeni acildi)
   {
-    position_id: 'mock-btc-open-1',
-    asset: 'BTC',
-    side: 'UP',
-    state: 'open_confirmed',
+    ...baseOpen('mock-pos-1', 'BTC', 'UP'),
+    fill_price: 0.68,
+    pnl_big: '+0.0%',
+    pnl_amount: '+0.00$',
+    pnl_tone: 'neutral',
+    live: { side: 'UP', entry: '68', live: '68.0', delta_text: '0.0' },
+    exits: { tp: '74', sl: '62', fs: '5:00', fs_pnl: '-5%' },
+    activity: { text: '✓ Emir doldu — UP 68, pozisyon açıldı', severity: 'success' },
+  },
+
+  // ─── OPEN LIFECYCLE 2: TP yaklasiyor ───
+  // 2) ETH — TP yaklasiyor
+  {
+    ...baseOpen('mock-pos-2', 'ETH', 'UP'),
     fill_price: 0.83,
-    requested_amount_usd: 5.0,
-    net_position_shares: 6.02,
-    close_reason: null,
-    net_realized_pnl: 0,
-    created_at: '2026-04-07T13:55:00Z',
-    variant: 'open',
-    live: { side: 'UP', entry: '83', live: '85.6', delta_text: '+2.6' },
-    exits: { tp: '87', sl: '81', fs: '30s', fs_pnl: '-5%' },
     pnl_big: '+3.1%',
     pnl_amount: '+0.31$',
     pnl_tone: 'profit',
-    activity: {
-      text: 'TP yaklaşıyor — hedef 87',
-      severity: 'success',
-    },
-    event_url: 'https://polymarket.com/event/bitcoin-up-or-down-5-min',
+    live: { side: 'UP', entry: '83', live: '85.6', delta_text: '+2.6' },
+    exits: { tp: '87', sl: '81', fs: '2:14', fs_pnl: '-5%' },
+    activity: { text: '● TP yaklaşıyor — hedef 87', severity: 'success' },
   },
 
-  // 2) ETH — open loss
+  // ─── OPEN LIFECYCLE 3: TP closed (positif kapali ama henuz claim olmamis) ───
+  // 3) AVAX — TP tetiklendi
   {
-    position_id: 'mock-eth-open-2',
-    asset: 'ETH',
-    side: 'DOWN',
-    state: 'open_confirmed',
-    fill_price: 0.55,
-    requested_amount_usd: 3.0,
-    net_position_shares: 5.45,
-    close_reason: null,
-    net_realized_pnl: 0,
-    created_at: '2026-04-07T13:57:00Z',
-    variant: 'open',
-    live: { side: 'DOWN', entry: '55', live: '52.8', delta_text: '-2.2' },
-    exits: { tp: '60', sl: '52', fs: '30s', fs_pnl: '-5%' },
-    pnl_big: '-2.4%',
-    pnl_amount: '-0.18$',
-    pnl_tone: 'loss',
-    activity: {
-      text: 'SL yaklaşıyor — Limit 52',
-      severity: 'error',
-    },
-    event_url: 'https://polymarket.com/event/ethereum-up-or-down-5-min',
-  },
-
-  // 3) SOL — claim retry
-  {
-    position_id: 'mock-sol-claim-3',
-    asset: 'SOL',
-    side: 'UP',
-    state: 'closed',
-    fill_price: 0.62,
-    requested_amount_usd: 2.0,
-    net_position_shares: 3.21,
-    close_reason: 'expiry',
-    net_realized_pnl: 0,
-    created_at: '2026-04-07T13:48:00Z',
-    variant: 'claim',
-    live: null,
-    exits: null,
-    pnl_big: null,
-    pnl_amount: null,
-    pnl_tone: 'pending',
-    activity: {
-      text: 'Pozisyon resolved — payout claim ediliyor',
-      severity: 'warning',
-    },
-    event_url: 'https://polymarket.com/event/solana-up-or-down-5-min',
-  },
-
-  // 4) DOGE — claim success-like
-  {
-    position_id: 'mock-doge-claim-4',
-    asset: 'DOGE',
-    side: 'UP',
-    state: 'closed',
-    fill_price: 0.71,
-    requested_amount_usd: 2.0,
-    net_position_shares: 2.81,
-    close_reason: 'expiry',
-    net_realized_pnl: 0.42,
-    created_at: '2026-04-07T13:42:00Z',
-    variant: 'claim',
-    live: null,
-    exits: null,
-    pnl_big: '+21.0%',
-    pnl_amount: '+0.42$',
-    pnl_tone: 'profit',
-    activity: {
-      text: 'Claim başarılı — $4.21 hesaba aktarıldı',
-      severity: 'success',
-    },
-    event_url: 'https://polymarket.com/event/dogecoin-up-or-down-5-min',
-  },
-
-  // 5) AVAX — open profit (TP tetiklendi)
-  {
-    position_id: 'mock-avax-open-5',
-    asset: 'AVAX',
-    side: 'UP',
-    state: 'open_confirmed',
+    ...baseOpen('mock-pos-3', 'AVAX', 'UP'),
     fill_price: 0.78,
-    requested_amount_usd: 2.0,
-    net_position_shares: 2.56,
-    close_reason: null,
-    net_realized_pnl: 0,
-    created_at: '2026-04-07T14:01:00Z',
-    variant: 'open',
-    live: { side: 'UP', entry: '78', live: '88.5', delta_text: '+10.5' },
-    exits: { tp: '88', sl: '72', fs: '14s', fs_pnl: '-5%' },
     pnl_big: '+13.4%',
     pnl_amount: '+1.34$',
     pnl_tone: 'profit',
-    activity: {
-      text: '● TP tetiklendi — kapatma emri gönderildi',
-      severity: 'success',
-    },
-    event_url: 'https://polymarket.com/event/avax-up-or-down-5-min',
+    live: { side: 'UP', entry: '78', live: '88.5', delta_text: '+10.5' },
+    exits: { tp: '88', sl: '72', fs: '0:42', fs_pnl: '-5%' },
+    activity: { text: '✓ TP @ 88 — +1.34$ kapatma emri gönderildi', severity: 'success' },
   },
 
-  // 6) LINK — open loss (FS countdown)
+  // ─── OPEN LIFECYCLE 4: SL yaklasiyor ───
+  // 4) SOL — SL yaklasiyor
   {
-    position_id: 'mock-link-open-6',
-    asset: 'LINK',
-    side: 'DOWN',
-    state: 'open_confirmed',
+    ...baseOpen('mock-pos-4', 'SOL', 'DOWN'),
+    fill_price: 0.55,
+    pnl_big: '-2.4%',
+    pnl_amount: '-0.18$',
+    pnl_tone: 'loss',
+    live: { side: 'DOWN', entry: '55', live: '52.8', delta_text: '-2.2' },
+    exits: { tp: '60', sl: '52', fs: '1:48', fs_pnl: '-5%' },
+    activity: { text: '▲ SL yaklaşıyor — Limit 52', severity: 'warning' },
+  },
+
+  // ─── OPEN LIFECYCLE 5: SL tetiklendi ───
+  // 5) DOGE — SL tetiklendi
+  {
+    ...baseOpen('mock-pos-5', 'DOGE', 'UP'),
+    fill_price: 0.71,
+    pnl_big: '-12.0%',
+    pnl_amount: '-0.24$',
+    pnl_tone: 'loss',
+    live: { side: 'UP', entry: '71', live: '56.0', delta_text: '-15.0' },
+    exits: { tp: '76', sl: '56', fs: '0:18', fs_pnl: '-5%' },
+    activity: { text: '⚡ SL tetiklendi — satış emri gönderildi', severity: 'error' },
+  },
+
+  // ─── OPEN LIFECYCLE 6: FS countdown ───
+  // 6) LINK — FS countdown (zorunlu kapatma 8s)
+  {
+    ...baseOpen('mock-pos-6', 'LINK', 'DOWN'),
     fill_price: 0.62,
-    requested_amount_usd: 2.0,
-    net_position_shares: 3.22,
-    close_reason: null,
-    net_realized_pnl: 0,
-    created_at: '2026-04-07T13:59:30Z',
-    variant: 'open',
-    live: { side: 'DOWN', entry: '62', live: '64.2', delta_text: '+2.2' },
-    exits: { tp: '67', sl: '58', fs: '8s', fs_pnl: '-5%' },
     pnl_big: '-1.8%',
     pnl_amount: '-0.04$',
     pnl_tone: 'loss',
-    activity: {
-      text: '⏱ FS countdown — 8 saniye sonra zorunlu kapatma',
-      severity: 'pending',
-    },
-    event_url: 'https://polymarket.com/event/link-up-or-down-5-min',
+    live: { side: 'DOWN', entry: '62', live: '64.2', delta_text: '+2.2' },
+    exits: { tp: '67', sl: '58', fs: '0:08', fs_pnl: '-5%' },
+    activity: { text: '⚡ Force sell — 8 saniye sonra zorunlu kapatma', severity: 'pending' },
   },
 
-  // 7) MATIC — claim FAIL
+  // ─── OPEN LIFECYCLE 7: FS closed ───
+  // 7) BNB — Force sell ile kapandi
   {
-    position_id: 'mock-matic-claim-7',
-    asset: 'MATIC',
-    side: 'DOWN',
-    state: 'closed',
-    fill_price: 0.55,
-    requested_amount_usd: 2.0,
-    net_position_shares: 3.64,
-    close_reason: 'expiry',
+    ...baseOpen('mock-pos-7', 'BNB', 'UP'),
+    fill_price: 0.56,
+    pnl_big: '-3.0%',
+    pnl_amount: '-0.06$',
+    pnl_tone: 'loss',
+    live: { side: 'UP', entry: '56', live: '50.0', delta_text: '-6.0' },
+    exits: { tp: '61', sl: '51', fs: '0:00', fs_pnl: '-5%' },
+    activity: { text: '⚡ FS @ 50 — -0.06$ Force sell ile kapandı', severity: 'warning' },
+  },
+
+  // ─── CLAIM LIFECYCLE 1: pending RETRY ───
+  // 8) XRP — Claim bekliyor (RETRY)
+  {
+    ...baseClaim('mock-pos-8', 'XRP'),
+    pnl_big: 'CLAIM',
+    pnl_amount: 'PENDING',
+    pnl_tone: 'pending',
+    activity: { text: '⏳ Claim bekliyor — tamamlanmadan yeni işlem açılamaz', severity: 'pending' },
+  },
+
+  // ─── CLAIM LIFECYCLE 2: OK ───
+  // 9) ADA — Claim basarili
+  {
+    ...baseClaim('mock-pos-9', 'ADA'),
+    net_realized_pnl: 0.42,
+    pnl_big: '+21.0%',
+    pnl_amount: '+0.42$',
+    pnl_tone: 'profit',
+    activity: { text: '✓ Claim başarılı — $4.21 hesaba aktarıldı', severity: 'success' },
+  },
+
+  // ─── CLAIM LIFECYCLE 3: FAIL ───
+  // 10) MATIC — Claim basarisiz
+  {
+    ...baseClaim('mock-pos-10', 'MATIC'),
     net_realized_pnl: -2.0,
-    created_at: '2026-04-07T13:35:00Z',
-    variant: 'claim',
-    live: null,
-    exits: null,
     pnl_big: '-100%',
     pnl_amount: '-2.00$',
     pnl_tone: 'loss',
-    activity: {
-      text: '✕ Claim başarısız — 5/5 retry doldu, manuel müdahale gerek',
-      severity: 'error',
-    },
-    event_url: 'https://polymarket.com/event/matic-up-or-down-5-min',
+    activity: { text: '✕ Max retry — manuel müdahale gerek', severity: 'error' },
   },
 ];
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  Claims — backend ClaimSummary lookup mock'u                 ║
+// ║  Claims — 3 lifecycle ile eslesme                            ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-/**
- * Iki claim kaydi (SOL retry + DOGE OK).
- * EventTile claim variant'i ileride bu listeden lookup yapacak.
- * Su an PositionSummary uzerinden render ediliyor, ama ClaimSummary
- * mock'u backend contract uyumu icin hazir.
- */
 export const MOCK_CLAIMS: ClaimSummary[] = [
+  // XRP RETRY
   {
-    claim_id: 'mock-claim-sol-1',
-    asset: 'SOL',
-    position_id: 'mock-sol-claim-3',
+    claim_id: 'mock-claim-1',
+    asset: 'XRP',
+    position_id: 'mock-pos-8',
     claim_status: 'pending',
     outcome: 'pending',
     claimed_amount_usdc: 0,
@@ -334,10 +278,11 @@ export const MOCK_CLAIMS: ClaimSummary[] = [
     next_sec: 20,
     payout: null,
   },
+  // ADA OK
   {
-    claim_id: 'mock-claim-doge-1',
-    asset: 'DOGE',
-    position_id: 'mock-doge-claim-4',
+    claim_id: 'mock-claim-2',
+    asset: 'ADA',
+    position_id: 'mock-pos-9',
     claim_status: 'success',
     outcome: 'redeemed_won',
     claimed_amount_usdc: 4.21,
@@ -348,11 +293,11 @@ export const MOCK_CLAIMS: ClaimSummary[] = [
     next_sec: null,
     payout: '$4.21',
   },
-  // MATIC claim FAIL
+  // MATIC FAIL
   {
-    claim_id: 'mock-claim-matic-1',
+    claim_id: 'mock-claim-3',
     asset: 'MATIC',
-    position_id: 'mock-matic-claim-7',
+    position_id: 'mock-pos-10',
     claim_status: 'failed',
     outcome: 'lost',
     claimed_amount_usdc: 0,
@@ -366,210 +311,193 @@ export const MOCK_CLAIMS: ClaimSummary[] = [
 ];
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  Search — sinyal araniyor                                    ║
+// ║  Search — 6 tile (sinyal lifecycle)                          ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-/**
- * 2 search tile:
- *  5. BTC search 6/6 HAZIR — tum rules pass, signal_ready true
- *  6. ETH search 4/6 BEKLE — Delta fail + BotMax waiting, signal_ready false
- */
-
-const BTC_RULES_PASS: RuleSpecContract[] = [
-  { label: 'Zaman',  live_value: '3:15',   threshold_text: '30-270s', state: 'pass' },
-  { label: 'Fiyat',  live_value: '111234', threshold_text: '≥ 80',    state: 'pass' },
-  { label: 'Delta',  live_value: '$55',    threshold_text: '≥ $50',   state: 'pass' },
-  { label: 'Spread', live_value: '1.8%',   threshold_text: '≤ 3%',    state: 'pass' },
-  { label: 'EvMax',  live_value: '0/1',    threshold_text: '1',       state: 'pass' },
-  { label: 'BotMax', live_value: '2/3',    threshold_text: '3',       state: 'pass' },
-];
-
-const ETH_RULES_MIXED: RuleSpecContract[] = [
-  { label: 'Zaman',  live_value: '2:48', threshold_text: '30-270s', state: 'pass' },
-  { label: 'Fiyat',  live_value: '3841', threshold_text: '≥ 80',    state: 'pass' },
-  { label: 'Delta',  live_value: '$32', threshold_text: '≥ $50',   state: 'fail' },
-  { label: 'Spread', live_value: '1.4%', threshold_text: '≤ 3%',    state: 'pass' },
+const allPass = (zaman = '3:15', fiyat = '83', delta = '$55', spread = '1.8%'): RuleSpecContract[] => [
+  { label: 'Zaman',  live_value: zaman,  threshold_text: '30-270s', state: 'pass' },
+  { label: 'Fiyat',  live_value: fiyat,  threshold_text: '≥ 80',    state: 'pass' },
+  { label: 'Delta',  live_value: delta,  threshold_text: '≥ $50',   state: 'pass' },
+  { label: 'Spread', live_value: spread, threshold_text: '≤ 3%',    state: 'pass' },
   { label: 'EvMax',  live_value: '0/1',  threshold_text: '1',       state: 'pass' },
-  { label: 'BotMax', live_value: '—',    threshold_text: '3',       state: 'waiting' },
+  { label: 'BotMax', live_value: '2/3',  threshold_text: '3',       state: 'pass' },
 ];
 
 export const MOCK_SEARCH: SearchTileContract[] = [
-  // 5) BTC search ready 6/6
+  // ─── SEARCH 1: sinyal hazir + FOK gonderiliyor ───
+  // 11) BTC — Sinyal hazir
   {
-    tile_id: 'mock-search-btc-1',
+    tile_id: 'mock-search-1',
     coin: 'BTC',
-    event_url: 'https://polymarket.com/event/bitcoin-up-or-down-5-min-search',
+    event_url: 'https://polymarket.com/event/btc-search',
     pnl_big: '6/6',
     pnl_amount: 'HAZIR',
     pnl_tone: 'profit',
     ptb: '111,234',
     live: '111,289',
     delta: '$55',
-    rules: BTC_RULES_PASS,
-    activity: {
-      text: 'Sinyal hazır — FOK 56 gönderiliyor',
-      severity: 'success',
-    },
+    rules: allPass(),
+    activity: { text: '● Sinyal hazır — FOK 56 gönderiliyor', severity: 'success' },
     signal_ready: true,
     type: 'ok',
   },
-  // 6) ETH search wait 4/6
+
+  // ─── SEARCH 2: FOK dolum bekliyor ───
+  // 12) ETH — FOK dolum
   {
-    tile_id: 'mock-search-eth-2',
+    tile_id: 'mock-search-2',
     coin: 'ETH',
-    event_url: 'https://polymarket.com/event/ethereum-up-or-down-5-min-search',
-    pnl_big: '4/6',
+    event_url: 'https://polymarket.com/event/eth-search',
+    pnl_big: '6/6',
+    pnl_amount: 'EMIR',
+    pnl_tone: 'pending',
+    ptb: '3,820',
+    live: '3,876',
+    delta: '$56',
+    rules: allPass('2:48', '78', '$56', '2.1%'),
+    activity: { text: '◉ FOK 56 — dolum bekleniyor', severity: 'info' },
+    signal_ready: true,
+    type: 'wait',
+  },
+
+  // ─── SEARCH 3: Delta yetersiz ───
+  // 13) SOL — Delta wait
+  {
+    tile_id: 'mock-search-3',
+    coin: 'SOL',
+    event_url: 'https://polymarket.com/event/sol-search',
+    pnl_big: '5/6',
     pnl_amount: 'BEKLE',
     pnl_tone: 'pending',
-    ptb: '3,841.23',
-    live: '3,839.72',
+    ptb: '241.56',
+    live: '240.83',
     delta: '$32',
-    rules: ETH_RULES_MIXED,
-    activity: {
-      text: 'Delta yetersiz — sinyal bekleniyor',
-      severity: 'warning',
-    },
+    rules: [
+      { label: 'Zaman',  live_value: '2:44', threshold_text: '30-270s', state: 'pass' },
+      { label: 'Fiyat',  live_value: '241',  threshold_text: '≥ 80',    state: 'pass' },
+      { label: 'Delta',  live_value: '$32',  threshold_text: '≥ $50',   state: 'fail' },
+      { label: 'Spread', live_value: '1.4%', threshold_text: '≤ 3%',    state: 'pass' },
+      { label: 'EvMax',  live_value: '0/1',  threshold_text: '1',       state: 'pass' },
+      { label: 'BotMax', live_value: '2/3',  threshold_text: '3',       state: 'pass' },
+    ],
+    activity: { text: '◌ Delta yetersiz — sinyal bekleniyor', severity: 'pending' },
     signal_ready: false,
     type: 'wait',
   },
 
-  // 7) BNB search — spread fail
+  // ─── SEARCH 4: Spread yuksek ───
+  // 14) DOGE — Spread fail
   {
-    tile_id: 'mock-search-bnb-3',
-    coin: 'BNB',
-    event_url: 'https://polymarket.com/event/bnb-up-or-down-5-min-search',
+    tile_id: 'mock-search-4',
+    coin: 'DOGE',
+    event_url: 'https://polymarket.com/event/doge-search',
     pnl_big: '5/6',
     pnl_amount: 'BLOK',
     pnl_tone: 'loss',
-    ptb: '595.32',
-    live: '595.18',
-    delta: '$0.14',
+    ptb: '0.162',
+    live: '0.163',
+    delta: '$78',
     rules: [
       { label: 'Zaman',  live_value: '4:18', threshold_text: '30-270s', state: 'pass' },
-      { label: 'Fiyat',  live_value: '595',  threshold_text: '≥ 80',    state: 'pass' },
+      { label: 'Fiyat',  live_value: '162',  threshold_text: '≥ 80',    state: 'pass' },
       { label: 'Delta',  live_value: '$78',  threshold_text: '≥ $50',   state: 'pass' },
       { label: 'Spread', live_value: '4.8%', threshold_text: '≤ 3%',    state: 'fail' },
       { label: 'EvMax',  live_value: '0/1',  threshold_text: '1',       state: 'pass' },
       { label: 'BotMax', live_value: '2/3',  threshold_text: '3',       state: 'pass' },
     ],
-    activity: {
-      text: '✕ Spread çok yüksek — kural blokladı',
-      severity: 'error',
-    },
+    activity: { text: '▲ Spread yüksek — bekleniyor', severity: 'warning' },
     signal_ready: false,
     type: 'wait',
   },
 
-  // 8) AVAX search — zaman bekliyor
+  // ─── SEARCH 5: Bot max doldu ───
+  // 15) AVAX — Bot max
   {
-    tile_id: 'mock-search-avax-4',
+    tile_id: 'mock-search-5',
     coin: 'AVAX',
-    event_url: 'https://polymarket.com/event/avax-up-or-down-5-min-search',
+    event_url: 'https://polymarket.com/event/avax-search',
     pnl_big: '5/6',
-    pnl_amount: 'BEKLE',
-    pnl_tone: 'pending',
+    pnl_amount: 'BLOK',
+    pnl_tone: 'loss',
     ptb: '38.42',
     live: '38.51',
-    delta: '$0.09',
+    delta: '$72',
     rules: [
-      { label: 'Zaman',  live_value: '0:18', threshold_text: '30-270s', state: 'fail' },
+      { label: 'Zaman',  live_value: '0:48', threshold_text: '30-270s', state: 'pass' },
       { label: 'Fiyat',  live_value: '38',   threshold_text: '≥ 30',    state: 'pass' },
       { label: 'Delta',  live_value: '$72',  threshold_text: '≥ $50',   state: 'pass' },
       { label: 'Spread', live_value: '2.1%', threshold_text: '≤ 3%',    state: 'pass' },
       { label: 'EvMax',  live_value: '0/1',  threshold_text: '1',       state: 'pass' },
-      { label: 'BotMax', live_value: '2/3',  threshold_text: '3',       state: 'pass' },
+      { label: 'BotMax', live_value: '3/3',  threshold_text: '3',       state: 'fail' },
     ],
-    activity: {
-      text: '⏱ Zaman aralığı dışı — bir sonraki cycle bekleniyor',
-      severity: 'info',
-    },
+    activity: { text: '✕ Bot max doldu — bekleniyor', severity: 'error' },
+    signal_ready: false,
+    type: 'wait',
+  },
+
+  // ─── SEARCH 6: Balance yetersiz ───
+  // 16) LINK — Balance yetersiz
+  {
+    tile_id: 'mock-search-6',
+    coin: 'LINK',
+    event_url: 'https://polymarket.com/event/link-search',
+    pnl_big: '6/6',
+    pnl_amount: 'BLOK',
+    pnl_tone: 'loss',
+    ptb: '14.20',
+    live: '14.31',
+    delta: '$60',
+    rules: allPass('1:30', '142', '$60', '1.9%'),
+    activity: { text: '✕ Balance yetersiz — min $1.00', severity: 'error' },
     signal_ready: false,
     type: 'wait',
   },
 ];
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  Idle — pasif coinler                                        ║
+// ║  Idle — 3 tile                                               ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-/**
- * 2 idle tile:
- *  7. XRP idle manual off — bot_stopped, kullanici manuel kapatti
- *  8. ADA idle no settings — waiting_rules, ayar henuz girilmedi
- */
-
-const ADA_RULES_DISABLED: RuleSpecContract[] = [
-  { label: 'Zaman',  live_value: '—', state: 'disabled' },
-  { label: 'Fiyat',  live_value: '—', state: 'disabled' },
-  { label: 'Spread', live_value: '—', state: 'disabled' },
-];
-
 export const MOCK_IDLE: IdleTileContract[] = [
-  // 7) XRP idle manual off
+  // ─── IDLE 1: Aktif et ($) ───
+  // 17) MATIC — Aktif etmek icin $
   {
-    tile_id: 'mock-idle-xrp-1',
-    coin: 'XRP',
+    tile_id: 'mock-idle-1',
+    coin: 'MATIC',
     idle_kind: 'bot_stopped',
     msg: 'Manuel kapatıldı',
-    activity: {
-      text: 'Aktif etmek için $ butonuna bas',
-      severity: 'info',
-    },
+    activity: { text: '⊕ Aktif etmek için $ butonuna bas', severity: 'info' },
     rules: null,
-    event_url: 'https://polymarket.com/event/ripple-up-or-down-5-min',
+    event_url: null,
   },
-  // 8) ADA idle no settings
+
+  // ─── IDLE 2: Ayar gir (⚙) ───
+  // 18) BNB — Ayar girmek icin
   {
-    tile_id: 'mock-idle-ada-2',
-    coin: 'ADA',
+    tile_id: 'mock-idle-2',
+    coin: 'BNB',
     idle_kind: 'waiting_rules',
-    msg: 'Ayar henüz girilmedi',
-    activity: {
-      text: 'Ayarsız — settings panelinden tanımla',
-      severity: 'off',
-    },
-    rules: ADA_RULES_DISABLED,
+    msg: 'Ayar girilmemiş',
+    activity: { text: '⚙ Ayar girmek için ayar butonuna bas', severity: 'off' },
+    rules: [
+      { label: 'Zaman',  live_value: '—', state: 'disabled' },
+      { label: 'Fiyat',  live_value: '—', state: 'disabled' },
+      { label: 'Delta',  live_value: '—', state: 'disabled' },
+      { label: 'Spread', live_value: '—', state: 'disabled' },
+      { label: 'EvMax',  live_value: '—', state: 'disabled' },
+      { label: 'BotMax', live_value: '—', state: 'disabled' },
+    ],
     event_url: null,
   },
 
-  // 9) DOGE — cooldown (TP sonrasi)
+  // ─── IDLE 3: error (PTB fetch hata) ───
+  // 19) BTC — PTB fetch error
   {
-    tile_id: 'mock-idle-doge-3',
-    coin: 'DOGE',
-    idle_kind: 'cooldown',
-    msg: 'Cooldown · 38s',
-    activity: {
-      text: '⏱ Yeni pozisyon için 38 saniye cooldown',
-      severity: 'pending',
-    },
-    rules: null,
-    event_url: 'https://polymarket.com/event/doge-up-or-down-5-min',
-  },
-
-  // 10) Hicbir coin — no_events
-  {
-    tile_id: 'mock-idle-no-events',
-    coin: null,
-    idle_kind: 'no_events',
-    msg: 'Aktif 5M event yok',
-    activity: {
-      text: 'Polymarket discovery boş — yeni event bekleniyor',
-      severity: 'info',
-    },
-    rules: null,
-    event_url: null,
-  },
-
-  // 11) LINK — error (fetch hatasi)
-  {
-    tile_id: 'mock-idle-link-err',
-    coin: 'LINK',
+    tile_id: 'mock-idle-3',
+    coin: 'BTC',
     idle_kind: 'error',
     msg: 'PTB fetch hatası',
-    activity: {
-      text: '✕ Polymarket fiyat çekilemedi — son deneme: 30s önce',
-      severity: 'error',
-    },
+    activity: { text: '✕ Polymarket fiyat çekilemedi — son deneme: 30s önce', severity: 'error' },
     rules: null,
     event_url: null,
   },
@@ -580,8 +508,14 @@ export const MOCK_IDLE: IdleTileContract[] = [
 // ╚══════════════════════════════════════════════════════════════╝
 
 /**
- * MOCK_DATA — DashboardSidebarPreview composition'unda mockMode iken
- * useDashboardData hook'u yerine bu kullanilir.
+ * Toplam: 19 tile, 19 ayri activity senaryosu, tum severity/state/kind
+ * varyantlarini kapsar.
+ *
+ * Section dagilimi:
+ *  - ACIK ISLEMLER : 7 open + 3 claim = 10
+ *  - ARANANLAR     : 6 search
+ *  - ARANMAYANLAR  : 3 idle
+ *  TOPLAM          : 19
  */
 export const MOCK_DATA = {
   health: MOCK_HEALTH,
