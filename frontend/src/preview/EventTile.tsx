@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v20',
+  'eventtile-v22',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -89,23 +89,24 @@ ensureStyles(
   padding-right: 14px;
   border-right: 1px solid ${COLOR.border};
 }
-/* ID row: 3 col grid — logo + ticker (5 char yer) + $ buton, sikici padding */
+/* ID row: 3 col grid — logo + ticker (5 char yer) + $ buton (yuvarlak, logo boyutu) */
 .dsp-tile-l-id {
   display: grid;
-  grid-template-columns: 22px 1fr 24px;
+  grid-template-columns: 22px 1fr 22px;
   align-items: center;
   gap: 6px;
-  padding: 0 4px;
+  padding: 0 6px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
 }
 .dsp-tile-l-id-dollar {
-  display: flex; align-items: center; justify-content: center;
+  width: 22px;
   height: 22px;
+  display: flex; align-items: center; justify-content: center;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.divider};
-  border-radius: 4px;
+  border-radius: 50%;
   color: ${COLOR.textMuted};
   font-size: 12px;
   font-weight: ${FONT.weight.bold};
@@ -113,13 +114,14 @@ ensureStyles(
   font-family: ${FONT.sans};
   padding: 0;
   line-height: 1;
+  flex-shrink: 0;
 }
 .dsp-tile-l-id-dollar.dollar-active { color: ${COLOR.green}; border-color: ${COLOR.greenSoft}; }
 .dsp-tile-l-id-dollar.dollar-passive { color: ${COLOR.cyan}; border-color: ${COLOR.cyanSoft}; }
 .dsp-tile-l-id-dollar:hover { background: ${COLOR.surfaceHover}; }
 .dsp-tile-l-avatar {
   width: 22px; height: 22px;
-  border-radius: 4px;
+  border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px;
   font-weight: ${FONT.weight.bold};
@@ -132,7 +134,7 @@ ensureStyles(
   width: 100%;
   height: 100%;
   object-fit: contain;
-  border-radius: 0;
+  border-radius: 50%;
 }
 .dsp-tile-l-symbol {
   font-size: 13px;
@@ -191,47 +193,66 @@ ensureStyles(
 .dsp-tile-l-act.dollar-active { color: ${COLOR.green}; }
 .dsp-tile-l-act.dollar-passive { color: ${COLOR.cyan}; }
 
-/* ORTA kolon — sol/sag padding (divider'lara hava) */
+/* ORTA kolon — cell'ler ust, activity alt, dikey ritim ferah */
 .dsp-tile-m {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 0 14px;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 6px 16px;
   min-width: 0;
-  justify-content: center;
+  gap: 6px;
 }
 .dsp-tile-m-row {
-  display: flex; gap: 12px; align-items: baseline;
-  min-width: 0; flex-wrap: nowrap; overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  min-width: 0;
 }
 .dsp-tile-m-cell {
-  display: flex; flex-direction: column; min-width: 0;
-  flex-shrink: 1;
+  display: flex; flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 4px 6px;
+  background: ${COLOR.surface};
+  border: 1px solid ${COLOR.divider};
+  border-radius: ${SIZE.radius}px;
+  gap: 1px;
 }
 .dsp-tile-m-lbl {
   font-size: 9px;
   text-transform: uppercase;
-  font-weight: ${FONT.weight.semibold};
+  font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
-  letter-spacing: 0.05em;
+  letter-spacing: 0.07em;
   white-space: nowrap;
+  line-height: 1.1;
 }
 .dsp-tile-m-val {
   font-family: ${FONT.mono};
-  font-size: 13px;
-  font-weight: ${FONT.weight.semibold};
+  font-size: 14px;
+  font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.15;
+  max-width: 100%;
+  text-align: center;
 }
 .dsp-tile-m-act {
   display: flex; gap: 8px; align-items: center;
-  font-size: ${FONT.size.md};
+  padding: 4px 10px;
+  background: ${COLOR.bgRaised};
+  border: 1px solid ${COLOR.divider};
+  border-radius: ${SIZE.radius}px;
+  font-size: 12px;
+  font-weight: ${FONT.weight.semibold};
+  line-height: 1.2;
 }
 .dsp-tile-m-act-dot {
-  width: 7px; height: 7px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* SAG kolon — sol dikey divider, content dikey ortali */
@@ -535,10 +556,19 @@ function ActivityStatusLine({
   if (!activity || !activity.text) return null;
   const tone = ACTIVITY_TONE[activity.severity ?? 'info'];
   return (
-    <div className="dsp-tile-m-act" style={{ color: tone.fg }}>
+    <div
+      className="dsp-tile-m-act"
+      style={{
+        color: tone.fg,
+        borderColor: `${tone.fg}33`,
+      }}
+    >
       <span
         className="dsp-tile-m-act-dot"
-        style={{ background: tone.dot }}
+        style={{
+          background: tone.dot,
+          boxShadow: `0 0 6px ${tone.dot}aa`,
+        }}
       />
       <span>{activity.text}</span>
     </div>
