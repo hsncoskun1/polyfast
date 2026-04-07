@@ -13,9 +13,9 @@
  * Animasyon: YOK (1. tur statik)
  */
 
+import { useEffect, useRef, useState } from 'react';
 import { COLOR, FONT, SIZE, HEALTH_TONE, ensureStyles } from './styles';
-// (eski 'sidebar' key'i ile inject edilmis CSS'i override etmek icin
-// yeni bir key kullaniyoruz: sidebar-v2)
+// CSS injection key sidebar-v3 (turn 2'de yukseltildi)
 import type {
   BotStatusContract,
   HealthLiteral,
@@ -42,12 +42,13 @@ ensureStyles(
   overflow: hidden;
 }
 
-/* Brand block — daha ferah, daha belirgin */
+/* Brand block — SVG logo + gradient title (buyuk + ortali) */
 .dsp-sb-brand {
-  padding: 20px 22px 18px;
+  padding: 24px 22px 22px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 4px;
   position: relative;
 }
 .dsp-sb-brand::after {
@@ -57,22 +58,28 @@ ensureStyles(
   right: 22px;
   bottom: 0;
   height: 1px;
-  background: linear-gradient(90deg, ${COLOR.borderStrong}, transparent);
+  background: linear-gradient(90deg, transparent, ${COLOR.borderStrong}, transparent);
+}
+.dsp-sb-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.dsp-sb-brand-logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 8px ${COLOR.brandGlow});
 }
 .dsp-sb-brand-title {
-  font-size: ${FONT.size.xl};
+  font-size: 22px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   background: linear-gradient(90deg, ${COLOR.brand}, #c084fc);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-}
-.dsp-sb-brand-tag {
-  font-size: ${FONT.size.sm};
-  color: ${COLOR.textMuted};
-  font-weight: ${FONT.weight.medium};
-  letter-spacing: 0.02em;
 }
 
 /* Nav — brand ile arasinda nefes */
@@ -252,8 +259,43 @@ ensureStyles(
 function BrandBlock() {
   return (
     <div className="dsp-sb-brand">
-      <div className="dsp-sb-brand-title">◆ POLYFAST</div>
-      <div className="dsp-sb-brand-tag">5M Trading Bot</div>
+      <div className="dsp-sb-brand-row">
+        <svg
+          className="dsp-sb-brand-logo"
+          viewBox="0 0 32 32"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-label="POLYFAST logo"
+        >
+          <defs>
+            <linearGradient id="dsp-logo-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stopColor="#8b5cf6" />
+              <stop offset="1" stopColor="#c084fc" />
+            </linearGradient>
+            <linearGradient id="dsp-logo-bolt" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stopColor="#fafaff" />
+              <stop offset="1" stopColor="#e9d8ff" />
+            </linearGradient>
+          </defs>
+          {/* Hexagon */}
+          <path
+            d="M16 1.5 L28 8 L28 24 L16 30.5 L4 24 L4 8 Z"
+            fill="url(#dsp-logo-grad)"
+            stroke="#c084fc"
+            strokeWidth="1"
+            strokeLinejoin="round"
+          />
+          {/* Lightning bolt */}
+          <path
+            d="M18 7 L10 18 L15 18 L13 25 L22 13 L17 13 Z"
+            fill="url(#dsp-logo-bolt)"
+            stroke="#fafaff"
+            strokeWidth="0.5"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <div className="dsp-sb-brand-title">POLYFAST</div>
+      </div>
     </div>
   );
 }
@@ -350,8 +392,49 @@ function formatUptime(sec: number | null | undefined): string {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
-  if (h > 0) return `${h}sa ${String(m).padStart(2, '0')}dk`;
-  return `${m}dk ${String(s).padStart(2, '0')}sn`;
+  // Saat:dakika:saniye, runtime tick (madde 1.2)
+  // Saat 3 haneye cikabilir (uzun session: 100sa+)
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/**
+ * useLiveUptime — bot uptime'i lokal saniyede artir.
+ *
+ * Hook polling 3s'de yeni `uptime_sec` getirir; biz aralarda lokal
+ * tick ile saniye saniye gosteririz. Hook her yeni deger getirdiginde
+ * lokal saat sifirlanir ve yeni base'den ileriye gider.
+ *
+ * Dashboard "yasiyor" hissi icin kritik (madde 1.2).
+ */
+function useLiveUptime(serverUptime: number | null | undefined): number | null {
+  const [tick, setTick] = useState<number>(0);
+  const baseRef = useRef<{ server: number; localStart: number } | null>(null);
+
+  // Server her yeni uptime getirdiginde base'i sifirla
+  useEffect(() => {
+    if (serverUptime == null) {
+      baseRef.current = null;
+      return;
+    }
+    baseRef.current = { server: serverUptime, localStart: Date.now() };
+    setTick((t) => t + 1); // ilk render tetikle
+  }, [serverUptime]);
+
+  // Her saniye tick — re-render yapip Date.now()'dan delta hesapla
+  useEffect(() => {
+    if (serverUptime == null) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [serverUptime]);
+
+  if (baseRef.current == null) return null;
+  // tick state'ini kullan — re-render trigger (lint memnun olsun)
+  void tick;
+  const elapsedLocal = Math.floor((Date.now() - baseRef.current.localStart) / 1000);
+  return baseRef.current.server + elapsedLocal;
 }
 
 function deriveModeText(bot: BotStatusContract | null | undefined): string {
@@ -367,7 +450,11 @@ function deriveModeText(bot: BotStatusContract | null | undefined): string {
 }
 
 function BotStatusPanel({ bot }: { bot: BotStatusContract | null | undefined }) {
-  const mode = deriveBotMode(bot);
+  // Live uptime tick — server polling arasinda saniye saniye artar
+  const liveUptime = useLiveUptime(bot?.uptime_sec);
+  // deriveBotMode'un kullandigi sub satiri icin lokal artirilmis bot objesi
+  const tickedBot = bot && liveUptime != null ? { ...bot, uptime_sec: liveUptime } : bot;
+  const mode = deriveBotMode(tickedBot);
   const modeText = deriveModeText(bot);
   const latency = bot?.latency_ms != null ? `${bot.latency_ms}ms` : '—';
 
