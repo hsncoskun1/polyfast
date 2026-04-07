@@ -48,19 +48,20 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v2',
+  'eventtile-v3',
   `
 .dsp-tile {
   display: grid;
-  grid-template-columns: 240px 1fr 380px;
-  gap: 16px;
-  padding: 14px 18px;
+  grid-template-columns: 200px 1fr 280px;
+  gap: 14px;
+  padding: 14px 16px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
   min-height: ${SIZE.tileMinHeight}px;
+  min-width: 0;
 }
 .dsp-tile.claim { border-color: ${COLOR.brandSoft}; }
 .dsp-tile.open-profit { border-left: 3px solid ${COLOR.green}; }
@@ -81,7 +82,7 @@ ensureStyles(
   gap: 10px;
 }
 .dsp-tile-l-avatar {
-  width: 36px; height: 36px;
+  width: 34px; height: 34px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: ${FONT.size.lg};
@@ -103,6 +104,9 @@ ensureStyles(
   color: ${COLOR.text};
   font-weight: ${FONT.weight.semibold};
   opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .dsp-tile-l-pnl {
   display: flex;
@@ -181,10 +185,10 @@ ensureStyles(
   justify-content: flex-end;
 }
 
-/* RuleGrid */
+/* RuleGrid — 2 col x 3 row (kompakt sag panel icin) */
 .dsp-rgrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   width: 100%;
 }
