@@ -2,10 +2,19 @@
 
 Backend davranisina DOKUNMAZ — sadece mevcut state'i okur ve sunar.
 Tum veriler Orchestrator'daki in-memory state'ten gelir.
+
+v0.8.0-backend-contract:
+- DashboardOverview genisletildi (counters + session pnl + bot_status)
+- Placeholder-first: yeni alanlar optional, orchestrator hazir degilse None
+- Frontend null-safe tuketir, eksik alan = mock fallback
 """
+
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
+from backend.api.health import BotStatusContract, _build_bot_status
 
 router = APIRouter()
 
@@ -60,6 +69,13 @@ class CoinSettingSummary(BaseModel):
 
 
 class DashboardOverview(BaseModel):
+    """v0.8.0-backend-contract: frontend DashboardHeader icin extended kontrat.
+
+    Mevcut legacy alanlar korundu (geriye uyumluluk). Yeni alanlar OPTIONAL:
+    orchestrator henuz surmuyorsa None doner, frontend mock fallback'e duser.
+    """
+
+    # Legacy alanlar (korundu)
     trading_enabled: bool
     balance: BalanceInfo
     open_positions: int
@@ -67,6 +83,19 @@ class DashboardOverview(BaseModel):
     session_trade_count: int
     configured_coins: int
     eligible_coins: int
+
+    # v0.8.0-backend-contract: extended alanlar (optional, placeholder-first)
+    bot_status: Optional[BotStatusContract] = None
+    bakiye_text: Optional[str] = None
+    kullanilabilir_text: Optional[str] = None
+    session_pnl: Optional[float] = None
+    session_pnl_pct: Optional[float] = None
+    acilan: Optional[int] = None
+    gorulen: Optional[int] = None
+    ag_rate: Optional[str] = None
+    win: Optional[int] = None
+    lost: Optional[int] = None
+    winrate: Optional[str] = None
 
 
 # ── Endpoints ──
@@ -79,15 +108,84 @@ def _get_orchestrator():
     return orch
 
 
+def _fmt_usd(v: float) -> str:
+    """Format USD value for display — '$248.53'."""
+    return f"${v:,.2f}"
+
+
+def _fmt_pct(v: float) -> str:
+    """Format percentage — '4.8%'."""
+    return f"{v:.1f}%"
+
+
+def _build_overview_extended(orch) -> dict:
+    """Build v0.8.0 extended overview fields (placeholder-safe).
+
+    Her alan defensive get — orchestrator henuz her sayaci surmuyorsa None.
+    Frontend null-safe tuketir, eksik alan icin mock fallback'e duser.
+    """
+    tracker = orch.position_tracker
+    balance = orch.balance_manager
+
+    # Session PnL — tracker'dan topla (henuz degerli kaynak varsa)
+    session_pnl = getattr(tracker, "session_net_pnl", None)
+    session_pnl_pct: Optional[float] = None
+    if session_pnl is not None:
+        starting = getattr(tracker, "session_start_balance", None)
+        if starting is not None and starting > 0:
+            session_pnl_pct = (session_pnl / starting) * 100
+
+    # Counters
+    acilan = getattr(tracker, "session_fill_count", None)
+    gorulen = getattr(tracker, "session_event_seen_count", None)
+    ag_rate_val: Optional[str] = None
+    if acilan is not None and gorulen is not None and gorulen > 0:
+        ag_rate_val = _fmt_pct((acilan / gorulen) * 100)
+
+    # Win / Lost / Winrate
+    win = getattr(tracker, "session_win_count", None)
+    lost = getattr(tracker, "session_lost_count", None)
+    winrate_val: Optional[str] = None
+    if win is not None and lost is not None:
+        total = win + lost
+        if total > 0:
+            winrate_val = _fmt_pct((win / total) * 100)
+
+    return {
+        "bakiye_text": _fmt_usd(balance.total_balance) if balance.total_balance is not None else None,
+        "kullanilabilir_text": _fmt_usd(balance.available_balance) if balance.available_balance is not None else None,
+        "session_pnl": round(session_pnl, 2) if session_pnl is not None else None,
+        "session_pnl_pct": round(session_pnl_pct, 2) if session_pnl_pct is not None else None,
+        "acilan": acilan,
+        "gorulen": gorulen,
+        "ag_rate": ag_rate_val,
+        "win": win,
+        "lost": lost,
+        "winrate": winrate_val,
+    }
+
+
 @router.get("/dashboard/overview", response_model=DashboardOverview)
 async def get_overview() -> DashboardOverview:
-    """Dashboard ana ozet — tek bakista tum durum."""
+    """Dashboard ana ozet — tek bakista tum durum.
+
+    v0.8.0-backend-contract: extended alanlar (counters, session_pnl,
+    bot_status). Orchestrator henuz surmuyorsa ilgili alan None doner.
+    """
     orch = _get_orchestrator()
 
     balance = orch.balance_manager
     tracker = orch.position_tracker
     claims = orch.claim_manager
     settings = orch.settings_store
+
+    # Extended fields — placeholder-safe
+    extended = _build_overview_extended(orch)
+
+    # Bot status — health endpoint'in yardimcisini reuse ederek
+    from backend.main import get_uptime
+
+    bot_status = _build_bot_status(get_uptime())
 
     return DashboardOverview(
         trading_enabled=orch.trading_enabled,
@@ -102,6 +200,9 @@ async def get_overview() -> DashboardOverview:
         session_trade_count=tracker.session_trade_count,
         configured_coins=len(settings.get_configured_coins()),
         eligible_coins=settings.eligible_count,
+        # v0.8.0-backend-contract extended
+        bot_status=bot_status,
+        **extended,
     )
 
 
