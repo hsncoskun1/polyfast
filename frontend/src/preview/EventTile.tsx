@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v34',
+  'eventtile-v35',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -345,16 +345,16 @@ ensureStyles(
   line-height: 1.15;
 }
 .dsp-eg-lbl {
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   line-height: 1.1;
 }
 .dsp-eg-val {
   font-family: ${FONT.mono};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: ${FONT.weight.bold};
   line-height: 1.15;
 }
@@ -661,11 +661,11 @@ function ExitGrid({
         <div className="dsp-eg-val">{exits.sl}</div>
       </div>
       <div className="dsp-eg-cell fs">
-        <div className="dsp-eg-lbl">FS Süre</div>
+        <div className="dsp-eg-lbl">FS/Z</div>
         <div className="dsp-eg-val">{exits.fs}</div>
       </div>
       <div className="dsp-eg-cell fspnl">
-        <div className="dsp-eg-lbl">FS Eşik</div>
+        <div className="dsp-eg-lbl">FS/P</div>
         <div className="dsp-eg-val">{exits.fs_pnl ?? '—'}</div>
       </div>
     </div>
