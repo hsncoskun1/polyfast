@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v32',
+  'eventtile-v33',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -356,6 +356,15 @@ ensureStyles(
   font-weight: ${FONT.weight.bold};
   line-height: 1.15;
 }
+.dsp-eg-sub {
+  font-family: ${FONT.mono};
+  font-size: 9px;
+  font-weight: ${FONT.weight.medium};
+  color: ${COLOR.textMuted};
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  margin-top: 1px;
+}
 .dsp-eg-cell.tp .dsp-eg-val { color: ${COLOR.green}; }
 .dsp-eg-cell.sl .dsp-eg-val { color: ${COLOR.red}; }
 .dsp-eg-cell.fs .dsp-eg-val { color: ${COLOR.yellow}; }
@@ -642,25 +651,41 @@ function RuleGrid({ rules }: { rules: RuleSpecContract[] }) {
   );
 }
 
-function ExitGrid({ exits }: { exits?: PositionExitsContract | null }) {
-  if (!exits) return <div className="dsp-ip">Cikis esikleri yok</div>;
+function ExitGrid({
+  exits,
+  live,
+}: {
+  exits?: PositionExitsContract | null;
+  live?: { entry: string; live: string } | null;
+}) {
+  if (!exits) return <div className="dsp-ip">Cıkıs esikleri yok</div>;
+  // Live'a gore mesafe (TP/SL icin)
+  const liveNum = live ? parseFloat(live.live) : null;
+  const tpNum = parseFloat(exits.tp);
+  const slNum = parseFloat(exits.sl);
+  const tpDist = liveNum != null && !isNaN(tpNum) ? (tpNum - liveNum).toFixed(1) : null;
+  const slDist = liveNum != null && !isNaN(slNum) ? (liveNum - slNum).toFixed(1) : null;
   return (
     <div className="dsp-eg">
       <div className="dsp-eg-cell tp">
         <div className="dsp-eg-lbl">TP</div>
         <div className="dsp-eg-val">{exits.tp}</div>
+        {tpDist != null && <div className="dsp-eg-sub">+{tpDist} uzak</div>}
       </div>
       <div className="dsp-eg-cell sl">
         <div className="dsp-eg-lbl">SL</div>
         <div className="dsp-eg-val">{exits.sl}</div>
+        {slDist != null && <div className="dsp-eg-sub">-{slDist} uzak</div>}
       </div>
       <div className="dsp-eg-cell fs">
-        <div className="dsp-eg-lbl">FS</div>
+        <div className="dsp-eg-lbl">FS Süre</div>
         <div className="dsp-eg-val">{exits.fs}</div>
+        <div className="dsp-eg-sub">kalan</div>
       </div>
       <div className="dsp-eg-cell fspnl">
-        <div className="dsp-eg-lbl">FS PnL</div>
+        <div className="dsp-eg-lbl">FS Eşik</div>
         <div className="dsp-eg-val">{exits.fs_pnl ?? '—'}</div>
+        <div className="dsp-eg-sub">limit</div>
       </div>
     </div>
   );
@@ -951,7 +976,7 @@ function OpenTile({
       />
       <OpenBody position={position} activity={position.activity} />
       <div className="dsp-tile-r">
-        <ExitGrid exits={position.exits} />
+        <ExitGrid exits={position.exits} live={position.live} />
       </div>
     </div>
   );
