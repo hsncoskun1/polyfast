@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v40',
+  'eventtile-v41',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -246,18 +246,18 @@ ensureStyles(
   box-sizing: border-box;
 }
 .dsp-tile-m-lbl {
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   white-space: nowrap;
   line-height: 1.1;
   flex-shrink: 0;
 }
 .dsp-tile-m-val {
   font-family: ${FONT.mono};
-  font-size: 13px;
+  font-size: 15px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   white-space: nowrap;
@@ -267,6 +267,9 @@ ensureStyles(
   min-width: 0;
   text-align: right;
 }
+/* sığdır: uzun deger -> küçük font  */
+.dsp-tile-m-val.fit-md { font-size: 13px; }
+.dsp-tile-m-val.fit-sm { font-size: 11px; }
 /* Activity bar — full width mid panel, ortali (sabit kart, gelen text ortali) */
 .dsp-tile-m-act {
   display: flex;
@@ -591,13 +594,19 @@ function CoinIdentityBlock({
 interface MidCellsProps {
   cells: Array<{ label: string; value: string; color?: string }>;
 }
+function fitClass(v: string): string {
+  const len = v.length;
+  if (len >= 9) return 'dsp-tile-m-val fit-sm';
+  if (len >= 7) return 'dsp-tile-m-val fit-md';
+  return 'dsp-tile-m-val';
+}
 function MidCells({ cells }: MidCellsProps) {
   return (
     <div className="dsp-tile-m-row">
       {cells.map((c) => (
         <div key={c.label} className="dsp-tile-m-cell">
           <div className="dsp-tile-m-lbl">{c.label}</div>
-          <div className="dsp-tile-m-val" style={c.color ? { color: c.color } : undefined}>{c.value}</div>
+          <div className={fitClass(c.value)} style={c.color ? { color: c.color } : undefined}>{c.value}</div>
         </div>
       ))}
     </div>
