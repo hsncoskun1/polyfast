@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v20',
+  'eventtile-v21',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -76,26 +76,25 @@ ensureStyles(
 .dsp-tile.search      { }
 .dsp-tile.idle        { opacity: 0.86; }
 
-/* SOL kolon — 3 esit satir grid:
- *  Row 1: ID box (logo + ticker)
- *  Row 2: PnL box (big rakam ortali)
- *  Row 3: Actions row (\$/⚙ 2 col)
- * Hepsi eşit yükseklikte, hizali. */
+/* SOL kolon — 2 esit satir grid (ID row mid panel'e tasindi):
+ *  Row 1: PnL box (big rakam ortali)
+ *  Row 2: Ayarlar buton */
 .dsp-tile-l {
   display: grid;
-  grid-template-rows: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
   gap: 6px;
   min-width: 0;
   padding-right: 14px;
   border-right: 1px solid ${COLOR.border};
 }
-/* ID row: 3 col grid — logo + ticker (5 char yer) + $ buton, sikici padding */
-.dsp-tile-l-id {
+/* ID row eski lokasyonu (sol kolon) artik kullanilmiyor.
+ * Yeni lokasyon: dsp-tile-m-id (mid panel row 1) */
+.dsp-tile-m-id {
   display: grid;
-  grid-template-columns: 22px 1fr 24px;
+  grid-template-columns: 22px 1fr 60px;
   align-items: center;
-  gap: 6px;
-  padding: 0 4px;
+  gap: 8px;
+  padding: 4px 8px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
@@ -191,13 +190,15 @@ ensureStyles(
 .dsp-tile-l-act.dollar-active { color: ${COLOR.green}; }
 .dsp-tile-l-act.dollar-passive { color: ${COLOR.cyan}; }
 
-/* ORTA kolon — sol/sag padding (divider'lara hava) */
+/* ORTA kolon — sol/sag padding (divider'lara hava)
+ * Row 1: ID row (logo + ticker + \$)
+ * Row 2+: variant body (Giris/Canli/Delta + activity / vb.) */
 .dsp-tile-m {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 0 14px;
-  justify-content: center;
+  justify-content: flex-start;
   min-width: 0;
   justify-content: center;
 }
@@ -478,31 +479,38 @@ function DollarButton({ dollarState }: { dollarState?: 'active' | 'passive' }) {
   );
 }
 
-function CoinIdentityBlock({
-  coin,
+/** SidePnlBlock — sol kolon (PnL + Ayarlar 2 row).
+ *  ID row mid panele tasindi, sol kolon sadece PnL ve Ayarlar. */
+function SidePnlBlock({
   big,
   amount,
   tone,
-  dollarState,
 }: {
-  coin: CoinFallback;
   big?: string | null;
   amount?: string | null;
   tone?: PnlTone | null;
-  dollarState?: 'active' | 'passive';
 }) {
   return (
     <div className="dsp-tile-l">
-      {/* Row 1: Logo + Ticker (5 char yer) + \$ buton */}
-      <div className="dsp-tile-l-id" title={coin.display_name}>
-        <CoinAvatar coin={coin} />
-        <span className="dsp-tile-l-symbol">{coin.symbol}</span>
-        <DollarButton dollarState={dollarState} />
-      </div>
-      {/* Row 2: PnL big (veya 6/6 search) */}
       <SidePnl big={big} amount={amount} tone={tone} />
-      {/* Row 3: ⚙ Ayarlar */}
       <TileActions />
+    </div>
+  );
+}
+
+/** CoinIdRow — mid panel row 1: logo + ticker + \$ buton (3 col) */
+function CoinIdRow({
+  coin,
+  dollarState,
+}: {
+  coin: CoinFallback;
+  dollarState?: 'active' | 'passive';
+}) {
+  return (
+    <div className="dsp-tile-m-id" title={coin.display_name}>
+      <CoinAvatar coin={coin} />
+      <span className="dsp-tile-l-symbol">{coin.symbol}</span>
+      <DollarButton dollarState={dollarState} />
     </div>
   );
 }
@@ -707,10 +715,10 @@ function OpenBody({
       ]
     : [];
   return (
-    <div className="dsp-tile-m">
+    <>
       {cells.length > 0 && <MidCells cells={cells} />}
       <ActivityStatusLine activity={activity} />
-    </div>
+    </>
   );
 }
 
@@ -723,8 +731,6 @@ function ClaimBody({
 }) {
   // Q3=a karari: KAPANIS -> OUTCOME -> ENTRY
   const closeReason = position.close_reason ?? '—';
-  // Outcome: legacy alanlardan turetilemez, claim summary'den lookup edilirse
-  // dolu gelir; su an yoksa close_reason'dan turetelim (basit map)
   const outcome = position.net_realized_pnl > 0
     ? 'WIN'
     : position.net_realized_pnl < 0
@@ -733,7 +739,7 @@ function ClaimBody({
   const entry = position.fill_price.toFixed(2);
 
   return (
-    <div className="dsp-tile-m">
+    <>
       <MidCells
         cells={[
           { label: 'Kapanış', value: closeReason.toUpperCase() },
@@ -742,7 +748,7 @@ function ClaimBody({
         ]}
       />
       <ActivityStatusLine activity={activity} />
-    </div>
+    </>
   );
 }
 
@@ -758,7 +764,7 @@ function SearchBody({
   activity?: ActivityContract | null;
 }) {
   return (
-    <div className="dsp-tile-m">
+    <>
       <MidCells
         cells={[
           { label: 'PTB', value: ptb },
@@ -767,13 +773,13 @@ function SearchBody({
         ]}
       />
       <ActivityStatusLine activity={activity} />
-    </div>
+    </>
   );
 }
 
 function IdleBody({ msg, activity }: { msg: string; activity?: ActivityContract | null }) {
   return (
-    <div className="dsp-tile-m">
+    <>
       <div className="dsp-tile-m-row">
         <div className="dsp-tile-m-cell">
           <div className="dsp-tile-m-val" style={{ color: COLOR.textMuted }}>
@@ -782,7 +788,7 @@ function IdleBody({ msg, activity }: { msg: string; activity?: ActivityContract 
         </div>
       </div>
       <ActivityStatusLine activity={activity} />
-    </div>
+    </>
   );
 }
 
@@ -807,13 +813,15 @@ function OpenTile({
       : 'dsp-tile';
   return (
     <div className={klass}>
-      <CoinIdentityBlock
-        coin={coin}
+      <SidePnlBlock
         big={position.pnl_big ?? null}
         amount={position.pnl_amount ?? null}
         tone={tone}
       />
-      <OpenBody live={position.live} activity={position.activity} />
+      <div className="dsp-tile-m">
+        <CoinIdRow coin={coin} />
+        <OpenBody live={position.live} activity={position.activity} />
+      </div>
       <div className="dsp-tile-r">
         <ExitGrid exits={position.exits} />
       </div>
@@ -831,17 +839,18 @@ function ClaimTile({
   claims: ClaimSummary[] | null;
 }) {
   const coin = lookupCoin(position.asset, coins);
-  // turn 3: claims listesinden lookup (position_id eslesmesi)
   const claim = claims?.find((c) => c.position_id === position.position_id);
   return (
     <div className="dsp-tile claim">
-      <CoinIdentityBlock
-        coin={coin}
+      <SidePnlBlock
         big={position.pnl_big ?? 'CLAIM'}
         amount={position.pnl_amount ?? 'PENDING'}
         tone={position.pnl_tone ?? 'pending'}
       />
-      <ClaimBody position={position} activity={position.activity} />
+      <div className="dsp-tile-m">
+        <CoinIdRow coin={coin} />
+        <ClaimBody position={position} activity={position.activity} />
+      </div>
       <div className="dsp-tile-r">
         <ClaimStatusPanel
           status={claim?.status ?? null}
@@ -865,19 +874,20 @@ function SearchTile({
   const coin = lookupCoin(tile.coin, coins);
   return (
     <div className="dsp-tile search">
-      <CoinIdentityBlock
-        coin={coin}
+      <SidePnlBlock
         big={tile.pnl_big}
         amount={tile.pnl_amount ?? null}
         tone={tile.pnl_tone}
-        dollarState="active"
       />
-      <SearchBody
-        ptb={tile.ptb}
-        live={tile.live}
-        delta={tile.delta}
-        activity={tile.activity}
-      />
+      <div className="dsp-tile-m">
+        <CoinIdRow coin={coin} dollarState="active" />
+        <SearchBody
+          ptb={tile.ptb}
+          live={tile.live}
+          delta={tile.delta}
+          activity={tile.activity}
+        />
+      </div>
       <div className="dsp-tile-r">
         <RuleGrid rules={tile.rules} />
       </div>
@@ -895,14 +905,11 @@ function IdleTile({
   const coin = lookupCoin(tile.coin ?? '?', coins);
   return (
     <div className="dsp-tile idle">
-      <CoinIdentityBlock
-        coin={coin}
-        big="OFF"
-        amount={null}
-        tone="off"
-        dollarState="passive"
-      />
-      <IdleBody msg={tile.msg} activity={tile.activity} />
+      <SidePnlBlock big="OFF" amount={null} tone="off" />
+      <div className="dsp-tile-m">
+        <CoinIdRow coin={coin} dollarState="passive" />
+        <IdleBody msg={tile.msg} activity={tile.activity} />
+      </div>
       <div className="dsp-tile-r">
         {tile.rules && tile.rules.length > 0 ? (
           <RuleGrid rules={tile.rules} />
