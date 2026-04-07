@@ -68,3 +68,6 @@ htmlcov/
 
 # Claude
 .claude/
+
+# Recovery extracts (jsonl image/code dump — diskte tut, repoya alma)
+.recovery/
