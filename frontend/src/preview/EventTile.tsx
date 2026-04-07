@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v16',
+  'eventtile-v17',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -59,7 +59,7 @@ ensureStyles(
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr) 220px;
   gap: 0;
-  padding: 9px 14px;
+  padding: 5px 14px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radiusLg}px;
@@ -141,11 +141,12 @@ ensureStyles(
 .dsp-tile-l-amt {
   display: none;
 }
-/* Actions (3. satir) — 2 col grid */
+/* Actions (3. satir) — 2 col grid, dolu yukseklik */
 .dsp-tile-l-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
+  min-height: 0;
 }
 .dsp-tile-l-act {
   display: flex; align-items: center; justify-content: center;
@@ -153,9 +154,12 @@ ensureStyles(
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
   color: ${COLOR.textMuted};
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: ${FONT.weight.bold};
   cursor: pointer;
   font-family: ${FONT.sans};
+  padding: 0;
+  line-height: 1;
 }
 .dsp-tile-l-act:hover { color: ${COLOR.text}; background: ${COLOR.surfaceHover}; }
 .dsp-tile-l-act.dollar-active { color: ${COLOR.green}; }
@@ -240,31 +244,34 @@ ensureStyles(
   font-weight: ${FONT.weight.semibold};
 }
 
-/* ExitGrid */
+/* ExitGrid — kompakt, label/value yan yana hissi */
 .dsp-eg {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
 }
 .dsp-eg-cell {
-  padding: 6px 10px;
+  padding: 4px 9px;
   border-radius: ${SIZE.radius}px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
-  display: flex; flex-direction: column; gap: 1px;
+  display: flex; flex-direction: column; gap: 0;
+  line-height: 1.1;
 }
 .dsp-eg-lbl {
   font-size: 9px;
   text-transform: uppercase;
-  font-weight: ${FONT.weight.semibold};
+  font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
 }
 .dsp-eg-val {
   font-family: ${FONT.mono};
-  font-size: ${FONT.size.lg};
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
+  line-height: 1.15;
 }
 .dsp-eg-cell.tp .dsp-eg-val { color: ${COLOR.green}; }
 .dsp-eg-cell.sl .dsp-eg-val { color: ${COLOR.red}; }
