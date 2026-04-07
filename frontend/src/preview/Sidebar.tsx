@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v2',
+  'sidebar-v3',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -42,40 +42,51 @@ ensureStyles(
   overflow: hidden;
 }
 
+/* Brand block — daha ferah, daha belirgin */
 .dsp-sb-brand {
-  padding: 16px 18px 14px;
-  border-bottom: 1px solid ${COLOR.divider};
+  padding: 20px 22px 18px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+  position: relative;
+}
+.dsp-sb-brand::after {
+  content: '';
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, ${COLOR.borderStrong}, transparent);
 }
 .dsp-sb-brand-title {
-  font-size: ${FONT.size.lg};
+  font-size: ${FONT.size.xl};
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   background: linear-gradient(90deg, ${COLOR.brand}, #c084fc);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 .dsp-sb-brand-tag {
-  font-size: ${FONT.size.xs};
+  font-size: ${FONT.size.sm};
   color: ${COLOR.textMuted};
   font-weight: ${FONT.weight.medium};
+  letter-spacing: 0.02em;
 }
 
+/* Nav — brand ile arasinda nefes */
 .dsp-sb-nav {
-  padding: 10px 8px;
+  padding: 14px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  border-bottom: 1px solid ${COLOR.divider};
+  gap: 3px;
 }
 .dsp-sb-nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 12px;
+  padding: 9px 14px;
   border-radius: ${SIZE.radius}px;
   font-size: ${FONT.size.md};
   color: ${COLOR.textMuted};
@@ -90,7 +101,7 @@ ensureStyles(
   border-color: ${COLOR.borderStrong};
 }
 .dsp-sb-nav-item.disabled {
-  opacity: 0.45;
+  opacity: 0.42;
 }
 .dsp-sb-nav-icon {
   width: 16px;
@@ -98,16 +109,16 @@ ensureStyles(
   font-size: ${FONT.size.lg};
 }
 
-.dsp-sb-spacer { flex: 1; }
+.dsp-sb-spacer { flex: 1; min-height: 12px; }
 
 /* Bot panel — 3 katmanli command center */
 .dsp-sb-bot {
-  padding: 12px 12px 14px;
+  padding: 14px 14px 16px;
   border-top: 1px solid ${COLOR.divider};
   background: ${COLOR.bg};
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 11px;
 }
 
 /* Hero (status) */
