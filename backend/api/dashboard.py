@@ -5,11 +5,12 @@ Tum veriler Orchestrator'daki in-memory state'ten gelir.
 
 v0.8.0-backend-contract:
 - DashboardOverview genisletildi (counters + session pnl + bot_status)
+- PositionSummary genisletildi (variant, live, exits, activity)
 - Placeholder-first: yeni alanlar optional, orchestrator hazir degilse None
 - Frontend null-safe tuketir, eksik alan = mock fallback
 """
 
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -21,7 +22,67 @@ router = APIRouter()
 
 # ── Response modelleri ──
 
+# v0.8.0-backend-contract: shared contract fragments (frontend eventTypes.ts karsiliklari)
+
+PnlTone = Literal["profit", "loss", "neutral", "pending", "off"]
+ActivitySeverity = Literal["success", "warning", "error", "info", "pending", "off"]
+
+
+class ActivityContract(BaseModel):
+    """Frontend ActivityStatusLine icin bildirim/aktivite metni.
+
+    text  → gorunen ana mesaj
+    severity → tone (success/warning/error/info/pending/off)
+    inline_icons → text icinde __KEY__ placeholder'lariyla render edilecek ikonlar
+    """
+
+    text: str
+    severity: Optional[ActivitySeverity] = None
+    inline_icons: Optional[list[str]] = None
+
+
+class PositionLiveContract(BaseModel):
+    """Open variant canli fiyat + delta ozeti (frontend PositionState)."""
+
+    side: Literal["UP", "DOWN"]
+    entry: str            # share price, "83"
+    live: str             # share price, "85.6"
+    delta_text: Optional[str] = None  # orn "+2.6" (opsiyonel, frontend de hesaplayabilir)
+
+
+class PositionExitsContract(BaseModel):
+    """Open variant cikis esikleri (frontend PositionExits).
+
+    Tum alanlar config esigi, CANLI DURUM DEGIL. Frontend ExitGrid
+    bu alanlari sadece esik olarak render eder — TP yaklasiyor gibi
+    canli uyarilar ActivityContract'tan gelir.
+    """
+
+    tp: str             # "87"
+    sl: str             # "81"
+    fs: str             # "30s" countdown metni
+    fs_pnl: Optional[str] = None  # "-5%" opsiyonel FS PnL esigi
+
+
 class PositionSummary(BaseModel):
+    """Pozisyon ozet kaydi.
+
+    Legacy alanlar (geriye uyumluluk): position_id, asset, side, state,
+    fill_price, requested_amount_usd, net_position_shares, close_reason,
+    net_realized_pnl, created_at
+
+    v0.8.0 extended alanlar (tumu optional):
+    - variant: 'open' | 'claim'  (frontend EventTileVariant hint)
+    - live: PositionLiveContract (canli fiyat ozeti)
+    - exits: PositionExitsContract (cikis esikleri)
+    - pnl_big: '+3.1%' formatli yuzde
+    - pnl_amount: '+0.31$' formatli USD delta
+    - pnl_tone: profit | loss | neutral | pending | off
+    - activity: ActivityContract (canli bildirim metni)
+    - event_url: Polymarket event sayfasi
+    """
+
+    # Legacy
     position_id: str
     asset: str
     side: str
@@ -32,6 +93,16 @@ class PositionSummary(BaseModel):
     close_reason: str | None = None
     net_realized_pnl: float = 0.0
     created_at: str
+
+    # v0.8.0 extended (optional, placeholder-first)
+    variant: Optional[Literal["open", "claim"]] = None
+    live: Optional[PositionLiveContract] = None
+    exits: Optional[PositionExitsContract] = None
+    pnl_big: Optional[str] = None
+    pnl_amount: Optional[str] = None
+    pnl_tone: Optional[PnlTone] = None
+    activity: Optional[ActivityContract] = None
+    event_url: Optional[str] = None
 
 
 class ClaimSummary(BaseModel):
@@ -206,24 +277,175 @@ async def get_overview() -> DashboardOverview:
     )
 
 
+def _derive_position_variant(p) -> Literal["open", "claim"]:
+    """Position state + needs_redeem'den frontend variant hint'i uret.
+
+    - needs_redeem=True (EXPIRY ile kapanmis, token elde) → 'claim'
+    - is_open ve aktif → 'open'
+    - default → 'open' (pending/close_pending/close_failed vb)
+    """
+    if getattr(p, "is_closed", False) and getattr(p, "needs_redeem", False):
+        return "claim"
+    return "open"
+
+
+def _derive_pnl_tone(net_pnl: Optional[float]) -> Optional[PnlTone]:
+    """Net PnL'den PnlTone turet.
+
+    None → None (frontend default'a duser)
+    >0   → 'profit'
+    <0   → 'loss'
+    ==0  → 'neutral'
+    """
+    if net_pnl is None:
+        return None
+    if net_pnl > 0:
+        return "profit"
+    if net_pnl < 0:
+        return "loss"
+    return "neutral"
+
+
+def _format_pnl_pct(pct: Optional[float]) -> Optional[str]:
+    """+3.1% / -2.4% formatli yuzde."""
+    if pct is None:
+        return None
+    sign = "+" if pct >= 0 else ""
+    return f"{sign}{pct:.1f}%"
+
+
+def _format_pnl_amount(amount: Optional[float]) -> Optional[str]:
+    """+0.31$ / -0.18$ formatli dolar."""
+    if amount is None:
+        return None
+    sign = "+" if amount >= 0 else ""
+    return f"{sign}{amount:.2f}$"
+
+
+def _build_position_contract(p, live_context: dict | None = None) -> PositionSummary:
+    """PositionRecord'dan extended PositionSummary uretir.
+
+    live_context: opsiyonel dict — {current_price, live_coin_price, exits, event_url, activity}
+    Henuz wire edilmediyse None, frontend mock fallback'e duser.
+    """
+    # Legacy fields
+    legacy = {
+        "position_id": p.position_id,
+        "asset": p.asset,
+        "side": p.side,
+        "state": p.state.value,
+        "fill_price": p.fill_price,
+        "requested_amount_usd": p.requested_amount_usd,
+        "net_position_shares": p.net_position_shares,
+        "close_reason": p.close_reason.value if p.close_reason else None,
+        "net_realized_pnl": p.net_realized_pnl,
+        "created_at": p.created_at.isoformat(),
+    }
+
+    # Variant hint
+    variant = _derive_position_variant(p)
+
+    # Live snapshot (context verilmis veya tracker'dan cek)
+    live_obj: Optional[PositionLiveContract] = None
+    pnl_big: Optional[str] = None
+    pnl_amount: Optional[str] = None
+    pnl_tone: Optional[PnlTone] = None
+
+    if live_context and "current_price" in live_context:
+        current_price = live_context["current_price"]
+        # calculate_unrealized_pnl mevcut metot
+        try:
+            pnl_data = p.calculate_unrealized_pnl(current_price)
+            net_pnl = pnl_data.get("net_unrealized_pnl_estimate")
+            net_pnl_pct = pnl_data.get("net_unrealized_pnl_pct")
+            pnl_big = _format_pnl_pct(net_pnl_pct)
+            pnl_amount = _format_pnl_amount(net_pnl)
+            pnl_tone = _derive_pnl_tone(net_pnl)
+        except Exception:
+            pass
+
+        # Live share price stringi
+        live_obj = PositionLiveContract(
+            side="UP" if p.side.upper() == "UP" else "DOWN",
+            entry=f"{p.fill_price:.2f}".rstrip("0").rstrip("."),
+            live=f"{current_price:.2f}".rstrip("0").rstrip("."),
+        )
+    elif p.is_closed and p.net_realized_pnl is not None:
+        # Kapali pozisyon icin gerceklesmis net pnl
+        pnl_amount = _format_pnl_amount(p.net_realized_pnl)
+        pnl_tone = _derive_pnl_tone(p.net_realized_pnl)
+        if p.requested_amount_usd > 0:
+            pct = (p.net_realized_pnl / p.requested_amount_usd) * 100
+            pnl_big = _format_pnl_pct(pct)
+
+    # Exits — live_context'ten veya None
+    exits_obj: Optional[PositionExitsContract] = None
+    if live_context and "exits" in live_context:
+        e = live_context["exits"]
+        exits_obj = PositionExitsContract(
+            tp=str(e.get("tp", "")),
+            sl=str(e.get("sl", "")),
+            fs=str(e.get("fs", "")),
+            fs_pnl=e.get("fs_pnl"),
+        )
+
+    # Activity
+    activity_obj: Optional[ActivityContract] = None
+    if live_context and "activity" in live_context:
+        a = live_context["activity"]
+        if isinstance(a, dict) and "text" in a:
+            activity_obj = ActivityContract(
+                text=a["text"],
+                severity=a.get("severity"),
+                inline_icons=a.get("inline_icons"),
+            )
+
+    event_url = live_context.get("event_url") if live_context else None
+
+    return PositionSummary(
+        **legacy,
+        variant=variant,
+        live=live_obj,
+        exits=exits_obj,
+        pnl_big=pnl_big,
+        pnl_amount=pnl_amount,
+        pnl_tone=pnl_tone,
+        activity=activity_obj,
+        event_url=event_url,
+    )
+
+
 @router.get("/dashboard/positions", response_model=list[PositionSummary])
 async def get_positions() -> list[PositionSummary]:
-    """Tum pozisyonlari listele."""
+    """Tum pozisyonlari listele (legacy + v0.8.0 extended alanlar).
+
+    Placeholder-safe: live_context orchestrator'dan geldigi gibi kullanilir.
+    Orchestrator henuz live price/exits/activity saglamiyorsa ilgili alanlar
+    None doner, frontend mock fallback'e duser.
+    """
     orch = _get_orchestrator()
 
+    # Live context (henuz implementasyonda yok — placeholder None)
+    # Orchestrator wire edildiginde her pozisyon icin asagidaki sekilde
+    # live_context hazirlanacak:
+    #   {
+    #     "current_price": float,   # live share price
+    #     "exits": {"tp": "87", "sl": "81", "fs": "30s", "fs_pnl": "-5%"},
+    #     "activity": {"text": "● TP yaklasiyor", "severity": "success"},
+    #     "event_url": "https://polymarket.com/event/...",
+    #   }
+    def _get_live_context(position) -> Optional[dict]:
+        builder = getattr(orch, "build_position_live_context", None)
+        if callable(builder):
+            try:
+                ctx = builder(position)
+                return ctx if isinstance(ctx, dict) else None
+            except Exception:
+                return None
+        return None
+
     return [
-        PositionSummary(
-            position_id=p.position_id,
-            asset=p.asset,
-            side=p.side,
-            state=p.state.value,
-            fill_price=p.fill_price,
-            requested_amount_usd=p.requested_amount_usd,
-            net_position_shares=p.net_position_shares,
-            close_reason=p.close_reason.value if p.close_reason else None,
-            net_realized_pnl=p.net_realized_pnl,
-            created_at=p.created_at.isoformat(),
-        )
+        _build_position_contract(p, live_context=_get_live_context(p))
         for p in orch.position_tracker.get_all_positions()
     ]
 

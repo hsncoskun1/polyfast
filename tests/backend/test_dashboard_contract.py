@@ -1,24 +1,55 @@
-"""v0.8.0-backend-contract: DashboardOverview extended contract tests.
+"""v0.8.0-backend-contract: Dashboard extended contract tests.
 
 Frontend J2 hook'unun bekledigi alanlari test eder:
-- bot_status (BotStatusContract)
-- bakiye_text, kullanilabilir_text
-- session_pnl, session_pnl_pct
-- acilan, gorulen, ag_rate
-- win, lost, winrate
+- /api/dashboard/overview: bot_status + counters + session pnl + winrate
+- /api/dashboard/positions: variant + live + exits + pnl + activity
 
 Orchestrator runtime olmadan endpoint cagrilacagi icin stub bir orchestrator
 dependency inject edilir. Boylece contract shape'i wiring detayindan bagimsiz
 test edilir.
 """
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
 from httpx import AsyncClient, ASGITransport
 
+from backend.execution.close_reason import CloseReason
+from backend.execution.position_record import PositionRecord, PositionState
 from backend.main import app
-import backend.api.dashboard as dashboard_module
+
+
+def _make_position(
+    position_id: str = "pos-btc-1",
+    asset: str = "BTC",
+    side: str = "UP",
+    state: PositionState = PositionState.OPEN_CONFIRMED,
+    fill_price: float = 0.83,
+    requested_amount_usd: float = 2.00,
+    net_position_shares: float = 2.40,
+    close_reason: CloseReason | None = None,
+    net_realized_pnl: float = 0.0,
+    fee_rate: float = 0.02,
+) -> PositionRecord:
+    """Test helper — minimum dolu PositionRecord."""
+    return PositionRecord(
+        position_id=position_id,
+        asset=asset,
+        side=side,
+        condition_id=f"cond-{position_id}",
+        token_id=f"tok-{position_id}",
+        state=state,
+        fill_price=fill_price,
+        requested_amount_usd=requested_amount_usd,
+        gross_fill_shares=net_position_shares + 0.1,
+        entry_fee_shares=0.1,
+        net_position_shares=net_position_shares,
+        fee_rate=fee_rate,
+        close_reason=close_reason,
+        net_realized_pnl=net_realized_pnl,
+        created_at=datetime.now(timezone.utc),
+    )
 
 
 @pytest.fixture
@@ -202,3 +233,205 @@ async def test_overview_extended_all_expected_fields(stub_orchestrator):
         "winrate",
     }
     assert extended_fields.issubset(data.keys())
+
+
+# ─── /api/dashboard/positions — extended contract tests ────────────
+
+
+@pytest.mark.asyncio
+async def test_positions_returns_503_without_orchestrator():
+    """Orchestrator None iken positions 503 doner (mevcut davranis korundu)."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/positions")
+
+    assert resp.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_positions_empty_list_when_no_positions(stub_orchestrator):
+    """Orchestrator var ama pozisyon yoksa bos liste doner."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/positions")
+
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_positions_legacy_shape_preserved(stub_orchestrator):
+    """Legacy alanlar korundu (position_id, asset, side, state, vb)."""
+    pos = _make_position()
+    stub_orchestrator.position_tracker.get_all_positions = lambda: [pos]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/positions")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    p = data[0]
+    assert p["position_id"] == "pos-btc-1"
+    assert p["asset"] == "BTC"
+    assert p["side"] == "UP"
+    assert p["state"] == "open_confirmed"
+    assert p["fill_price"] == 0.83
+    assert p["requested_amount_usd"] == 2.00
+    assert p["net_realized_pnl"] == 0.0
+    assert "created_at" in p
+
+
+@pytest.mark.asyncio
+async def test_positions_has_extended_fields(stub_orchestrator):
+    """v0.8.0: tum extended field'lar response'da (None dahil)."""
+    pos = _make_position()
+    stub_orchestrator.position_tracker.get_all_positions = lambda: [pos]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/positions")
+
+    p = resp.json()[0]
+    extended = {"variant", "live", "exits", "pnl_big", "pnl_amount", "pnl_tone", "activity", "event_url"}
+    assert extended.issubset(p.keys())
+
+
+@pytest.mark.asyncio
+async def test_positions_open_variant_without_live_context(stub_orchestrator):
+    """Open pozisyon, live_context yok → variant='open', live/exits/activity None."""
+    pos = _make_position(state=PositionState.OPEN_CONFIRMED)
+    stub_orchestrator.position_tracker.get_all_positions = lambda: [pos]
+    # build_position_live_context attribute yok → None context
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/positions")
+
+    p = resp.json()[0]
+    assert p["variant"] == "open"
+    assert p["live"] is None
+    assert p["exits"] is None
+    assert p["activity"] is None
+
+
+@pytest.mark.asyncio
+async def test_positions_claim_variant_for_redeemable_closed(stub_orchestrator):
+    """Kapali ve needs_redeem (EXPIRY) ise variant='claim'."""
+    pos = _make_position(
+        state=PositionState.CLOSED,
+        close_reason=CloseReason.EXPIRY,
+        net_realized_pnl=0.5,
+    )
+    stub_orchestrator.position_tracker.get_all_positions = lambda: [pos]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/positions")
+
+    p = resp.json()[0]
+    assert p["variant"] == "claim"
+    # Realized pnl'den pnl_tone hesaplanmali
+    assert p["pnl_tone"] == "profit"
+    assert p["pnl_amount"] is not None
+    assert "+" in p["pnl_amount"]
+
+
+@pytest.mark.asyncio
+async def test_positions_open_variant_with_live_context(stub_orchestrator):
+    """build_position_live_context provider varsa live/exits/activity doluyor."""
+    pos = _make_position(
+        fill_price=0.80,
+        net_position_shares=2.50,
+        requested_amount_usd=2.00,
+    )
+    stub_orchestrator.position_tracker.get_all_positions = lambda: [pos]
+
+    def _builder(_p):
+        return {
+            "current_price": 0.84,
+            "exits": {"tp": "87", "sl": "78", "fs": "30s", "fs_pnl": "-5%"},
+            "activity": {"text": "● TP yaklasiyor — hedef 87", "severity": "success"},
+            "event_url": "https://polymarket.com/event/bitcoin-up-or-down-5-min",
+        }
+
+    stub_orchestrator.build_position_live_context = _builder
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/positions")
+
+    p = resp.json()[0]
+    assert p["variant"] == "open"
+    # Live snapshot
+    assert p["live"] is not None
+    assert p["live"]["side"] == "UP"
+    # Exits
+    assert p["exits"] is not None
+    assert p["exits"]["tp"] == "87"
+    assert p["exits"]["sl"] == "78"
+    assert p["exits"]["fs"] == "30s"
+    assert p["exits"]["fs_pnl"] == "-5%"
+    # Activity
+    assert p["activity"] is not None
+    assert p["activity"]["text"] == "● TP yaklasiyor — hedef 87"
+    assert p["activity"]["severity"] == "success"
+    # Event url
+    assert p["event_url"] == "https://polymarket.com/event/bitcoin-up-or-down-5-min"
+    # Pnl derived from live (0.84 > 0.80 → profit)
+    assert p["pnl_tone"] == "profit"
+    assert p["pnl_big"] is not None
+    assert "+" in p["pnl_big"]
+
+
+@pytest.mark.asyncio
+async def test_positions_loss_tone_for_negative_pnl(stub_orchestrator):
+    """DOWN pozisyon, canli fiyat yukari → net pnl negatif → loss tonu."""
+    pos = _make_position(
+        side="DOWN",
+        fill_price=0.55,
+        net_position_shares=3.50,
+        requested_amount_usd=2.00,
+    )
+    stub_orchestrator.position_tracker.get_all_positions = lambda: [pos]
+
+    def _builder(_p):
+        # DOWN pozisyonu, canli fiyat 0.50 → DOWN icin net negatif
+        return {"current_price": 0.40}
+
+    stub_orchestrator.build_position_live_context = _builder
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/positions")
+
+    p = resp.json()[0]
+    assert p["live"] is not None
+    # Net pnl negatif olmali (shares * current_price < requested)
+    assert p["pnl_tone"] == "loss"
+    assert p["pnl_amount"] is not None
+    assert "-" in p["pnl_amount"]
+
+
+@pytest.mark.asyncio
+async def test_positions_multiple_mix(stub_orchestrator):
+    """Birden fazla pozisyon — open + claim variant karisik."""
+    open_pos = _make_position(position_id="p1", asset="BTC")
+    claim_pos = _make_position(
+        position_id="p2",
+        asset="ETH",
+        state=PositionState.CLOSED,
+        close_reason=CloseReason.EXPIRY,
+    )
+    stub_orchestrator.position_tracker.get_all_positions = lambda: [open_pos, claim_pos]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/positions")
+
+    data = resp.json()
+    assert len(data) == 2
+    variants = {p["asset"]: p["variant"] for p in data}
+    assert variants["BTC"] == "open"
+    assert variants["ETH"] == "claim"
