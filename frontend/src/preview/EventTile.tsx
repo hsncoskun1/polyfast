@@ -48,18 +48,19 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v10',
+  'eventtile-v11',
   `
 .dsp-tile {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr) 220px;
   gap: 0;
-  padding: 26px 16px;
+  padding: 18px 16px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
+  height: 168px;
   align-items: stretch;
   min-width: 0;
   line-height: 1.2;
