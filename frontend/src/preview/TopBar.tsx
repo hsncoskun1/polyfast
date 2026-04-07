@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v3',
+  'topbar-v4',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -50,19 +50,22 @@ ensureStyles(
   opacity: 0.55;
 }
 
-/* Chip — boxed premium (turn 2 buyutuldu) */
+/* Chip — boxed premium, ic bosluklar minimal, yazilar buyuk + ortali */
 .dsp-tb-chip {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 9px 13px 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 6px 14px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radius}px;
-  min-width: 72px;
+  min-width: 86px;
   white-space: nowrap;
   flex-shrink: 0;
   position: relative;
+  text-align: center;
 }
 .dsp-tb-chip-label {
   font-size: 10px;
@@ -70,10 +73,11 @@ ensureStyles(
   color: ${COLOR.textMuted};
   text-transform: uppercase;
   letter-spacing: 0.07em;
+  line-height: 1.1;
 }
 .dsp-tb-chip-value {
   font-family: ${FONT.mono};
-  font-size: 16px;
+  font-size: 18px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   line-height: 1.1;
@@ -82,17 +86,17 @@ ensureStyles(
   font-family: ${FONT.mono};
   font-size: 11px;
   font-weight: ${FONT.weight.medium};
-  margin-top: 1px;
+  margin-top: 0;
   line-height: 1;
 }
 
 /* PNL chip ozel — 2 satir, tone bg, daha buyuk vurgu */
 .dsp-tb-chip.pnl {
-  min-width: 124px;
-  padding: 8px 13px 9px;
+  min-width: 138px;
+  padding: 5px 14px 6px;
 }
 .dsp-tb-chip.pnl .dsp-tb-chip-value {
-  font-size: 18px;
+  font-size: 19px;
 }
 .dsp-tb-chip.pnl.profit { background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
 .dsp-tb-chip.pnl.profit .dsp-tb-chip-value, .dsp-tb-chip.pnl.profit .dsp-tb-chip-sub { color: ${COLOR.green}; }
