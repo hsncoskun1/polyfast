@@ -22,6 +22,7 @@ import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import SectionFilterStrip, { type SectionFilter } from './SectionFilterStrip';
 import EventTile from './EventTile';
+import { MOCK_DATA } from './mockData';
 import type {
   PositionSummary,
   SearchTileContract,
@@ -33,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v2',
+  'composition-v3',
   `
 .dsp-root {
   display: flex;
@@ -54,23 +55,23 @@ ensureStyles(
 .dsp-content {
   flex: 1;
   overflow-y: auto;
-  padding: 22px 22px 28px;
+  padding: 20px 22px 24px;
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 22px;
 }
 
-/* Section — header + rows */
+/* Section — header + rows (turn 2: tighter ritim) */
 .dsp-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 .dsp-section-hdr {
   display: flex;
   align-items: stretch;
   gap: 12px;
-  padding: 4px 0 8px;
+  padding: 2px 0 6px;
   border-bottom: 1px solid;
   position: relative;
 }
@@ -124,12 +125,12 @@ ensureStyles(
 .dsp-section-rows {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-/* Empty state — premium kart (140-160px) */
+/* Empty state — premium kart, kompakt (turn 2: 110px) */
 .dsp-empty {
-  padding: 26px 22px;
+  padding: 20px 20px;
   border-radius: ${SIZE.radiusLg}px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.border};
@@ -137,43 +138,43 @@ ensureStyles(
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   text-align: center;
-  min-height: 140px;
+  min-height: 110px;
   justify-content: center;
 }
 .dsp-empty-icon {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
   border: 1px solid;
   flex-shrink: 0;
 }
 .dsp-empty-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   letter-spacing: 0.02em;
 }
 .dsp-empty-desc {
-  font-size: 12px;
+  font-size: 11.5px;
   color: ${COLOR.textMuted};
   line-height: 1.5;
-  max-width: 340px;
+  max-width: 380px;
 }
 .dsp-empty-status {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 5px 11px;
+  gap: 6px;
+  padding: 4px 10px;
   border-radius: 10px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.divider};
-  font-size: 10px;
+  font-size: 9.5px;
   color: ${COLOR.textMuted};
   font-family: ${FONT.mono};
   margin-top: 2px;
@@ -319,8 +320,26 @@ function sortPositions(positions: PositionSummary[]): PositionSummary[] {
 // ║  Public composition                                          ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-export default function DashboardSidebarPreview() {
-  const data = useDashboardData({ pollMs: 3000 });
+export interface DashboardSidebarPreviewProps {
+  /** Mock showcase modu — true iken hook yerine MOCK_DATA kullanilir,
+   *  hicbir backend istegi gitmez, top bar 'MOCK' badge gosterir. */
+  mockMode?: boolean;
+}
+
+export default function DashboardSidebarPreview({
+  mockMode = false,
+}: DashboardSidebarPreviewProps = {}) {
+  // Mock mod: hook'u CALISTIRMA, statik veri kullan
+  // Gercek mod: hook canli backend'e baglanir
+  // Hook her zaman cagrilmali (rules of hooks) — ama mock mod'da
+  // enabled=false geciyoruz, polling olmaz
+  const liveData = useDashboardData({
+    pollMs: 3000,
+    enabled: !mockMode,
+    fetchOnMount: !mockMode,
+  });
+  const data = mockMode ? MOCK_DATA : liveData;
+
   const [filter, setFilter] = useState<SectionFilter>('all');
 
   const positions: PositionSummary[] = data.positions ?? [];
@@ -350,7 +369,7 @@ export default function DashboardSidebarPreview() {
     <div className="dsp-root">
       <Sidebar health={data.health} />
       <div className="dsp-main">
-        <TopBar overview={data.overview} />
+        <TopBar overview={data.overview} mockMode={mockMode} />
         <SectionFilterStrip
           filter={filter}
           onFilterChange={setFilter}
