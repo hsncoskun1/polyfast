@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v2',
+  'topbar-v3',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -29,43 +29,43 @@ ensureStyles(
   border-bottom: 1px solid ${COLOR.border};
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 18px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  gap: 12px;
+  gap: 14px;
   overflow-x: auto;
 }
 
 .dsp-tb-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex-shrink: 0;
 }
 .dsp-tb-divider {
   width: 1px;
-  height: 36px;
+  height: 44px;
   background: ${COLOR.borderStrong};
   flex-shrink: 0;
   opacity: 0.55;
 }
 
-/* Chip — boxed premium */
+/* Chip — boxed premium (turn 2 buyutuldu) */
 .dsp-tb-chip {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 7px 11px 8px;
+  gap: 3px;
+  padding: 9px 13px 10px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radius}px;
-  min-width: 64px;
+  min-width: 72px;
   white-space: nowrap;
   flex-shrink: 0;
   position: relative;
 }
 .dsp-tb-chip-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
   text-transform: uppercase;
@@ -73,23 +73,26 @@ ensureStyles(
 }
 .dsp-tb-chip-value {
   font-family: ${FONT.mono};
-  font-size: 14px;
+  font-size: 16px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   line-height: 1.1;
 }
 .dsp-tb-chip-sub {
   font-family: ${FONT.mono};
-  font-size: 10px;
+  font-size: 11px;
   font-weight: ${FONT.weight.medium};
   margin-top: 1px;
   line-height: 1;
 }
 
-/* PNL chip ozel — 2 satir, tone bg */
+/* PNL chip ozel — 2 satir, tone bg, daha buyuk vurgu */
 .dsp-tb-chip.pnl {
-  min-width: 110px;
-  padding: 6px 11px 7px;
+  min-width: 124px;
+  padding: 8px 13px 9px;
+}
+.dsp-tb-chip.pnl .dsp-tb-chip-value {
+  font-size: 18px;
 }
 .dsp-tb-chip.pnl.profit { background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
 .dsp-tb-chip.pnl.profit .dsp-tb-chip-value, .dsp-tb-chip.pnl.profit .dsp-tb-chip-sub { color: ${COLOR.green}; }
@@ -104,12 +107,12 @@ ensureStyles(
   align-items: center;
   gap: 8px;
   margin-left: auto;
-  padding-left: 12px;
+  padding-left: 14px;
   flex-shrink: 0;
 }
 .dsp-tb-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -118,11 +121,36 @@ ensureStyles(
   border-radius: ${SIZE.radius}px;
   color: ${COLOR.textMuted};
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
 }
 .dsp-tb-btn:hover {
   background: ${COLOR.surfaceHover};
   color: ${COLOR.text};
+}
+
+/* MOCK badge — sadece mockMode iken */
+.dsp-tb-mock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: ${COLOR.brandSoft};
+  border: 1px solid ${COLOR.borderStrong};
+  border-radius: ${SIZE.radius}px;
+  font-family: ${FONT.mono};
+  font-size: 10px;
+  font-weight: ${FONT.weight.bold};
+  letter-spacing: 0.08em;
+  color: ${COLOR.brand};
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.dsp-tb-mock-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: ${COLOR.brand};
+  box-shadow: 0 0 6px ${COLOR.brand}88;
 }
 `
 );
@@ -196,9 +224,11 @@ function pnlTone(value: number | null | undefined): PnlTone {
 
 export interface TopBarProps {
   overview: DashboardOverview | null;
+  /** Mock showcase mode — sag ust 'MOCK' badge gosterilir. Default false. */
+  mockMode?: boolean;
 }
 
-export default function TopBar({ overview }: TopBarProps) {
+export default function TopBar({ overview, mockMode = false }: TopBarProps) {
   const pnlValue = overview?.session_pnl;
   return (
     <div className="dsp-topbar">
@@ -237,6 +267,12 @@ export default function TopBar({ overview }: TopBarProps) {
       </div>
 
       <div className="dsp-tb-actions">
+        {mockMode && (
+          <span className="dsp-tb-mock" title="Mock showcase mode (gercek backend baglantisi yok)">
+            <span className="dsp-tb-mock-dot" />
+            MOCK
+          </span>
+        )}
         <button className="dsp-tb-btn" type="button" title="Ses">
           🔔
         </button>
