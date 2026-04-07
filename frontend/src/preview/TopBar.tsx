@@ -20,67 +20,96 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar',
+  'topbar-v2',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
   flex-shrink: 0;
-  background: ${COLOR.bgRaised};
+  background: ${COLOR.bg};
   border-bottom: 1px solid ${COLOR.border};
   display: flex;
   align-items: center;
-  padding: 0 18px;
+  padding: 0 16px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  gap: 14px;
+  gap: 12px;
   overflow-x: auto;
 }
 
-.dsp-tb-strip {
+.dsp-tb-group {
   display: flex;
   align-items: center;
-  gap: 0;
-  flex: 1;
-  min-width: 0;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.dsp-tb-divider {
+  width: 1px;
+  height: 36px;
+  background: ${COLOR.borderStrong};
+  flex-shrink: 0;
+  opacity: 0.55;
 }
 
-.dsp-tb-cell {
+/* Chip — boxed premium */
+.dsp-tb-chip {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 0 14px;
-  border-right: 1px solid ${COLOR.divider};
-  min-width: 0;
+  gap: 2px;
+  padding: 7px 11px 8px;
+  background: ${COLOR.surface};
+  border: 1px solid ${COLOR.border};
+  border-radius: ${SIZE.radius}px;
+  min-width: 64px;
   white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
 }
-.dsp-tb-cell:first-child { padding-left: 0; }
-.dsp-tb-cell:last-of-type { border-right: none; }
-
-.dsp-tb-cell-label {
+.dsp-tb-chip-label {
   font-size: 9px;
-  font-weight: ${FONT.weight.semibold};
+  font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
 }
-.dsp-tb-cell-value {
+.dsp-tb-chip-value {
   font-family: ${FONT.mono};
-  font-size: ${FONT.size.lg};
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
+  line-height: 1.1;
+}
+.dsp-tb-chip-sub {
+  font-family: ${FONT.mono};
+  font-size: 10px;
+  font-weight: ${FONT.weight.medium};
+  margin-top: 1px;
+  line-height: 1;
 }
 
+/* PNL chip ozel — 2 satir, tone bg */
+.dsp-tb-chip.pnl {
+  min-width: 110px;
+  padding: 6px 11px 7px;
+}
+.dsp-tb-chip.pnl.profit { background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
+.dsp-tb-chip.pnl.profit .dsp-tb-chip-value, .dsp-tb-chip.pnl.profit .dsp-tb-chip-sub { color: ${COLOR.green}; }
+.dsp-tb-chip.pnl.loss { background: ${COLOR.redSoft}; border-color: ${COLOR.redSoft}; }
+.dsp-tb-chip.pnl.loss .dsp-tb-chip-value, .dsp-tb-chip.pnl.loss .dsp-tb-chip-sub { color: ${COLOR.red}; }
+.dsp-tb-chip.pnl.neutral .dsp-tb-chip-value { color: ${COLOR.text}; }
+.dsp-tb-chip.pnl.off .dsp-tb-chip-value { color: ${COLOR.textDim}; }
+
+/* Sound button */
 .dsp-tb-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-left: auto;
-  padding-left: 14px;
-  border-left: 1px solid ${COLOR.divider};
+  padding-left: 12px;
+  flex-shrink: 0;
 }
 .dsp-tb-btn {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,7 +118,7 @@ ensureStyles(
   border-radius: ${SIZE.radius}px;
   color: ${COLOR.textMuted};
   cursor: pointer;
-  font-size: ${FONT.size.lg};
+  font-size: 14px;
 }
 .dsp-tb-btn:hover {
   background: ${COLOR.surfaceHover};
@@ -111,11 +140,28 @@ interface KpiCellProps {
 function KpiCell({ label, value, tone }: KpiCellProps) {
   const color = tone ? PNL_TONE[tone].fg : COLOR.text;
   return (
-    <div className="dsp-tb-cell">
-      <div className="dsp-tb-cell-label">{label}</div>
-      <div className="dsp-tb-cell-value" style={{ color }}>
+    <div className="dsp-tb-chip">
+      <div className="dsp-tb-chip-label">{label}</div>
+      <div className="dsp-tb-chip-value" style={{ color }}>
         {value}
       </div>
+    </div>
+  );
+}
+
+/** PnL chip — 2 satir (deger + yuzde), tone bg */
+interface PnlCellProps {
+  label: string;
+  value: string;
+  pct: string | null;
+  tone: PnlTone;
+}
+function PnlCell({ label, value, pct, tone }: PnlCellProps) {
+  return (
+    <div className={`dsp-tb-chip pnl ${tone}`}>
+      <div className="dsp-tb-chip-label">{label}</div>
+      <div className="dsp-tb-chip-value">{value}</div>
+      {pct && <div className="dsp-tb-chip-sub">{pct}</div>}
     </div>
   );
 }
@@ -127,11 +173,15 @@ function fmtMoney(value: string | null | undefined): string {
 function fmtNum(value: number | null | undefined): string {
   return value == null ? '—' : String(value);
 }
-function fmtPnl(value: number | null | undefined, pct: number | null | undefined): string {
+function fmtPnlValue(value: number | null | undefined): string {
   if (value == null) return '—';
   const sign = value >= 0 ? '+' : '';
-  const pctStr = pct != null ? ` (${sign}${pct.toFixed(1)}%)` : '';
-  return `${sign}$${value.toFixed(2)}${pctStr}`;
+  return `${sign}$${value.toFixed(2)}`;
+}
+function fmtPnlPct(pct: number | null | undefined): string | null {
+  if (pct == null) return null;
+  const sign = pct >= 0 ? '+' : '';
+  return `${sign}${pct.toFixed(1)}%`;
 }
 function pnlTone(value: number | null | undefined): PnlTone {
   if (value == null) return 'off';
@@ -149,33 +199,43 @@ export interface TopBarProps {
 }
 
 export default function TopBar({ overview }: TopBarProps) {
+  const pnlValue = overview?.session_pnl;
   return (
     <div className="dsp-topbar">
-      <div className="dsp-tb-strip">
-        <KpiCell
-          label="Bakiye"
-          value={fmtMoney(overview?.bakiye_text)}
-        />
+      {/* Group 1 — MONEY */}
+      <div className="dsp-tb-group">
+        <KpiCell label="Bakiye" value={fmtMoney(overview?.bakiye_text)} />
         <KpiCell
           label="Kullanılabilir"
           value={fmtMoney(overview?.kullanilabilir_text)}
         />
-        <KpiCell
-          label="PnL"
-          value={fmtPnl(overview?.session_pnl, overview?.session_pnl_pct)}
-          tone={pnlTone(overview?.session_pnl)}
+        <PnlCell
+          label="Oturum PnL"
+          value={fmtPnlValue(pnlValue)}
+          pct={fmtPnlPct(overview?.session_pnl_pct)}
+          tone={pnlTone(pnlValue)}
         />
+      </div>
+
+      <div className="dsp-tb-divider" />
+
+      {/* Group 2 — ACTIVITY */}
+      <div className="dsp-tb-group">
         <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} />
         <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} />
-        <KpiCell label="AG" value={overview?.ag_rate ?? '—'} />
+        <KpiCell label="A/G" value={overview?.ag_rate ?? '—'} />
+      </div>
+
+      <div className="dsp-tb-divider" />
+
+      {/* Group 3 — OUTCOME */}
+      <div className="dsp-tb-group">
         <KpiCell label="Win" value={fmtNum(overview?.win)} />
         <KpiCell label="Lost" value={fmtNum(overview?.lost)} />
-        <KpiCell
-          label="Bekleyen"
-          value={fmtNum(overview?.pending_claims)}
-        />
+        <KpiCell label="Bekleyen" value={fmtNum(overview?.pending_claims)} />
         <KpiCell label="Winrate" value={overview?.winrate ?? '—'} />
       </div>
+
       <div className="dsp-tb-actions">
         <button className="dsp-tb-btn" type="button" title="Ses">
           🔔
