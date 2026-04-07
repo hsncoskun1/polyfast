@@ -105,12 +105,16 @@ export const MOCK_OVERVIEW: DashboardOverview = {
  * backend wiring olmadan da tam metadata gozuksun.
  */
 export const MOCK_COINS: CoinInfoContract[] = [
-  { symbol: 'BTC',  display_name: 'Bitcoin',   configured: true, enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 5 },
-  { symbol: 'ETH',  display_name: 'Ethereum',  configured: true, enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 3 },
-  { symbol: 'SOL',  display_name: 'Solana',    configured: true, enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 2 },
-  { symbol: 'DOGE', display_name: 'Dogecoin',  configured: true, enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 2 },
-  { symbol: 'XRP',  display_name: 'Ripple',    configured: true, enabled: false, trade_eligible: false, side_mode: 'both', order_amount: 2 },
-  { symbol: 'ADA',  display_name: 'Cardano',   configured: false, enabled: false, trade_eligible: false, side_mode: 'both', order_amount: 0 },
+  { symbol: 'BTC',   display_name: 'Bitcoin',   configured: true,  enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 5 },
+  { symbol: 'ETH',   display_name: 'Ethereum',  configured: true,  enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 3 },
+  { symbol: 'SOL',   display_name: 'Solana',    configured: true,  enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 2 },
+  { symbol: 'DOGE',  display_name: 'Dogecoin',  configured: true,  enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 2 },
+  { symbol: 'XRP',   display_name: 'Ripple',    configured: true,  enabled: false, trade_eligible: false, side_mode: 'both', order_amount: 2 },
+  { symbol: 'ADA',   display_name: 'Cardano',   configured: false, enabled: false, trade_eligible: false, side_mode: 'both', order_amount: 0 },
+  { symbol: 'AVAX',  display_name: 'Avalanche', configured: true,  enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 2 },
+  { symbol: 'LINK',  display_name: 'Chainlink', configured: true,  enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 2 },
+  { symbol: 'MATIC', display_name: 'Polygon',   configured: true,  enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 2 },
+  { symbol: 'BNB',   display_name: 'BNB',       configured: true,  enabled: true,  trade_eligible: true,  side_mode: 'both', order_amount: 3 },
 ];
 
 // ╔══════════════════════════════════════════════════════════════╗
@@ -228,6 +232,81 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     },
     event_url: 'https://polymarket.com/event/dogecoin-up-or-down-5-min',
   },
+
+  // 5) AVAX — open profit (TP tetiklendi)
+  {
+    position_id: 'mock-avax-open-5',
+    asset: 'AVAX',
+    side: 'UP',
+    state: 'open_confirmed',
+    fill_price: 0.78,
+    requested_amount_usd: 2.0,
+    net_position_shares: 2.56,
+    close_reason: null,
+    net_realized_pnl: 0,
+    created_at: '2026-04-07T14:01:00Z',
+    variant: 'open',
+    live: { side: 'UP', entry: '78', live: '88.5', delta_text: '+10.5' },
+    exits: { tp: '88', sl: '72', fs: '14s', fs_pnl: '-5%' },
+    pnl_big: '+13.4%',
+    pnl_amount: '+1.34$',
+    pnl_tone: 'profit',
+    activity: {
+      text: '● TP tetiklendi — kapatma emri gönderildi',
+      severity: 'success',
+    },
+    event_url: 'https://polymarket.com/event/avax-up-or-down-5-min',
+  },
+
+  // 6) LINK — open loss (FS countdown)
+  {
+    position_id: 'mock-link-open-6',
+    asset: 'LINK',
+    side: 'DOWN',
+    state: 'open_confirmed',
+    fill_price: 0.62,
+    requested_amount_usd: 2.0,
+    net_position_shares: 3.22,
+    close_reason: null,
+    net_realized_pnl: 0,
+    created_at: '2026-04-07T13:59:30Z',
+    variant: 'open',
+    live: { side: 'DOWN', entry: '62', live: '64.2', delta_text: '+2.2' },
+    exits: { tp: '67', sl: '58', fs: '8s', fs_pnl: '-5%' },
+    pnl_big: '-1.8%',
+    pnl_amount: '-0.04$',
+    pnl_tone: 'loss',
+    activity: {
+      text: '⏱ FS countdown — 8 saniye sonra zorunlu kapatma',
+      severity: 'pending',
+    },
+    event_url: 'https://polymarket.com/event/link-up-or-down-5-min',
+  },
+
+  // 7) MATIC — claim FAIL
+  {
+    position_id: 'mock-matic-claim-7',
+    asset: 'MATIC',
+    side: 'DOWN',
+    state: 'closed',
+    fill_price: 0.55,
+    requested_amount_usd: 2.0,
+    net_position_shares: 3.64,
+    close_reason: 'expiry',
+    net_realized_pnl: -2.0,
+    created_at: '2026-04-07T13:35:00Z',
+    variant: 'claim',
+    live: null,
+    exits: null,
+    pnl_big: '-100%',
+    pnl_amount: '-2.00$',
+    pnl_tone: 'loss',
+    activity: {
+      text: '✕ Claim başarısız — 5/5 retry doldu, manuel müdahale gerek',
+      severity: 'error',
+    },
+    event_url: 'https://polymarket.com/event/matic-up-or-down-5-min',
+  },
 ];
 
 // ╔══════════════════════════════════════════════════════════════╗
@@ -268,6 +347,21 @@ export const MOCK_CLAIMS: ClaimSummary[] = [
     max_retry: 5,
     next_sec: null,
     payout: '$4.21',
+  },
+  // MATIC claim FAIL
+  {
+    claim_id: 'mock-claim-matic-1',
+    asset: 'MATIC',
+    position_id: 'mock-matic-claim-7',
+    claim_status: 'failed',
+    outcome: 'lost',
+    claimed_amount_usdc: 0,
+    retry_count: 5,
+    status: 'FAIL',
+    retry: 5,
+    max_retry: 5,
+    next_sec: null,
+    payout: null,
   },
 ];
 
@@ -338,6 +432,60 @@ export const MOCK_SEARCH: SearchTileContract[] = [
     signal_ready: false,
     type: 'wait',
   },
+
+  // 7) BNB search — spread fail
+  {
+    tile_id: 'mock-search-bnb-3',
+    coin: 'BNB',
+    event_url: 'https://polymarket.com/event/bnb-up-or-down-5-min-search',
+    pnl_big: '5/6',
+    pnl_amount: 'BLOK',
+    pnl_tone: 'loss',
+    ptb: '595.32',
+    live: '595.18',
+    delta: '$0.14',
+    rules: [
+      { label: 'Zaman',  live_value: '4:18', threshold_text: '30-270s', state: 'pass' },
+      { label: 'Fiyat',  live_value: '595',  threshold_text: '≥ 80',    state: 'pass' },
+      { label: 'Delta',  live_value: '$78',  threshold_text: '≥ $50',   state: 'pass' },
+      { label: 'Spread', live_value: '4.8%', threshold_text: '≤ 3%',    state: 'fail' },
+      { label: 'EvMax',  live_value: '0/1',  threshold_text: '1',       state: 'pass' },
+      { label: 'BotMax', live_value: '2/3',  threshold_text: '3',       state: 'pass' },
+    ],
+    activity: {
+      text: '✕ Spread çok yüksek — kural blokladı',
+      severity: 'error',
+    },
+    signal_ready: false,
+    type: 'wait',
+  },
+
+  // 8) AVAX search — zaman bekliyor
+  {
+    tile_id: 'mock-search-avax-4',
+    coin: 'AVAX',
+    event_url: 'https://polymarket.com/event/avax-up-or-down-5-min-search',
+    pnl_big: '5/6',
+    pnl_amount: 'BEKLE',
+    pnl_tone: 'pending',
+    ptb: '38.42',
+    live: '38.51',
+    delta: '$0.09',
+    rules: [
+      { label: 'Zaman',  live_value: '0:18', threshold_text: '30-270s', state: 'fail' },
+      { label: 'Fiyat',  live_value: '38',   threshold_text: '≥ 30',    state: 'pass' },
+      { label: 'Delta',  live_value: '$72',  threshold_text: '≥ $50',   state: 'pass' },
+      { label: 'Spread', live_value: '2.1%', threshold_text: '≤ 3%',    state: 'pass' },
+      { label: 'EvMax',  live_value: '0/1',  threshold_text: '1',       state: 'pass' },
+      { label: 'BotMax', live_value: '2/3',  threshold_text: '3',       state: 'pass' },
+    ],
+    activity: {
+      text: '⏱ Zaman aralığı dışı — bir sonraki cycle bekleniyor',
+      severity: 'info',
+    },
+    signal_ready: false,
+    type: 'wait',
+  },
 ];
 
 // ╔══════════════════════════════════════════════════════════════╗
@@ -381,6 +529,48 @@ export const MOCK_IDLE: IdleTileContract[] = [
       severity: 'off',
     },
     rules: ADA_RULES_DISABLED,
+    event_url: null,
+  },
+
+  // 9) DOGE — cooldown (TP sonrasi)
+  {
+    tile_id: 'mock-idle-doge-3',
+    coin: 'DOGE',
+    idle_kind: 'cooldown',
+    msg: 'Cooldown · 38s',
+    activity: {
+      text: '⏱ Yeni pozisyon için 38 saniye cooldown',
+      severity: 'pending',
+    },
+    rules: null,
+    event_url: 'https://polymarket.com/event/doge-up-or-down-5-min',
+  },
+
+  // 10) Hicbir coin — no_events
+  {
+    tile_id: 'mock-idle-no-events',
+    coin: null,
+    idle_kind: 'no_events',
+    msg: 'Aktif 5M event yok',
+    activity: {
+      text: 'Polymarket discovery boş — yeni event bekleniyor',
+      severity: 'info',
+    },
+    rules: null,
+    event_url: null,
+  },
+
+  // 11) LINK — error (fetch hatasi)
+  {
+    tile_id: 'mock-idle-link-err',
+    coin: 'LINK',
+    idle_kind: 'error',
+    msg: 'PTB fetch hatası',
+    activity: {
+      text: '✕ Polymarket fiyat çekilemedi — son deneme: 30s önce',
+      severity: 'error',
+    },
+    rules: null,
     event_url: null,
   },
 ];
