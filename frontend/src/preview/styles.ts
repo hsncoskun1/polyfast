@@ -93,8 +93,8 @@ export const FONT = {
 // ╚══════════════════════════════════════════════════════════════╝
 
 export const SIZE = {
-  sidebarWidth: 240,
-  topBarHeight: 76, // 64 -> 76 (chip strip premium icin)
+  sidebarWidth: 252, // 240 -> 252 (turn 2: ferah brand+nav+bot panel)
+  topBarHeight: 84, // 76 -> 84 (turn 2: KPI rakamlar buyutuldu)
   sectionStripHeight: 40,
   tileMinHeight: 96,
   radius: 6,
