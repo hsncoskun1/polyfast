@@ -796,6 +796,39 @@ async def test_search_provider_exception_returns_empty(stub_orchestrator):
 
 
 @pytest.mark.asyncio
+async def test_search_signal_ready_excludes_disabled(stub_orchestrator):
+    """Disabled rules signal_ready hesabina dahil edilmez."""
+    entry = _make_search_entry(all_pass=True)
+    entry.pop("signal_ready", None)
+    # 2 rule disabled, geri kalan 4 pass -> signal_ready true olmali
+    entry["rules"][0]["state"] = "disabled"
+    entry["rules"][1]["state"] = "disabled"
+    stub_orchestrator.build_search_snapshot = lambda: [entry]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+
+    assert resp.json()[0]["signal_ready"] is True
+
+
+@pytest.mark.asyncio
+async def test_search_signal_ready_false_all_disabled(stub_orchestrator):
+    """Butun rules disabled ise signal_ready false (considered bos)."""
+    entry = _make_search_entry(all_pass=True)
+    entry.pop("signal_ready", None)
+    for r in entry["rules"]:
+        r["state"] = "disabled"
+    stub_orchestrator.build_search_snapshot = lambda: [entry]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+
+    assert resp.json()[0]["signal_ready"] is False
+
+
+@pytest.mark.asyncio
 async def test_search_multiple_mixed(stub_orchestrator):
     """Birden fazla tile — karisik all_pass/false."""
     stub_orchestrator.build_search_snapshot = lambda: [
@@ -814,3 +847,156 @@ async def test_search_multiple_mixed(stub_orchestrator):
     assert by_coin["BTC"]["signal_ready"] is True
     assert by_coin["ETH"]["signal_ready"] is False
     assert by_coin["SOL"]["signal_ready"] is True
+
+
+# ─── /api/dashboard/idle — extended contract tests ─────────────────
+
+
+@pytest.mark.asyncio
+async def test_idle_returns_503_without_orchestrator():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/idle")
+    assert resp.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_idle_empty_when_provider_missing(stub_orchestrator):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/idle")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_idle_empty_when_provider_returns_empty(stub_orchestrator):
+    stub_orchestrator.build_idle_snapshot = lambda: []
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/idle")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_idle_no_events_shape(stub_orchestrator):
+    stub_orchestrator.build_idle_snapshot = lambda: [
+        {
+            "tile_id": "idle-no-events",
+            "idle_kind": "no_events",
+            "msg": "Aktif 5M eventi yok",
+        }
+    ]
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/idle")
+    data = resp.json()
+    assert len(data) == 1
+    t = data[0]
+    assert t["tile_id"] == "idle-no-events"
+    assert t["idle_kind"] == "no_events"
+    assert t["msg"] == "Aktif 5M eventi yok"
+    assert t["coin"] is None
+    assert t["activity"] is None
+    assert t["rules"] is None
+
+
+@pytest.mark.asyncio
+async def test_idle_bot_stopped_kind(stub_orchestrator):
+    stub_orchestrator.build_idle_snapshot = lambda: [
+        {
+            "tile_id": "idle-stopped",
+            "idle_kind": "bot_stopped",
+            "msg": "Bot durduruldu",
+            "activity": {"text": "● Baslat'a basin", "severity": "info"},
+        }
+    ]
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/idle")
+    t = resp.json()[0]
+    assert t["idle_kind"] == "bot_stopped"
+    assert t["activity"]["text"] == "● Baslat'a basin"
+    assert t["activity"]["severity"] == "info"
+
+
+@pytest.mark.asyncio
+async def test_idle_waiting_rules_with_rule_specs(stub_orchestrator):
+    stub_orchestrator.build_idle_snapshot = lambda: [
+        {
+            "tile_id": "idle-wait-btc",
+            "coin": "BTC",
+            "idle_kind": "waiting_rules",
+            "msg": "Rules bekliyor",
+            "rules": [
+                {"label": "Zaman", "live_value": "---", "state": "waiting"},
+                {"label": "PTB", "live_value": "---", "state": "waiting"},
+            ],
+            "event_url": "https://polymarket.com/event/btc-5m",
+        }
+    ]
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/idle")
+    t = resp.json()[0]
+    assert t["idle_kind"] == "waiting_rules"
+    assert t["coin"] == "BTC"
+    assert t["rules"] is not None
+    assert len(t["rules"]) == 2
+    assert t["rules"][0]["state"] == "waiting"
+    assert t["event_url"] == "https://polymarket.com/event/btc-5m"
+
+
+@pytest.mark.asyncio
+async def test_idle_cooldown_kind(stub_orchestrator):
+    stub_orchestrator.build_idle_snapshot = lambda: [
+        {"tile_id": "idle-cd-eth", "coin": "ETH", "idle_kind": "cooldown", "msg": "Cooldown 30s"}
+    ]
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/idle")
+    t = resp.json()[0]
+    assert t["idle_kind"] == "cooldown"
+    assert t["coin"] == "ETH"
+
+
+@pytest.mark.asyncio
+async def test_idle_unknown_kind_fallback(stub_orchestrator):
+    """Bilinmeyen idle_kind -> 'no_events' fallback + warning log."""
+    stub_orchestrator.build_idle_snapshot = lambda: [
+        {"tile_id": "idle-weird", "idle_kind": "galaxy_brain", "msg": "?"}
+    ]
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/idle")
+    assert resp.json()[0]["idle_kind"] == "no_events"
+
+
+@pytest.mark.asyncio
+async def test_idle_provider_exception_returns_empty(stub_orchestrator):
+    def _boom():
+        raise RuntimeError("idle provider crashed")
+    stub_orchestrator.build_idle_snapshot = _boom
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/idle")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_idle_multiple_mixed_kinds(stub_orchestrator):
+    stub_orchestrator.build_idle_snapshot = lambda: [
+        {"tile_id": "i1", "idle_kind": "no_events", "msg": "bos"},
+        {"tile_id": "i2", "coin": "BTC", "idle_kind": "waiting_rules", "msg": "bekle"},
+        {"tile_id": "i3", "idle_kind": "bot_stopped", "msg": "durdu"},
+    ]
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/idle")
+    data = resp.json()
+    assert len(data) == 3
+    kinds = {t["tile_id"]: t["idle_kind"] for t in data}
+    assert kinds == {"i1": "no_events", "i2": "waiting_rules", "i3": "bot_stopped"}

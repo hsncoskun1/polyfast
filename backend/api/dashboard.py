@@ -697,11 +697,14 @@ def _build_search_tile(raw) -> SearchTileContract:
 
     rules = _build_rule_specs(raw.get("rules"))
 
-    # signal_ready — ham degere oncelik, yoksa tum rules pass ise true
+    # signal_ready — ham degere oncelik, yoksa considered rules'tan turet.
+    # 'disabled' rule'lar sayilmadan hariç tutulur: kullanici kasten kapattigi
+    # icin sinyal olgunlugunu bozmamali. Geriye kalanlarin tamami 'pass' olmali.
     if "signal_ready" in raw:
         signal_ready = bool(raw.get("signal_ready"))
     else:
-        signal_ready = bool(rules) and all(r.state == "pass" for r in rules)
+        considered = [r for r in rules if r.state != "disabled"]
+        signal_ready = bool(considered) and all(r.state == "pass" for r in considered)
 
     # Activity — opsiyonel
     activity_obj: Optional[ActivityContract] = None
@@ -732,6 +735,100 @@ def _build_search_tile(raw) -> SearchTileContract:
         signal_ready=signal_ready,
         type=raw.get("type"),
     )
+
+
+# v0.8.0-backend-contract: Idle variant contract
+IdleKind = Literal["no_events", "waiting_rules", "bot_stopped", "cooldown", "error"]
+
+
+class IdleTileContract(BaseModel):
+    """Idle variant tile — bos dashboard durumu icin.
+
+    Frontend SectionBar 'idle' bolumu bu kayitlari gosterir: hicbir event yok,
+    bot durdu, cooldown, rule waiting, external failure vb.
+
+    tile_id   → stable kimlik ('idle-no-events', 'idle-cooldown-btc')
+    coin      → varsa coin (cooldown/waiting icin), yoksa None
+    idle_kind → bos durum kategorisi
+    msg       → kullaniciya gosterilecek ana mesaj
+    activity  → opsiyonel ek bildirim (ActivityContract)
+    rules     → opsiyonel rule listesi (waiting_rules icin)
+    event_url → varsa ilgili event linki
+    """
+
+    tile_id: str
+    coin: Optional[str] = None
+    idle_kind: IdleKind
+    msg: str
+    activity: Optional[ActivityContract] = None
+    rules: Optional[list[RuleSpecContract]] = None
+    event_url: Optional[str] = None
+
+
+def _build_idle_tile(raw) -> IdleTileContract:
+    """Orchestrator idle snapshot entry'sinden IdleTileContract uretir."""
+    if not isinstance(raw, dict):
+        raise ValueError("idle snapshot entry must be a dict")
+
+    kind_raw = str(raw.get("idle_kind") or "no_events").lower()
+    if kind_raw not in ("no_events", "waiting_rules", "bot_stopped", "cooldown", "error"):
+        logger.warning("Unknown idle_kind '%s' -> 'no_events' fallback", kind_raw)
+        kind_raw = "no_events"
+
+    activity_obj: Optional[ActivityContract] = None
+    a = raw.get("activity")
+    if isinstance(a, dict) and "text" in a:
+        activity_obj = ActivityContract(
+            text=a["text"],
+            severity=a.get("severity"),
+            inline_icons=a.get("inline_icons"),
+        )
+
+    rules_list: Optional[list[RuleSpecContract]] = None
+    if raw.get("rules") is not None:
+        rules_list = _build_rule_specs(raw.get("rules"))
+
+    return IdleTileContract(
+        tile_id=str(raw.get("tile_id") or raw.get("id") or f"idle-{kind_raw}"),
+        coin=raw.get("coin"),
+        idle_kind=kind_raw,  # type: ignore[arg-type]
+        msg=str(raw.get("msg", "")),
+        activity=activity_obj,
+        rules=rules_list,
+        event_url=raw.get("event_url"),
+    )
+
+
+@router.get("/dashboard/idle", response_model=list[IdleTileContract])
+async def get_idle() -> list[IdleTileContract]:
+    """Idle variant tile'lar — bos durum bildirimleri.
+
+    Placeholder-safe: orchestrator henuz build_idle_snapshot() saglamiyorsa
+    bos liste doner. Frontend SectionBar 'idle' bolumu bu endpoint'i tuketir.
+    """
+    orch = _get_orchestrator()
+
+    provider = getattr(orch, "build_idle_snapshot", None)
+    if not callable(provider):
+        return []
+
+    try:
+        raw_list = provider()
+    except Exception as exc:
+        logger.warning("build_idle_snapshot raised %s — returning empty list", exc)
+        return []
+
+    if not raw_list:
+        return []
+
+    out: list[IdleTileContract] = []
+    for raw in raw_list:
+        try:
+            out.append(_build_idle_tile(raw))
+        except Exception as exc:
+            logger.warning("Skipping malformed idle tile: %s (%r)", exc, raw)
+            continue
+    return out
 
 
 @router.get("/dashboard/search", response_model=list[SearchTileContract])
