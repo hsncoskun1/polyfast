@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v43',
+  'eventtile-v44',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -838,7 +838,7 @@ function OpenBody({
   const liveCells = live
     ? [
         { label: 'Giriş', value: `${live.side === 'UP' ? '▲' : '▼'} ${live.entry}`, color: sideColor },
-        { label: 'Canlı', value: live.live, color: COLOR.cyan },
+        { label: 'Canlı', value: live.live, color: signColor(live.delta_text) ?? COLOR.text },
         { label: 'Delta', value: live.delta_text ?? '—', color: signColor(live.delta_text) },
       ]
     : [];
@@ -942,8 +942,8 @@ function SearchBody({
     <div className="dsp-tile-m">
       <MidCells
         cells={[
-          { label: 'PTB', value: ptb, color: COLOR.textMuted },
-          { label: 'Live', value: live, color: COLOR.cyan },
+          { label: 'PTB', value: ptb, color: COLOR.yellow },
+          { label: 'Canlı', value: live, color: signColor(delta) ?? COLOR.text },
           { label: 'Delta', value: delta, color: signColor(delta) ?? COLOR.yellow },
         ]}
       />
