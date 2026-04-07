@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v25',
+  'eventtile-v26',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -207,14 +207,15 @@ ensureStyles(
 .dsp-tile-l-act.dollar-active { color: ${COLOR.green}; }
 .dsp-tile-l-act.dollar-passive { color: ${COLOR.cyan}; }
 
-/* ORTA kolon — cell'ler ust, activity alt, dikey ritim ferah */
+/* ORTA kolon — sag panel (ExitGrid) gibi dikey ortali, simetrik */
 .dsp-tile-m {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 6px 16px;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0 16px;
   min-width: 0;
-  gap: 6px;
+  gap: 8px;
 }
 .dsp-tile-m-row {
   display: grid;
