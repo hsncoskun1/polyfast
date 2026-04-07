@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v22',
+  'eventtile-v23',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -130,9 +130,12 @@ ensureStyles(
   border: none !important;
   background: transparent !important;
 }
+/* SVG logo'lari ic whitespace icerir (naturalSize 32 ama icerik %70-80).
+ * Container'i %120 dolduracak sekilde scale: gercek "renkli" alan
+ * dolar butonu boyutuna esitlenir. */
 .dsp-tile-l-avatar img {
-  width: 100%;
-  height: 100%;
+  width: 124%;
+  height: 124%;
   object-fit: contain;
   border-radius: 50%;
 }
