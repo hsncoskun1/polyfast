@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v29',
+  'eventtile-v30',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -225,10 +225,11 @@ ensureStyles(
   grid-row: 3;
   align-self: stretch;
 }
+/* Mid cells row — yuksek deger destegi (BTC \$111,234 / yuksek stake / DOGE delta) */
 .dsp-tile-m-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
 }
 .dsp-tile-m-cell {
@@ -236,24 +237,24 @@ ensureStyles(
   align-items: center;
   justify-content: center;
   min-width: 0;
-  padding: 4px 6px;
+  padding: 3px 4px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
-  gap: 1px;
+  gap: 0;
 }
 .dsp-tile-m-lbl {
   font-size: 9px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
   line-height: 1.1;
 }
 .dsp-tile-m-val {
   font-family: ${FONT.mono};
-  font-size: 14px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   white-space: nowrap;
@@ -684,7 +685,7 @@ function claimTone(status: ClaimStatusContract | null | undefined): {
 /** Claim status TR display label */
 function trClaimStatus(status: ClaimStatusContract | null | undefined): string {
   switch (status) {
-    case 'OK': return 'OK';
+    case 'OK': return 'BAŞARILI';
     case 'FAIL': return 'BAŞARISIZ';
     case 'RETRY': return 'TEKRAR';
     default: return '—';
@@ -733,7 +734,7 @@ function ClaimStatusPanel({
         </div>
       </div>
       <div className="dsp-csp-payout">
-        <span className="dsp-csp-payout-lbl">Payout</span>
+        <span className="dsp-csp-payout-lbl">Ödeme</span>
         <span
           className="dsp-csp-payout-val"
           style={{
@@ -818,18 +819,20 @@ function ClaimBody({
   position: PositionSummary;
   activity?: ActivityContract | null;
 }) {
-  // Q3=a karari: KAPANIS -> OUTCOME -> ENTRY
+  // Q3=a karari: KAPANIS -> SONUC -> GIRIS
   const closeText = trCloseReason(position.close_reason);
   const outcome = trOutcome(position.net_realized_pnl, position.close_reason);
-  const entry = position.fill_price.toFixed(2);
+  // fill_price 0-1 range raw, display 0-100 (Polymarket share cents)
+  // 0.65 -> 65
+  const entry = Math.round(position.fill_price * 100).toString();
 
   return (
     <div className="dsp-tile-m">
       <MidCells
         cells={[
           { label: 'Kapanış', value: closeText },
-          { label: 'Outcome', value: outcome },
-          { label: 'Entry', value: entry },
+          { label: 'Sonuç', value: outcome },
+          { label: 'Giriş', value: entry },
         ]}
       />
       <ActivityStatusLine activity={activity} />
