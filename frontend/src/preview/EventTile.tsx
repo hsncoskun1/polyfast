@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v35',
+  'eventtile-v36',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -570,7 +570,7 @@ function CoinIdentityBlock({
 // ╚══════════════════════════════════════════════════════════════╝
 
 interface MidCellsProps {
-  cells: Array<{ label: string; value: string }>;
+  cells: Array<{ label: string; value: string; color?: string }>;
 }
 function MidCells({ cells }: MidCellsProps) {
   return (
@@ -578,11 +578,22 @@ function MidCells({ cells }: MidCellsProps) {
       {cells.map((c) => (
         <div key={c.label} className="dsp-tile-m-cell">
           <div className="dsp-tile-m-lbl">{c.label}</div>
-          <div className="dsp-tile-m-val">{c.value}</div>
+          <div className="dsp-tile-m-val" style={c.color ? { color: c.color } : undefined}>{c.value}</div>
         </div>
       ))}
     </div>
   );
+}
+
+/** signed numeric → color (+ green, - red, 0 muted) */
+function signColor(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  const m = raw.match(/(-?\d+(?:\.\d+)?)/);
+  if (!m) return undefined;
+  const n = parseFloat(m[1]);
+  if (n > 0) return COLOR.green;
+  if (n < 0) return COLOR.red;
+  return COLOR.textMuted;
 }
 
 function ActivityStatusLine({
@@ -782,11 +793,12 @@ function OpenBody({
 }) {
   const live = position.live;
   // Row 1 — Giris / Canli / Delta
+  const sideColor = live ? (live.side === 'UP' ? COLOR.green : COLOR.red) : undefined;
   const liveCells = live
     ? [
-        { label: 'Giriş', value: `${live.side === 'UP' ? '▲' : '▼'} ${live.entry}` },
-        { label: 'Canlı', value: live.live },
-        { label: 'Delta', value: live.delta_text ?? '—' },
+        { label: 'Giriş', value: `${live.side === 'UP' ? '▲' : '▼'} ${live.entry}`, color: sideColor },
+        { label: 'Canlı', value: live.live, color: COLOR.cyan },
+        { label: 'Delta', value: live.delta_text ?? '—', color: signColor(live.delta_text) },
       ]
     : [];
   // Row 2 — Maliyet / NET PNL % / NET PNL USD
@@ -795,10 +807,11 @@ function OpenBody({
     : '—';
   const netPct = position.pnl_big ?? '—';
   const netUsd = position.pnl_amount ?? '—';
+  const pnlColor = position.pnl_tone ? PNL_TONE[position.pnl_tone].fg : undefined;
   const pnlCells = [
-    { label: 'Maliyet', value: cost },
-    { label: 'Net %', value: netPct },
-    { label: 'Net USD', value: netUsd },
+    { label: 'Maliyet', value: cost, color: COLOR.cyan },
+    { label: 'Net %', value: netPct, color: pnlColor },
+    { label: 'Net USD', value: netUsd, color: pnlColor },
   ];
   return (
     <div className="dsp-tile-m">
@@ -843,13 +856,24 @@ function ClaimBody({
   // 0.65 -> 65
   const entry = Math.round(position.fill_price * 100).toString();
 
+  const closeColor =
+    closeText === 'TP' ? COLOR.green :
+    closeText === 'SL' ? COLOR.red :
+    closeText === 'FS' ? COLOR.yellow :
+    closeText === 'SÜRE DOLDU' ? COLOR.yellow :
+    COLOR.text;
+  const outcomeColor =
+    outcome === 'KAZANÇ' ? COLOR.green :
+    outcome === 'KAYIP' ? COLOR.red :
+    outcome === 'BEKLİYOR' ? COLOR.yellow :
+    COLOR.text;
   return (
     <div className="dsp-tile-m">
       <MidCells
         cells={[
-          { label: 'Kapanış', value: closeText },
-          { label: 'Sonuç', value: outcome },
-          { label: 'Giriş', value: entry },
+          { label: 'Kapanış', value: closeText, color: closeColor },
+          { label: 'Sonuç', value: outcome, color: outcomeColor },
+          { label: 'Giriş', value: entry, color: COLOR.cyan },
         ]}
       />
       <ActivityStatusLine activity={activity} />
@@ -872,9 +896,9 @@ function SearchBody({
     <div className="dsp-tile-m">
       <MidCells
         cells={[
-          { label: 'PTB', value: ptb },
-          { label: 'Live', value: live },
-          { label: 'Delta', value: delta },
+          { label: 'PTB', value: ptb, color: COLOR.textMuted },
+          { label: 'Live', value: live, color: COLOR.cyan },
+          { label: 'Delta', value: delta, color: signColor(delta) ?? COLOR.yellow },
         ]}
       />
       <ActivityStatusLine activity={activity} />
