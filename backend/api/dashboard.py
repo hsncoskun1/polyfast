@@ -105,7 +105,27 @@ class PositionSummary(BaseModel):
     event_url: Optional[str] = None
 
 
+# v0.8.0-backend-contract: frontend ClaimState enum align
+# Backend internal: PENDING | SUCCESS | FAILED
+# Frontend contract:  RETRY   | OK      | FAIL
+ClaimStatusContract = Literal["RETRY", "OK", "FAIL"]
+
+
 class ClaimSummary(BaseModel):
+    """Claim kaydi ozeti.
+
+    Legacy alanlar (geriye uyumluluk): claim_id, asset, position_id,
+    claim_status, outcome, claimed_amount_usdc, retry_count
+
+    v0.8.0 extended alanlar (frontend ClaimState icin):
+    - status: 'RETRY' | 'OK' | 'FAIL' (frontend enum)
+    - retry: mevcut retry sayisi (retry_count alias)
+    - max_retry: max retry limiti (ClaimManager.max_retries)
+    - next_sec: scheduled next retry delay (retry schedule'dan hesap)
+    - payout: formatted USDC tutari ('$5.83') — bilinmiyorsa None
+    """
+
+    # Legacy
     claim_id: str
     asset: str
     position_id: str
@@ -113,6 +133,13 @@ class ClaimSummary(BaseModel):
     outcome: str
     claimed_amount_usdc: float
     retry_count: int
+
+    # v0.8.0 extended (optional, placeholder-first)
+    status: Optional[ClaimStatusContract] = None
+    retry: Optional[int] = None
+    max_retry: Optional[int] = None
+    next_sec: Optional[int] = None
+    payout: Optional[str] = None
 
 
 class BalanceInfo(BaseModel):
@@ -450,23 +477,88 @@ async def get_positions() -> list[PositionSummary]:
     ]
 
 
+def _map_claim_status_to_contract(internal_status: str) -> ClaimStatusContract:
+    """Backend internal enum -> frontend contract enum.
+
+    PENDING → RETRY  (retry beklentisi)
+    SUCCESS → OK
+    FAILED  → FAIL
+    """
+    mapping: dict[str, ClaimStatusContract] = {
+        "pending": "RETRY",
+        "success": "OK",
+        "failed": "FAIL",
+    }
+    return mapping.get(internal_status.lower(), "RETRY")
+
+
+def _claim_next_retry_sec(retry_count: int, schedule: list[int], steady: int) -> int:
+    """Retry count'a gore sonraki scheduled delay.
+
+    Not: Bu SCHEDULED delay — gercek countdown icin last_attempt_at
+    alani gerekir (su an ClaimRecord'da yok). Frontend bunu 'tipik next
+    retry' olarak yorumlamali. Wiring ayri is (ClaimRecord.next_retry_at).
+    """
+    if retry_count < len(schedule):
+        return schedule[retry_count]
+    return steady
+
+
+def _format_claim_payout(claimed_amount_usdc: float) -> Optional[str]:
+    """USDC tutarini formatted string'e cevir ('$5.83'). Sifirsa None."""
+    if claimed_amount_usdc is None or claimed_amount_usdc <= 0:
+        return None
+    return _fmt_usd(claimed_amount_usdc)
+
+
+def _build_claim_contract(c, claim_manager) -> ClaimSummary:
+    """ClaimRecord'dan extended ClaimSummary uretir.
+
+    Legacy alanlar aynen, extended alanlar hesap:
+    - status: enum align
+    - retry: retry_count alias
+    - max_retry: manager.max_retries
+    - next_sec: scheduled delay (placeholder-safe)
+    - payout: formatted USDC (bilinmiyorsa None)
+    """
+    internal_status = c.claim_status.value if hasattr(c.claim_status, "value") else str(c.claim_status)
+
+    return ClaimSummary(
+        # Legacy
+        claim_id=c.claim_id,
+        asset=c.asset,
+        position_id=c.position_id,
+        claim_status=internal_status,
+        outcome=c.outcome.value if hasattr(c.outcome, "value") else str(c.outcome),
+        claimed_amount_usdc=c.claimed_amount_usdc,
+        retry_count=c.retry_count,
+        # v0.8.0 extended
+        status=_map_claim_status_to_contract(internal_status),
+        retry=c.retry_count,
+        max_retry=getattr(claim_manager, "max_retries", None),
+        next_sec=_claim_next_retry_sec(
+            c.retry_count,
+            getattr(claim_manager, "retry_schedule", [5, 10]),
+            getattr(claim_manager, "retry_steady", 20),
+        ),
+        payout=_format_claim_payout(c.claimed_amount_usdc),
+    )
+
+
 @router.get("/dashboard/claims", response_model=list[ClaimSummary])
 async def get_claims() -> list[ClaimSummary]:
-    """Tum claim/redeem kayitlarini listele."""
-    orch = _get_orchestrator()
+    """Tum claim/redeem kayitlarini listele (legacy + v0.8.0 extended alanlar).
 
-    claims = []
-    for c in orch.claim_manager.get_pending_claims():
-        claims.append(ClaimSummary(
-            claim_id=c.claim_id,
-            asset=c.asset,
-            position_id=c.position_id,
-            claim_status=c.claim_status.value,
-            outcome=c.outcome.value,
-            claimed_amount_usdc=c.claimed_amount_usdc,
-            retry_count=c.retry_count,
-        ))
-    return claims
+    Placeholder-safe: extended alanlar frontend ClaimState contract'i ile
+    uyumlu, orchestrator sagliyorsa gercek degerler, yoksa None/default.
+    """
+    orch = _get_orchestrator()
+    claim_manager = orch.claim_manager
+
+    return [
+        _build_claim_contract(c, claim_manager)
+        for c in claim_manager.get_pending_claims()
+    ]
 
 
 @router.get("/dashboard/settings", response_model=list[CoinSettingSummary])

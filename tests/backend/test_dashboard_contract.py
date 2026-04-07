@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import pytest
 from httpx import AsyncClient, ASGITransport
 
+from backend.execution.claim_manager import ClaimOutcome, ClaimRecord, ClaimStatus
 from backend.execution.close_reason import CloseReason
 from backend.execution.position_record import PositionRecord, PositionState
 from backend.main import app
@@ -52,6 +53,29 @@ def _make_position(
     )
 
 
+def _make_claim(
+    claim_id: str = "claim-1",
+    asset: str = "SOL",
+    position_id: str = "pos-sol-1",
+    claim_status: ClaimStatus = ClaimStatus.PENDING,
+    outcome: ClaimOutcome = ClaimOutcome.PENDING,
+    claimed_amount_usdc: float = 0.0,
+    retry_count: int = 0,
+) -> ClaimRecord:
+    """Test helper — minimum dolu ClaimRecord."""
+    return ClaimRecord(
+        claim_id=claim_id,
+        condition_id=f"cond-{claim_id}",
+        position_id=position_id,
+        asset=asset,
+        side="UP",
+        claim_status=claim_status,
+        outcome=outcome,
+        claimed_amount_usdc=claimed_amount_usdc,
+        retry_count=retry_count,
+    )
+
+
 @pytest.fixture
 def stub_orchestrator(monkeypatch):
     """Fake orchestrator — sadece contract shape testi icin minimum state."""
@@ -75,6 +99,9 @@ def stub_orchestrator(monkeypatch):
     claims = SimpleNamespace(
         pending_count=1,
         get_pending_claims=lambda: [],
+        max_retries=5,
+        retry_schedule=[5, 10],
+        retry_steady=20,
     )
     settings = SimpleNamespace(
         get_configured_coins=lambda: ["BTC", "ETH", "SOL"],
@@ -435,3 +462,153 @@ async def test_positions_multiple_mix(stub_orchestrator):
     variants = {p["asset"]: p["variant"] for p in data}
     assert variants["BTC"] == "open"
     assert variants["ETH"] == "claim"
+
+
+# ─── /api/dashboard/claims — extended contract tests ────────────────
+
+
+@pytest.mark.asyncio
+async def test_claims_returns_503_without_orchestrator():
+    """Orchestrator None iken claims 503 doner (mevcut davranis korundu)."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/claims")
+
+    assert resp.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_claims_empty_list_when_no_claims(stub_orchestrator):
+    """Orchestrator var ama claim yoksa bos liste doner."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/claims")
+
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_claims_legacy_shape_preserved(stub_orchestrator):
+    """Legacy alanlar korundu (claim_id, asset, position_id, retry_count)."""
+    c = _make_claim(claim_id="claim-1", asset="SOL", retry_count=3)
+    stub_orchestrator.claim_manager.get_pending_claims = lambda: [c]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/claims")
+
+    data = resp.json()[0]
+    assert data["claim_id"] == "claim-1"
+    assert data["asset"] == "SOL"
+    assert data["position_id"] == "pos-sol-1"
+    assert data["retry_count"] == 3
+    assert data["claim_status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_claims_has_extended_fields(stub_orchestrator):
+    """v0.8.0: status, retry, max_retry, next_sec, payout response'ta."""
+    c = _make_claim()
+    stub_orchestrator.claim_manager.get_pending_claims = lambda: [c]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/claims")
+
+    data = resp.json()[0]
+    extended = {"status", "retry", "max_retry", "next_sec", "payout"}
+    assert extended.issubset(data.keys())
+
+
+@pytest.mark.asyncio
+async def test_claims_status_enum_align_pending_to_retry(stub_orchestrator):
+    """PENDING (backend) → RETRY (frontend contract)."""
+    c = _make_claim(claim_status=ClaimStatus.PENDING)
+    stub_orchestrator.claim_manager.get_pending_claims = lambda: [c]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/claims")
+
+    assert resp.json()[0]["status"] == "RETRY"
+
+
+@pytest.mark.asyncio
+async def test_claims_status_enum_align_success_to_ok(stub_orchestrator):
+    """SUCCESS (backend) → OK (frontend contract).
+
+    Bu test _map_claim_status_to_contract mapping'ini dogrudan test eder.
+    """
+    from backend.api.dashboard import _map_claim_status_to_contract
+
+    assert _map_claim_status_to_contract("pending") == "RETRY"
+    assert _map_claim_status_to_contract("success") == "OK"
+    assert _map_claim_status_to_contract("failed") == "FAIL"
+    # unknown -> RETRY (safe default)
+    assert _map_claim_status_to_contract("weird") == "RETRY"
+
+
+@pytest.mark.asyncio
+async def test_claims_retry_fields_populated(stub_orchestrator):
+    """retry + max_retry + next_sec degerleri populated."""
+    c = _make_claim(retry_count=1)
+    stub_orchestrator.claim_manager.get_pending_claims = lambda: [c]
+    # max_retries=5, retry_schedule=[5,10], retry_steady=20
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/claims")
+
+    data = resp.json()[0]
+    assert data["retry"] == 1
+    assert data["max_retry"] == 5
+    # retry_count=1 → schedule[1] = 10s
+    assert data["next_sec"] == 10
+
+
+@pytest.mark.asyncio
+async def test_claims_next_sec_steady_after_schedule(stub_orchestrator):
+    """retry_count >= schedule length → retry_steady (20s)."""
+    c = _make_claim(retry_count=5)  # schedule 2 elemanli, 5 > 2
+    stub_orchestrator.claim_manager.get_pending_claims = lambda: [c]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/claims")
+
+    data = resp.json()[0]
+    assert data["next_sec"] == 20  # steady delay
+
+
+@pytest.mark.asyncio
+async def test_claims_payout_none_when_not_claimed(stub_orchestrator):
+    """claimed_amount_usdc=0 iken payout None."""
+    c = _make_claim(claimed_amount_usdc=0.0)
+    stub_orchestrator.claim_manager.get_pending_claims = lambda: [c]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/claims")
+
+    assert resp.json()[0]["payout"] is None
+
+
+@pytest.mark.asyncio
+async def test_claims_payout_formatted_when_claimed(stub_orchestrator):
+    """claimed_amount_usdc>0 iken payout '$5.83' formatli."""
+    c = _make_claim(
+        claim_status=ClaimStatus.SUCCESS,
+        outcome=ClaimOutcome.REDEEMED_WON,
+        claimed_amount_usdc=5.83,
+    )
+    # SUCCESS claim get_pending_claims'te olmaz, direkt list dondur
+    stub_orchestrator.claim_manager.get_pending_claims = lambda: [c]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/claims")
+
+    data = resp.json()[0]
+    assert data["payout"] == "$5.83"
+    assert data["status"] == "OK"
