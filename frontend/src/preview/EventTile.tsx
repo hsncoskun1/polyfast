@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v14',
+  'eventtile-v15',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -118,38 +118,43 @@ ensureStyles(
   letter-spacing: 0.04em;
   line-height: 1.1;
 }
+/* PnL box: big rakam ortali + altta 2 buton (50/50) */
 .dsp-tile-l-pnl {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 6px 10px;
+  gap: 4px;
+  padding: 5px 8px 6px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
-  align-items: flex-start;
+  align-items: stretch;
 }
 .dsp-tile-l-big {
   font-family: ${FONT.mono};
-  font-size: 16px;
+  font-size: 15px;
   font-weight: ${FONT.weight.bold};
   line-height: 1.1;
+  text-align: center;
 }
 .dsp-tile-l-amt {
+  display: none; /* gecici: actions ile ayni satirda yer kalmadi */
   font-family: ${FONT.mono};
   font-size: 11px;
   color: ${COLOR.textMuted};
 }
 .dsp-tile-l-actions {
-  display: flex; gap: 6px; margin-top: 2px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
 }
 .dsp-tile-l-act {
-  width: 24px; height: 24px;
+  height: 22px;
   display: flex; align-items: center; justify-content: center;
-  background: ${COLOR.surface};
+  background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
-  border-radius: ${SIZE.radius}px;
+  border-radius: 4px;
   color: ${COLOR.textMuted};
-  font-size: ${FONT.size.sm};
+  font-size: 12px;
   cursor: pointer;
   font-family: ${FONT.sans};
 }
@@ -404,8 +409,9 @@ interface SidePnlProps {
   big?: string | null;
   amount?: string | null;
   tone?: PnlTone | null;
+  dollarState?: 'active' | 'passive';
 }
-function SidePnl({ big, amount, tone }: SidePnlProps) {
+function SidePnl({ big, amount, tone, dollarState }: SidePnlProps) {
   if (!big && !amount) return null;
   const t = tone ?? 'off';
   const fg = PNL_TONE[t].fg;
@@ -413,26 +419,42 @@ function SidePnl({ big, amount, tone }: SidePnlProps) {
     <div className="dsp-tile-l-pnl">
       {big && <div className="dsp-tile-l-big" style={{ color: fg }}>{big}</div>}
       {amount && <div className="dsp-tile-l-amt">{amount}</div>}
+      <TileActions dollarState={dollarState} />
     </div>
   );
 }
 
-// TileActions ($ + ⚙) gecici olarak kaldirildi (kullanici talebi).
-// Sonraki tur baska konuma tasinacak (tile sag ust kose / tile menusu / vb.)
-// Eski CSS rule'lari (.dsp-tile-l-actions / .dsp-tile-l-act) silinmedi —
-// reuse icin hazir bekliyor.
+/** TileActions — sol kolon PnL kutusunun altinda 2 buton ($/⚙).
+ *  Kullanici talebi: PnL ortali, altinda 2 yarim genislik buton. */
+function TileActions({ dollarState }: { dollarState?: 'active' | 'passive' }) {
+  const dClass = dollarState ? `dollar-${dollarState}` : '';
+  return (
+    <div className="dsp-tile-l-actions">
+      <button
+        type="button"
+        className={`dsp-tile-l-act ${dClass}`}
+        title={dollarState === 'active' ? 'Aramada — pasife al' : dollarState === 'passive' ? 'Pasif — aramaya al' : 'Aktif/pasif toggle'}
+      >
+        $
+      </button>
+      <button type="button" className="dsp-tile-l-act" title="Ayarlar">
+        ⚙
+      </button>
+    </div>
+  );
+}
 
 function CoinIdentityBlock({
   coin,
   big,
   amount,
   tone,
+  dollarState,
 }: {
   coin: CoinFallback;
   big?: string | null;
   amount?: string | null;
   tone?: PnlTone | null;
-  /** dollarState parametresi kaldirildi — TileActions sonraki tur baska konuma tasinacak */
   dollarState?: 'active' | 'passive';
 }) {
   return (
@@ -441,7 +463,7 @@ function CoinIdentityBlock({
         <CoinAvatar coin={coin} />
         <span className="dsp-tile-l-symbol">{coin.symbol}</span>
       </div>
-      <SidePnl big={big} amount={amount} tone={tone} />
+      <SidePnl big={big} amount={amount} tone={tone} dollarState={dollarState} />
     </div>
   );
 }

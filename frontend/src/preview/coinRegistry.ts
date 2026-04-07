@@ -77,23 +77,25 @@ export function lookupCoin(
   backendCoins?: Array<{ symbol: string; display_name?: string | null; logo_url?: string | null }> | null
 ): CoinFallback {
   const sym = symbol.toUpperCase();
+  const fallback = COIN_FALLBACK[sym];
 
-  // 1. Backend coins (varsa)
+  // 1. Backend coins (varsa) — logo_url yoksa fallback'tan tamamla
   if (backendCoins) {
     const found = backendCoins.find((c) => c.symbol.toUpperCase() === sym);
     if (found) {
       return {
         symbol: sym,
-        display_name: found.display_name || sym,
-        logo_url: found.logo_url ?? undefined,
-        tone: COIN_TONE[sym] ?? DEFAULT_COIN_TONE,
+        display_name: found.display_name || fallback?.display_name || sym,
+        // Backend logo_url yoksa fallback registry'den cek (bizim CDN url'leri)
+        logo_url: found.logo_url ?? fallback?.logo_url,
+        tone: COIN_TONE[sym] ?? fallback?.tone ?? DEFAULT_COIN_TONE,
       };
     }
   }
 
   // 2. Fallback registry
-  if (COIN_FALLBACK[sym]) {
-    return COIN_FALLBACK[sym];
+  if (fallback) {
+    return fallback;
   }
 
   // 3. Yalin (bilinmeyen coin -> brand mor tone)
