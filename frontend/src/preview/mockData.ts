@@ -196,7 +196,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'UP', entry: '71', live: '56.0', delta_text: '-15.0' },
     exits: { tp: '76', sl: '56', fs: '0:18', fs_pnl: '-5%' },
-    activity: { text: 'SL tetiklendi | UP 56 satış emri gönderildi', severity: 'error' },
+    activity: { text: 'SL tetiklendi | -0.24$ satış emri gönderildi', severity: 'error' },
   },
 
   // ─── OPEN LIFECYCLE 6: FS countdown ───
