@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v7',
+  'composition-v8',
   `
 .dsp-root {
   display: flex;
@@ -56,23 +56,23 @@ ensureStyles(
 .dsp-content {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 20px 16px;
+  padding: 10px 20px 12px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
-/* Section — header + rows (turn 4: 8 tile single screen kompakt) */
+/* Section — header + rows (defensive 850 viewport) */
 .dsp-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 .dsp-section-hdr {
   display: flex;
   align-items: stretch;
   gap: 10px;
-  padding: 0 0 4px;
+  padding: 0 0 3px;
   border-bottom: 1px solid;
   position: relative;
 }
@@ -100,12 +100,13 @@ ensureStyles(
   flex-shrink: 0;
 }
 .dsp-section-hdr-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: ${FONT.weight.bold};
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 .dsp-section-hdr-subtitle {
+  display: none; /* defensive 850: gizli, header daha kisa */
   font-size: 10px;
   color: ${COLOR.textMuted};
   font-weight: ${FONT.weight.medium};
@@ -130,7 +131,7 @@ ensureStyles(
 .dsp-section-rows {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(540px, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 /* Empty state — premium kart, kompakt (turn 4: tile yuksekligine yakin) */

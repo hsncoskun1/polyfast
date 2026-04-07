@@ -48,24 +48,24 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v12',
+  'eventtile-v14',
   `
-/* tile height hesabi (1080 viewport, 3 section header acik, 4 sat = 8 tile):
- *   1080 - 84(topbar) - 44(strip) - 30(content pad) - 90(3 hdr) - 24(hdr gap)
- *        - 10(inner row gap) - 28(section arasi gap) = 770
- *   770 / 4 sat = 192/sat dahil row gap (10) -> 182 net tile
- *   tile internal: padding 14+14 + border 1+1 = 30 -> content 152 */
+/* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
+ *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
+ *        - 8(inner row gap) - 20(section arasi gap) = 605
+ *   605 / 4 sat = 151/sat
+ *   tile internal: padding 11+11 + border 2 = 24 -> tile h ~150 */
 .dsp-tile {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr) 220px;
   gap: 0;
-  padding: 14px 16px;
+  padding: 9px 14px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  height: 152px;
+  height: 118px;
   align-items: stretch;
   min-width: 0;
   line-height: 1.2;
@@ -90,22 +90,29 @@ ensureStyles(
 .dsp-tile-l-id {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 5px 9px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
 }
 .dsp-tile-l-avatar {
-  width: 28px; height: 28px;
-  border-radius: 6px;
+  width: 26px; height: 26px;
+  border-radius: 4px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: ${FONT.weight.bold};
   flex-shrink: 0;
+  overflow: hidden;
+}
+.dsp-tile-l-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
 }
 .dsp-tile-l-symbol {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   letter-spacing: 0.04em;
@@ -114,8 +121,8 @@ ensureStyles(
 .dsp-tile-l-pnl {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px;
+  gap: 1px;
+  padding: 6px 10px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
@@ -123,13 +130,13 @@ ensureStyles(
 }
 .dsp-tile-l-big {
   font-family: ${FONT.mono};
-  font-size: 18px;
+  font-size: 16px;
   font-weight: ${FONT.weight.bold};
   line-height: 1.1;
 }
 .dsp-tile-l-amt {
   font-family: ${FONT.mono};
-  font-size: ${FONT.size.sm};
+  font-size: 11px;
   color: ${COLOR.textMuted};
 }
 .dsp-tile-l-actions {

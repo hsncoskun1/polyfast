@@ -93,9 +93,9 @@ export const FONT = {
 // ╚══════════════════════════════════════════════════════════════╝
 
 export const SIZE = {
-  sidebarWidth: 252, // 240 -> 252 (turn 2: ferah brand+nav+bot panel)
-  topBarHeight: 84, // 76 -> 84 (turn 2: KPI rakamlar buyutuldu)
-  sectionStripHeight: 44, // 40 -> 44 (turn 3: filter strip gorunurluk)
+  sidebarWidth: 252,
+  topBarHeight: 76, // 84 -> 76 (defensive 850 viewport: 8 tile fit)
+  sectionStripHeight: 38, // 44 -> 38
   tileMinHeight: 96,
   radius: 6,
   radiusLg: 10,
