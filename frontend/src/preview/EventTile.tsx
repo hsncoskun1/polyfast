@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v26',
+  'eventtile-v27',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -207,15 +207,24 @@ ensureStyles(
 .dsp-tile-l-act.dollar-active { color: ${COLOR.green}; }
 .dsp-tile-l-act.dollar-passive { color: ${COLOR.cyan}; }
 
-/* ORTA kolon — sag panel (ExitGrid) gibi dikey ortali, simetrik */
+/* ORTA kolon — sol panel ile birebir hizali (3 row grid)
+ * Row 1: ilk child (cells) — sol ID box hizasi
+ * Row 2: empty (sol PnL box hizasi)
+ * Row 3: son child (activity) — sol Ayarlar buton hizasi */
 .dsp-tile-m {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: stretch;
+  display: grid;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 6px;
   padding: 0 16px;
   min-width: 0;
-  gap: 8px;
+}
+.dsp-tile-m > *:first-child {
+  grid-row: 1;
+  align-self: stretch;
+}
+.dsp-tile-m > *:last-child {
+  grid-row: 3;
+  align-self: stretch;
 }
 .dsp-tile-m-row {
   display: grid;
