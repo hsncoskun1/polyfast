@@ -6,16 +6,21 @@ Tum veriler Orchestrator'daki in-memory state'ten gelir.
 v0.8.0-backend-contract:
 - DashboardOverview genisletildi (counters + session pnl + bot_status)
 - PositionSummary genisletildi (variant, live, exits, activity)
+- ClaimSummary genisletildi (status enum align, retry schedule, payout)
 - Placeholder-first: yeni alanlar optional, orchestrator hazir degilse None
 - Frontend null-safe tuketir, eksik alan = mock fallback
 """
 
+import logging
 from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.api.health import BotStatusContract, _build_bot_status
+from backend.logging_config.service import get_logger
+
+logger = get_logger("api.dashboard")
 
 router = APIRouter()
 
@@ -109,6 +114,64 @@ class PositionSummary(BaseModel):
 # Backend internal: PENDING | SUCCESS | FAILED
 # Frontend contract:  RETRY   | OK      | FAIL
 ClaimStatusContract = Literal["RETRY", "OK", "FAIL"]
+
+
+# v0.8.0-backend-contract: RuleSpec contract (frontend RuleVisualState aynasi)
+# Backend RuleState enum ile birebir uyumlu
+RuleStateContract = Literal["pass", "fail", "waiting", "disabled"]
+
+
+class RuleSpecContract(BaseModel):
+    """Tek bir rule'un UI icin ozeti.
+
+    Frontend RuleGrid/RuleBlock bu alanlari dogrudan tuketir.
+
+    label     → 'Zaman' / 'Fiyat' / 'Delta' / 'Spread' / 'EvMax' / 'BotMax'
+    live_value → kural anlik degeri ('3:07', '83', '$55', '1.8%', '0/1', '1/2')
+    threshold_text → opsiyonel esik metni ('30-270s', '≤3%', '≥$50', '1', '2')
+    state → backend RuleState enum degeri (pass/fail/waiting/disabled)
+    """
+
+    label: str
+    live_value: str
+    threshold_text: Optional[str] = None
+    state: RuleStateContract
+
+
+class SearchTileContract(BaseModel):
+    """Search variant tile — discovery + rule engine sentezi.
+
+    Frontend SectionBar 'search' grubunda bu kayitlari EventTile'a
+    spread eder. Mock MockTile ile shape uyumu:
+
+    - id          → tile_id
+    - coin        → coin symbol
+    - event_url   → Polymarket event sayfasi
+    - pnl_big     → '6/6' rule pass count (veya 'BAL', 'BOT')
+    - pnl_amount  → 'HAZIR' | 'BEKLE' (veya block reason)
+    - pnl_tone    → profit/neutral/loss/pending/off
+    - ptb         → PTB coin price (formatted)
+    - live        → Live coin price (formatted)
+    - delta       → |live - ptb| (formatted)
+    - rules       → 6 RuleSpecContract (Zaman/Fiyat/Delta/Spread/EvMax/BotMax)
+    - activity    → opsiyonel bildirim (ActivityContract)
+    - signal_ready → true iff tum rules pass
+    - type        → frontend EventTile type class ('pos'|'wait'|'ok'|'off')
+    """
+
+    tile_id: str
+    coin: str
+    event_url: str
+    pnl_big: str
+    pnl_amount: Optional[str] = None
+    pnl_tone: PnlTone
+    ptb: str
+    live: str
+    delta: str
+    rules: list[RuleSpecContract]
+    activity: Optional[ActivityContract] = None
+    signal_ready: bool = False
+    type: Optional[str] = None
 
 
 class ClaimSummary(BaseModel):
@@ -483,13 +546,24 @@ def _map_claim_status_to_contract(internal_status: str) -> ClaimStatusContract:
     PENDING → RETRY  (retry beklentisi)
     SUCCESS → OK
     FAILED  → FAIL
+
+    Bilinmeyen deger -> RETRY safe default + WARNING log
+    (sessiz silent fallback YOK — operator gorsun ki enum drift fark edilsin).
     """
     mapping: dict[str, ClaimStatusContract] = {
         "pending": "RETRY",
         "success": "OK",
         "failed": "FAIL",
     }
-    return mapping.get(internal_status.lower(), "RETRY")
+    normalized = internal_status.lower() if internal_status else ""
+    if normalized in mapping:
+        return mapping[normalized]
+    logger.warning(
+        "Unknown claim status '%s' mapped to 'RETRY' default — "
+        "backend/frontend enum drift olabilir, kontrat uyumunu gozden gecirin",
+        internal_status,
+    )
+    return "RETRY"
 
 
 def _claim_next_retry_sec(retry_count: int, schedule: list[int], steady: int) -> int:
@@ -559,6 +633,137 @@ async def get_claims() -> list[ClaimSummary]:
         _build_claim_contract(c, claim_manager)
         for c in claim_manager.get_pending_claims()
     ]
+
+
+def _coerce_rule_state(raw) -> RuleStateContract:
+    """Orchestrator rule state -> contract Literal. Bilinmeyen -> 'waiting'."""
+    if raw is None:
+        return "waiting"
+    val = raw.value if hasattr(raw, "value") else str(raw)
+    val = val.lower()
+    if val in ("pass", "fail", "waiting", "disabled"):
+        return val  # type: ignore[return-value]
+    logger.warning(
+        "Unknown rule state '%s' -> 'waiting' fallback (rule engine/contract drift?)",
+        raw,
+    )
+    return "waiting"
+
+
+def _build_rule_specs(raw_rules) -> list[RuleSpecContract]:
+    """Orchestrator'dan gelen ham rule listesini RuleSpecContract'a cevir.
+
+    Her ham rule dict veya objet olabilir; defensive get.
+    Beklenen anahtarlar: label, live_value, threshold_text, state.
+    """
+    out: list[RuleSpecContract] = []
+    if not raw_rules:
+        return out
+    for r in raw_rules:
+        try:
+            if isinstance(r, dict):
+                label = str(r.get("label", ""))
+                live_value = str(r.get("live_value", ""))
+                threshold_text = r.get("threshold_text")
+                state = _coerce_rule_state(r.get("state"))
+            else:
+                label = str(getattr(r, "label", ""))
+                live_value = str(getattr(r, "live_value", ""))
+                threshold_text = getattr(r, "threshold_text", None)
+                state = _coerce_rule_state(getattr(r, "state", None))
+            out.append(
+                RuleSpecContract(
+                    label=label,
+                    live_value=live_value,
+                    threshold_text=threshold_text,
+                    state=state,
+                )
+            )
+        except Exception:
+            logger.warning("Skipping malformed rule spec: %r", r)
+            continue
+    return out
+
+
+def _build_search_tile(raw) -> SearchTileContract:
+    """Orchestrator search snapshot entry'sinden SearchTileContract uretir.
+
+    raw: dict — orchestrator.build_search_snapshot() tarafindan sunulan entry.
+    Eksik alanlar defensive default'a duser. signal_ready rules'tan turetilir
+    (ham raw signal_ready varsa ona oncelik ver).
+    """
+    if not isinstance(raw, dict):
+        raise ValueError("search snapshot entry must be a dict")
+
+    rules = _build_rule_specs(raw.get("rules"))
+
+    # signal_ready — ham degere oncelik, yoksa tum rules pass ise true
+    if "signal_ready" in raw:
+        signal_ready = bool(raw.get("signal_ready"))
+    else:
+        signal_ready = bool(rules) and all(r.state == "pass" for r in rules)
+
+    # Activity — opsiyonel
+    activity_obj: Optional[ActivityContract] = None
+    a = raw.get("activity")
+    if isinstance(a, dict) and "text" in a:
+        activity_obj = ActivityContract(
+            text=a["text"],
+            severity=a.get("severity"),
+            inline_icons=a.get("inline_icons"),
+        )
+
+    pnl_tone_raw = raw.get("pnl_tone") or "neutral"
+    if pnl_tone_raw not in ("profit", "loss", "neutral", "pending", "off"):
+        pnl_tone_raw = "neutral"
+
+    return SearchTileContract(
+        tile_id=str(raw.get("tile_id") or raw.get("id") or ""),
+        coin=str(raw.get("coin", "")),
+        event_url=str(raw.get("event_url", "")),
+        pnl_big=str(raw.get("pnl_big", "")),
+        pnl_amount=raw.get("pnl_amount"),
+        pnl_tone=pnl_tone_raw,  # type: ignore[arg-type]
+        ptb=str(raw.get("ptb", "")),
+        live=str(raw.get("live", "")),
+        delta=str(raw.get("delta", "")),
+        rules=rules,
+        activity=activity_obj,
+        signal_ready=signal_ready,
+        type=raw.get("type"),
+    )
+
+
+@router.get("/dashboard/search", response_model=list[SearchTileContract])
+async def get_search() -> list[SearchTileContract]:
+    """Discovery + rule engine sentezi — search variant tile'lari.
+
+    Placeholder-safe: orchestrator henuz build_search_snapshot() saglamiyorsa
+    bos liste doner. Frontend SectionBar 'search' bolumu bu endpoint'i tuketir.
+    """
+    orch = _get_orchestrator()
+
+    provider = getattr(orch, "build_search_snapshot", None)
+    if not callable(provider):
+        return []
+
+    try:
+        raw_list = provider()
+    except Exception as exc:
+        logger.warning("build_search_snapshot raised %s — returning empty list", exc)
+        return []
+
+    if not raw_list:
+        return []
+
+    out: list[SearchTileContract] = []
+    for raw in raw_list:
+        try:
+            out.append(_build_search_tile(raw))
+        except Exception as exc:
+            logger.warning("Skipping malformed search tile: %s (%r)", exc, raw)
+            continue
+    return out
 
 
 @router.get("/dashboard/settings", response_model=list[CoinSettingSummary])

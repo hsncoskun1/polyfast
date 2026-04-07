@@ -612,3 +612,205 @@ async def test_claims_payout_formatted_when_claimed(stub_orchestrator):
     data = resp.json()[0]
     assert data["payout"] == "$5.83"
     assert data["status"] == "OK"
+
+
+# ─── /api/dashboard/search — extended contract tests ───────────────
+
+
+def _make_search_entry(
+    tile_id: str = "search-btc-1",
+    coin: str = "BTC",
+    all_pass: bool = True,
+    **overrides,
+) -> dict:
+    """Test helper — orchestrator'dan gelecek ham search entry dict."""
+    state = "pass" if all_pass else "waiting"
+    rules = [
+        {"label": "Zaman", "live_value": "3:07", "threshold_text": "30-270s", "state": state},
+        {"label": "Fiyat", "live_value": "83", "threshold_text": "≥80", "state": state},
+        {"label": "Delta", "live_value": "$55", "threshold_text": "≥$50", "state": state},
+        {"label": "Spread", "live_value": "1.8%", "threshold_text": "≤3%", "state": state},
+        {"label": "EvMax", "live_value": "0/1", "threshold_text": "1", "state": state},
+        {"label": "BotMax", "live_value": "1/2", "threshold_text": "2", "state": state},
+    ]
+    entry = {
+        "tile_id": tile_id,
+        "coin": coin,
+        "event_url": f"https://polymarket.com/event/{coin.lower()}-5m",
+        "pnl_big": "6/6" if all_pass else "4/6",
+        "pnl_amount": "HAZIR" if all_pass else "BEKLE",
+        "pnl_tone": "profit" if all_pass else "pending",
+        "ptb": "82.50",
+        "live": "83.00",
+        "delta": "0.50",
+        "rules": rules,
+        "type": "ok" if all_pass else "wait",
+    }
+    entry.update(overrides)
+    return entry
+
+
+@pytest.mark.asyncio
+async def test_search_returns_503_without_orchestrator():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+    assert resp.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_search_empty_when_provider_missing(stub_orchestrator):
+    """build_search_snapshot yoksa bos liste doner (placeholder-safe)."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_search_empty_when_provider_returns_empty(stub_orchestrator):
+    stub_orchestrator.build_search_snapshot = lambda: []
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_search_contract_shape_full(stub_orchestrator):
+    """Full search tile contract alanlari response'da."""
+    entry = _make_search_entry()
+    stub_orchestrator.build_search_snapshot = lambda: [entry]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    t = data[0]
+    expected = {
+        "tile_id", "coin", "event_url", "pnl_big", "pnl_amount",
+        "pnl_tone", "ptb", "live", "delta", "rules", "activity",
+        "signal_ready", "type",
+    }
+    assert expected.issubset(t.keys())
+    assert t["coin"] == "BTC"
+    assert t["tile_id"] == "search-btc-1"
+    assert len(t["rules"]) == 6
+
+
+@pytest.mark.asyncio
+async def test_search_signal_ready_true_when_all_pass(stub_orchestrator):
+    """Tum rules 'pass' ise signal_ready true (raw signal_ready verilmedi)."""
+    entry = _make_search_entry(all_pass=True)
+    entry.pop("signal_ready", None)
+    stub_orchestrator.build_search_snapshot = lambda: [entry]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+
+    assert resp.json()[0]["signal_ready"] is True
+
+
+@pytest.mark.asyncio
+async def test_search_signal_ready_false_when_any_waiting(stub_orchestrator):
+    """Rules icinde waiting varsa signal_ready false."""
+    entry = _make_search_entry(all_pass=False)
+    stub_orchestrator.build_search_snapshot = lambda: [entry]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+
+    assert resp.json()[0]["signal_ready"] is False
+
+
+@pytest.mark.asyncio
+async def test_search_raw_signal_ready_wins_over_derived(stub_orchestrator):
+    """Ham signal_ready verilmisse rules'tan turetilene oncelikli."""
+    entry = _make_search_entry(all_pass=True, signal_ready=False)
+    stub_orchestrator.build_search_snapshot = lambda: [entry]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+
+    assert resp.json()[0]["signal_ready"] is False
+
+
+@pytest.mark.asyncio
+async def test_search_rules_state_enum_mapping(stub_orchestrator):
+    """Rule state Literal enum degerleri dogru mapping'leniyor."""
+    entry = _make_search_entry()
+    entry["rules"][0]["state"] = "disabled"
+    entry["rules"][1]["state"] = "fail"
+    entry["rules"][2]["state"] = "waiting"
+    stub_orchestrator.build_search_snapshot = lambda: [entry]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+
+    rules = resp.json()[0]["rules"]
+    assert rules[0]["state"] == "disabled"
+    assert rules[1]["state"] == "fail"
+    assert rules[2]["state"] == "waiting"
+    assert rules[3]["state"] == "pass"
+
+
+@pytest.mark.asyncio
+async def test_search_activity_optional(stub_orchestrator):
+    """activity field opsiyonel — verilirse serialize, yoksa None."""
+    entry = _make_search_entry()
+    entry["activity"] = {"text": "● Sinyal hazir", "severity": "success"}
+    stub_orchestrator.build_search_snapshot = lambda: [entry]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+
+    t = resp.json()[0]
+    assert t["activity"] is not None
+    assert t["activity"]["text"] == "● Sinyal hazir"
+    assert t["activity"]["severity"] == "success"
+
+
+@pytest.mark.asyncio
+async def test_search_provider_exception_returns_empty(stub_orchestrator):
+    """Provider exception firlatirsa bos liste + warning (sessiz bypass DEGIL, log var)."""
+    def _boom():
+        raise RuntimeError("provider crashed")
+    stub_orchestrator.build_search_snapshot = _boom
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_search_multiple_mixed(stub_orchestrator):
+    """Birden fazla tile — karisik all_pass/false."""
+    stub_orchestrator.build_search_snapshot = lambda: [
+        _make_search_entry(tile_id="s1", coin="BTC", all_pass=True),
+        _make_search_entry(tile_id="s2", coin="ETH", all_pass=False),
+        _make_search_entry(tile_id="s3", coin="SOL", all_pass=True),
+    ]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/search")
+
+    data = resp.json()
+    assert len(data) == 3
+    by_coin = {t["coin"]: t for t in data}
+    assert by_coin["BTC"]["signal_ready"] is True
+    assert by_coin["ETH"]["signal_ready"] is False
+    assert by_coin["SOL"]["signal_ready"] is True
