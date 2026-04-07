@@ -24,11 +24,11 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 export const COLOR = {
-  // Background tonlari
-  bg: '#07070d',
-  bgRaised: '#0c0c16',
-  surface: '#10101c',
-  surfaceHover: '#161624',
+  // Background tonlari (turn 4: siyah -> hafif mor tint)
+  bg: '#0a0612',
+  bgRaised: '#0f0a1b',
+  surface: '#140e22',
+  surfaceHover: '#1a1429',
   border: 'rgba(139, 92, 246, 0.18)',
   borderStrong: 'rgba(139, 92, 246, 0.34)',
   divider: 'rgba(139, 92, 246, 0.12)',
