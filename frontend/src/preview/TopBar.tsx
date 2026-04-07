@@ -266,17 +266,14 @@ export default function TopBar({ overview, mockMode = false }: TopBarProps) {
         <KpiCell label="Winrate" value={overview?.winrate ?? '—'} />
       </div>
 
-      <div className="dsp-tb-actions">
-        {mockMode && (
+      {mockMode && (
+        <div className="dsp-tb-actions">
           <span className="dsp-tb-mock" title="Mock showcase mode (gercek backend baglantisi yok)">
             <span className="dsp-tb-mock-dot" />
             MOCK
           </span>
-        )}
-        <button className="dsp-tb-btn" type="button" title="Ses">
-          🔔
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

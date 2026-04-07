@@ -18,7 +18,7 @@
 import { useMemo, useState } from 'react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { COLOR, FONT, SIZE, SECTION_TONE, ensureStyles, type SectionKey } from './styles';
-import Sidebar from './Sidebar';
+import Sidebar, { type BotLocalMode } from './Sidebar';
 import TopBar from './TopBar';
 import SectionFilterStrip, { type SectionFilter } from './SectionFilterStrip';
 import EventTile from './EventTile';
@@ -203,6 +203,92 @@ ensureStyles(
   color: ${COLOR.red};
   text-align: center;
 }
+
+/* Stop confirmation modal — madde 1.4 */
+.dsp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 3, 12, 0.78);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.dsp-modal {
+  background: ${COLOR.bgRaised};
+  border: 1px solid ${COLOR.borderStrong};
+  border-radius: ${SIZE.radiusLg}px;
+  max-width: 460px;
+  width: 100%;
+  padding: 26px 26px 22px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px ${COLOR.brandSoft};
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dsp-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dsp-modal-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: ${COLOR.redSoft};
+  border: 1px solid ${COLOR.red};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: ${COLOR.red};
+  flex-shrink: 0;
+}
+.dsp-modal-title {
+  font-size: 16px;
+  font-weight: ${FONT.weight.bold};
+  color: ${COLOR.text};
+  letter-spacing: 0.02em;
+}
+.dsp-modal-body {
+  font-size: 13px;
+  color: ${COLOR.text};
+  line-height: 1.55;
+  opacity: 0.85;
+}
+.dsp-modal-body strong {
+  color: ${COLOR.red};
+  font-weight: ${FONT.weight.bold};
+}
+.dsp-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.dsp-modal-btn {
+  padding: 9px 18px;
+  border-radius: ${SIZE.radius}px;
+  font-size: 13px;
+  font-weight: ${FONT.weight.semibold};
+  font-family: ${FONT.sans};
+  cursor: pointer;
+  border: 1px solid;
+}
+.dsp-modal-btn.cancel {
+  background: ${COLOR.surface};
+  border-color: ${COLOR.border};
+  color: ${COLOR.text};
+}
+.dsp-modal-btn.cancel:hover { background: ${COLOR.surfaceHover}; }
+.dsp-modal-btn.danger {
+  background: ${COLOR.red};
+  border-color: ${COLOR.red};
+  color: #fff;
+}
+.dsp-modal-btn.danger:hover { filter: brightness(1.1); }
 `
 );
 
@@ -316,6 +402,41 @@ function sortPositions(positions: PositionSummary[]): PositionSummary[] {
   });
 }
 
+interface StopConfirmModalProps {
+  openPositionCount: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+function StopConfirmModal({
+  openPositionCount,
+  onCancel,
+  onConfirm,
+}: StopConfirmModalProps) {
+  return (
+    <div className="dsp-modal-overlay" onClick={onCancel}>
+      <div className="dsp-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="dsp-modal-header">
+          <div className="dsp-modal-icon">⚠</div>
+          <div className="dsp-modal-title">Botu durdurmak istediğinize emin misiniz?</div>
+        </div>
+        <div className="dsp-modal-body">
+          Şu an <strong>{openPositionCount} açık pozisyon</strong> var.
+          Botu durdurursanız bu pozisyonları manuel kapatmanız gerekecek —
+          TP/SL/FS otomatik tetiklenmez.
+        </div>
+        <div className="dsp-modal-actions">
+          <button type="button" className="dsp-modal-btn cancel" onClick={onCancel}>
+            Vazgeç
+          </button>
+          <button type="button" className="dsp-modal-btn danger" onClick={onConfirm}>
+            Yine de durdur
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  Public composition                                          ║
 // ╚══════════════════════════════════════════════════════════════╝
@@ -341,6 +462,10 @@ export default function DashboardSidebarPreview({
   const data = mockMode ? MOCK_DATA : liveData;
 
   const [filter, setFilter] = useState<SectionFilter>('all');
+  // Madde 1.3: bot lifecycle lokal state (frontend-only, backend wiring sonra)
+  const [botLocalMode, setBotLocalMode] = useState<BotLocalMode>('running');
+  // Madde 1.4: stop confirmation modal
+  const [stopModalOpen, setStopModalOpen] = useState(false);
 
   const positions: PositionSummary[] = data.positions ?? [];
   const search: SearchTileContract[] = data.search ?? [];
@@ -365,9 +490,38 @@ export default function DashboardSidebarPreview({
     ? 'Backend bağlı · 3s polling'
     : `Bağlantı sorunlu · ${data.errorStreak} retry`;
 
+  // Bot action handler — Pause/Stop/Start semantik (madde 1.3)
+  // Stop iken acik pozisyon varsa modal ac (madde 1.4)
+  const handleBotAction = (action: 'start' | 'pause' | 'stop') => {
+    if (action === 'start') {
+      setBotLocalMode('running');
+      return;
+    }
+    if (action === 'pause') {
+      setBotLocalMode('paused');
+      return;
+    }
+    if (action === 'stop') {
+      if (positions.length > 0 && botLocalMode !== 'stopped') {
+        setStopModalOpen(true);
+        return;
+      }
+      setBotLocalMode('stopped');
+    }
+  };
+  const confirmStop = () => {
+    setBotLocalMode('stopped');
+    setStopModalOpen(false);
+  };
+  const cancelStop = () => setStopModalOpen(false);
+
   return (
     <div className="dsp-root">
-      <Sidebar health={data.health} />
+      <Sidebar
+        health={data.health}
+        localBotMode={botLocalMode}
+        onBotAction={handleBotAction}
+      />
       <div className="dsp-main">
         <TopBar overview={data.overview} mockMode={mockMode} />
         <SectionFilterStrip
@@ -460,6 +614,13 @@ export default function DashboardSidebarPreview({
           )}
         </div>
       </div>
+      {stopModalOpen && (
+        <StopConfirmModal
+          openPositionCount={positions.length}
+          onCancel={cancelStop}
+          onConfirm={confirmStop}
+        />
+      )}
     </div>
   );
 }

@@ -64,22 +64,41 @@ ensureStyles(
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
 }
 .dsp-sb-brand-logo {
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 52px;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 8px ${COLOR.brandGlow});
+  filter: drop-shadow(0 0 10px ${COLOR.brandGlow});
 }
 .dsp-sb-brand-title {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   background: linear-gradient(90deg, ${COLOR.brand}, #c084fc);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+.dsp-sb-brand-bell {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${COLOR.brandSoft};
+  border: 1px solid ${COLOR.borderStrong};
+  border-radius: ${SIZE.radius}px;
+  color: ${COLOR.brand};
+  font-size: 15px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+.dsp-sb-brand-bell:hover {
+  background: ${COLOR.brand};
+  color: ${COLOR.bg};
 }
 
 /* Nav — brand ile arasinda nefes */
@@ -244,11 +263,6 @@ ensureStyles(
   font-size: ${FONT.size.sm};
   font-weight: ${FONT.weight.semibold};
 }
-.dsp-sb-health-meta {
-  font-size: ${FONT.size.xs};
-  color: ${COLOR.textMuted};
-  font-family: ${FONT.mono};
-}
 `
 );
 
@@ -295,6 +309,14 @@ function BrandBlock() {
           />
         </svg>
         <div className="dsp-sb-brand-title">POLYFAST</div>
+        <button
+          type="button"
+          className="dsp-sb-brand-bell"
+          title="Bildirimler"
+          aria-label="Bildirimler"
+        >
+          🔔
+        </button>
       </div>
     </div>
   );
@@ -449,14 +471,52 @@ function deriveModeText(bot: BotStatusContract | null | undefined): string {
   return 'Live';
 }
 
-function BotStatusPanel({ bot }: { bot: BotStatusContract | null | undefined }) {
+/**
+ * BotLocalMode — frontend-only lifecycle state.
+ *
+ * Backend bot lifecycle API'si henuz yok (envanter madde 5.4), bu yuzden
+ * Pause/Stop semantik (madde 1.3) frontend state ile simule edilir:
+ *  - 'running' : bot calisiyor (default)
+ *  - 'paused'  : bot duraklatildi (sayac durur, monitor devam)
+ *  - 'stopped' : bot durduruldu (sifir, manuel close gerek)
+ */
+export type BotLocalMode = 'running' | 'paused' | 'stopped';
+
+interface BotStatusPanelProps {
+  bot: BotStatusContract | null | undefined;
+  /** Lokal lifecycle state (frontend-only, backend wiring sonra) */
+  localMode: BotLocalMode;
+  /** Action handler — composition'dan modal trigger eder */
+  onAction: (action: 'start' | 'pause' | 'stop') => void;
+}
+
+function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
   // Live uptime tick — server polling arasinda saniye saniye artar
-  const liveUptime = useLiveUptime(bot?.uptime_sec);
-  // deriveBotMode'un kullandigi sub satiri icin lokal artirilmis bot objesi
-  const tickedBot = bot && liveUptime != null ? { ...bot, uptime_sec: liveUptime } : bot;
+  // PAUSED state: tick durur (lokal donmus uptime gosterilir)
+  // STOPPED state: uptime sifirlanmis gibi gozukmesi icin null verilir
+  const effectiveServerUptime =
+    localMode === 'stopped' ? null : bot?.uptime_sec;
+  const liveUptimeRaw = useLiveUptime(effectiveServerUptime);
+  // PAUSED iken liveUptime yerine son server degerinde sabit kal
+  const liveUptime =
+    localMode === 'paused' ? bot?.uptime_sec ?? null : liveUptimeRaw;
+
+  // Lokal mode'u backend bot objesine ovrride et — deriveBotMode dogru sub uretsin
+  const tickedBot = (() => {
+    if (!bot) return bot;
+    const base = liveUptime != null ? { ...bot, uptime_sec: liveUptime } : { ...bot };
+    if (localMode === 'paused') return { ...base, paused: true, running: true };
+    if (localMode === 'stopped') return { ...base, running: false, paused: false, uptime_sec: 0 };
+    return base;
+  })();
   const mode = deriveBotMode(tickedBot);
-  const modeText = deriveModeText(bot);
+  const modeText = deriveModeText(tickedBot);
   const latency = bot?.latency_ms != null ? `${bot.latency_ms}ms` : '—';
+
+  // Buton disabled mantigi
+  const startDisabled = localMode === 'running';
+  const pauseDisabled = localMode !== 'running';
+  const stopDisabled = localMode === 'stopped';
 
   return (
     <div className="dsp-sb-bot">
@@ -494,15 +554,30 @@ function BotStatusPanel({ bot }: { bot: BotStatusContract | null | undefined }) 
 
       {/* Action buttons — full-width */}
       <div className="dsp-sb-bot-actions">
-        <button className="dsp-sb-bot-btn play" type="button" disabled>
+        <button
+          className="dsp-sb-bot-btn play"
+          type="button"
+          disabled={startDisabled}
+          onClick={() => onAction('start')}
+        >
           <span className="dsp-sb-bot-btn-icon">▶</span>
           <span>Başlat</span>
         </button>
-        <button className="dsp-sb-bot-btn pause" type="button" disabled>
+        <button
+          className="dsp-sb-bot-btn pause"
+          type="button"
+          disabled={pauseDisabled}
+          onClick={() => onAction('pause')}
+        >
           <span className="dsp-sb-bot-btn-icon">⏸</span>
           <span>Duraklat</span>
         </button>
-        <button className="dsp-sb-bot-btn stop" type="button" disabled>
+        <button
+          className="dsp-sb-bot-btn stop"
+          type="button"
+          disabled={stopDisabled}
+          onClick={() => onAction('stop')}
+        >
           <span className="dsp-sb-bot-btn-icon">⏹</span>
           <span>Durdur</span>
         </button>
@@ -518,16 +593,16 @@ function HealthIndicator({
 }) {
   const health: HealthLiteral = bot?.health ?? 'unknown';
   const tone = HEALTH_TONE[health];
-  // Connection meta — uptime'dan turetilir (latency bot panelinde gozukuyor)
-  const uptime = bot?.uptime_sec != null && bot.uptime_sec > 0 ? `${Math.floor(bot.uptime_sec / 60)}dk uptime` : 'baglanti aktif';
   return (
     <div className="dsp-sb-health">
-      <span className="dsp-sb-health-dot" style={{ background: tone.dot, boxShadow: `0 0 6px ${tone.dot}88` }} />
+      <span
+        className="dsp-sb-health-dot"
+        style={{ background: tone.dot, boxShadow: `0 0 6px ${tone.dot}88` }}
+      />
       <div className="dsp-sb-health-text">
         <div className="dsp-sb-health-label" style={{ color: tone.fg }}>
           {tone.label}
         </div>
-        <div className="dsp-sb-health-meta">{uptime}</div>
       </div>
     </div>
   );
@@ -539,16 +614,26 @@ function HealthIndicator({
 
 export interface SidebarProps {
   health: HealthResponse | null;
+  localBotMode: BotLocalMode;
+  onBotAction: (action: 'start' | 'pause' | 'stop') => void;
 }
 
-export default function Sidebar({ health }: SidebarProps) {
+export default function Sidebar({
+  health,
+  localBotMode,
+  onBotAction,
+}: SidebarProps) {
   const bot = health?.bot_status ?? null;
   return (
     <aside className="dsp-sidebar">
       <BrandBlock />
       <NavList />
       <div className="dsp-sb-spacer" />
-      <BotStatusPanel bot={bot} />
+      <BotStatusPanel
+        bot={bot}
+        localMode={localBotMode}
+        onAction={onBotAction}
+      />
       <HealthIndicator bot={bot} />
     </aside>
   );
