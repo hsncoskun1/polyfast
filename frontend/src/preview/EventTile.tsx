@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v48',
+  'eventtile-v49',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -361,7 +361,15 @@ ensureStyles(
   cursor: pointer;
   line-height: 1.1;
 }
-.dsp-eg-sell:hover { filter: brightness(1.18); }
+.dsp-eg-sell.state-active:hover { filter: brightness(1.18); }
+.dsp-eg-sell.state-closing,
+.dsp-eg-sell.state-closed,
+.dsp-eg-sell.state-pending {
+  background: rgba(126,126,146,0.16);
+  border-color: rgba(126,126,146,0.16);
+  color: ${COLOR.textMuted};
+  cursor: not-allowed;
+}
 /* ExitGrid cell — horizontal layout (label sol, value sag) */
 .dsp-eg-cell {
   padding: 6px 11px;
@@ -732,12 +740,31 @@ function RuleGrid({ rules }: { rules: RuleSpecContract[] }) {
   );
 }
 
+/** Mock-derive sell button state from activity text. v0.5.x'te gerçek lifecycle_state ile değişecek. */
+type SellState = 'active' | 'closing' | 'closed' | 'pending';
+function deriveSellState(activityText: string | null | undefined): SellState {
+  const t = activityText ?? '';
+  if (/ile kapandı|kapandı$/i.test(t)) return 'closed';
+  if (/TP @|SL tetik|FS @|kapatma emri|satış emri/i.test(t)) return 'closing';
+  if (/dolum bekleniyor|gönderiliyor/i.test(t)) return 'pending';
+  return 'active';
+}
+function sellLabel(s: SellState): string {
+  if (s === 'closed') return 'KAPANDI';
+  if (s === 'closing') return 'KAPANIYOR';
+  if (s === 'pending') return 'BEKLİYOR';
+  return 'ŞİMDİ SAT';
+}
+
 function ExitGrid({
   exits,
+  sellState = 'active',
 }: {
   exits?: PositionExitsContract | null;
+  sellState?: SellState;
 }) {
   if (!exits) return <div className="dsp-ip">Cıkıs esikleri yok</div>;
+  const disabled = sellState !== 'active';
   return (
     <div className="dsp-eg">
       <div className="dsp-eg-cell tp">
@@ -756,8 +783,13 @@ function ExitGrid({
         <div className="dsp-eg-lbl">FS/P</div>
         <div className="dsp-eg-val">{exits.fs_pnl ?? '—'}</div>
       </div>
-      <button type="button" className="dsp-eg-sell" title="Manuel kapatma (Market FOK)">
-        ŞİMDİ SAT
+      <button
+        type="button"
+        className={`dsp-eg-sell state-${sellState}`}
+        disabled={disabled}
+        title={disabled ? 'Manuel kapatma şu an pasif' : 'Manuel kapatma (Market FOK)'}
+      >
+        {sellLabel(sellState)}
       </button>
     </div>
   );
@@ -1070,7 +1102,7 @@ function OpenTile({
       />
       <OpenBody position={position} activity={position.activity} />
       <div className="dsp-tile-r">
-        <ExitGrid exits={position.exits} />
+        <ExitGrid exits={position.exits} sellState={deriveSellState(position.activity?.text)} />
       </div>
     </div>
   );
