@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v8',
+  'composition-v9',
   `
 .dsp-root {
   display: flex;
@@ -56,23 +56,23 @@ ensureStyles(
 .dsp-content {
   flex: 1;
   overflow-y: auto;
-  padding: 10px 20px 12px;
+  padding: 10px 20px 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
-/* Section — header + rows (defensive 850 viewport) */
+/* Section — header + rows (defensive 8 tile fit) */
 .dsp-section {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 .dsp-section-hdr {
   display: flex;
   align-items: stretch;
   gap: 10px;
-  padding: 0 0 3px;
+  padding: 0 0 2px;
   border-bottom: 1px solid;
   position: relative;
 }
@@ -85,13 +85,16 @@ ensureStyles(
   display: flex;
   flex-direction: column;
   gap: 1px;
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
 }
 .dsp-section-hdr-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.dsp-section-hdr-spacer {
+  flex: 1;
 }
 .dsp-section-hdr-dot {
   width: 9px;
@@ -116,13 +119,13 @@ ensureStyles(
   font-family: ${FONT.mono};
   font-size: 11px;
   font-weight: ${FONT.weight.bold};
-  padding: 3px 9px;
-  border-radius: 10px;
-  align-self: center;
+  padding: 1px 8px;
+  border-radius: 9px;
   border: 1px solid;
-  min-width: 28px;
+  min-width: 24px;
   text-align: center;
   letter-spacing: 0.02em;
+  line-height: 1.4;
 }
 /* Section rows — auto-fit 2 col grid (Q1=1440 hedef, Q2=auto-fit responsive)
  * 1440 viewport: sidebar 252 + main padding 44 = 1144 - section gap 12 = 1132
@@ -131,7 +134,7 @@ ensureStyles(
 .dsp-section-rows {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(540px, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 /* Empty state — premium kart, kompakt (turn 4: tile yuksekligine yakin) */
@@ -334,19 +337,20 @@ function Section({ sectionKey, count, children }: SectionProps) {
             >
               {tone.title}
             </span>
+            <span
+              className="dsp-section-hdr-badge"
+              style={{
+                background: tone.bg,
+                color: tone.fg,
+                borderColor: tone.border,
+              }}
+            >
+              {count}
+            </span>
           </div>
           <div className="dsp-section-hdr-subtitle">{tone.subtitle}</div>
         </div>
-        <div
-          className="dsp-section-hdr-badge"
-          style={{
-            background: tone.bg,
-            color: tone.fg,
-            borderColor: tone.border,
-          }}
-        >
-          {count}
-        </div>
+        <div className="dsp-section-hdr-spacer" />
       </div>
       <div className="dsp-section-rows">{children}</div>
     </section>

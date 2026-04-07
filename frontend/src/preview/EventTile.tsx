@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v17',
+  'eventtile-v19',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -59,13 +59,13 @@ ensureStyles(
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr) 220px;
   gap: 0;
-  padding: 5px 14px;
+  padding: 6px 14px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  height: 118px;
+  height: 124px;
   align-items: stretch;
   min-width: 0;
   line-height: 1.2;
@@ -84,26 +84,44 @@ ensureStyles(
 .dsp-tile-l {
   display: grid;
   grid-template-rows: 1fr 1fr 1fr;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
   padding-right: 14px;
   border-right: 1px solid ${COLOR.border};
 }
+/* ID row: 3 col grid — logo + ticker (5 char yer) + $ buton */
 .dsp-tile-l-id {
-  display: flex;
+  display: grid;
+  grid-template-columns: 24px 1fr 26px;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 9px;
+  gap: 7px;
+  padding: 0 8px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
 }
+.dsp-tile-l-id-dollar {
+  display: flex; align-items: center; justify-content: center;
+  height: 22px;
+  background: ${COLOR.bgRaised};
+  border: 1px solid ${COLOR.divider};
+  border-radius: 4px;
+  color: ${COLOR.textMuted};
+  font-size: 12px;
+  font-weight: ${FONT.weight.bold};
+  cursor: pointer;
+  font-family: ${FONT.sans};
+  padding: 0;
+  line-height: 1;
+}
+.dsp-tile-l-id-dollar.dollar-active { color: ${COLOR.green}; border-color: ${COLOR.greenSoft}; }
+.dsp-tile-l-id-dollar.dollar-passive { color: ${COLOR.cyan}; border-color: ${COLOR.cyanSoft}; }
+.dsp-tile-l-id-dollar:hover { background: ${COLOR.surfaceHover}; }
 .dsp-tile-l-avatar {
-  width: 26px; height: 26px;
+  width: 24px; height: 24px;
   border-radius: 4px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: ${FONT.weight.bold};
   flex-shrink: 0;
   overflow: hidden;
@@ -115,11 +133,16 @@ ensureStyles(
   border-radius: 0;
 }
 .dsp-tile-l-symbol {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 /* PnL box (2. satir) — big rakam ortali, sadece bu kart */
 .dsp-tile-l-pnl {
@@ -141,10 +164,10 @@ ensureStyles(
 .dsp-tile-l-amt {
   display: none;
 }
-/* Actions (3. satir) — 2 col grid, dolu yukseklik */
+/* Actions (3. satir) — \$ ID row'a tasindi, sadece ⚙ kaldi */
 .dsp-tile-l-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 4px;
   min-height: 0;
 }
@@ -244,32 +267,35 @@ ensureStyles(
   font-weight: ${FONT.weight.semibold};
 }
 
-/* ExitGrid — kompakt, label/value yan yana hissi */
+/* ExitGrid — ic ferah, dis tile padding az */
 .dsp-eg {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
+  height: 100%;
 }
 .dsp-eg-cell {
-  padding: 4px 9px;
+  padding: 6px 11px;
   border-radius: ${SIZE.radius}px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
-  display: flex; flex-direction: column; gap: 0;
-  line-height: 1.1;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1.15;
 }
 .dsp-eg-lbl {
   font-size: 9px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   line-height: 1.1;
 }
 .dsp-eg-val {
   font-family: ${FONT.mono};
-  font-size: 13px;
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
   line-height: 1.15;
 }
@@ -429,23 +455,34 @@ function SidePnl({ big, amount, tone }: SidePnlProps) {
   );
 }
 
-/** TileActions — sol kolon PnL kutusunun altinda 2 buton ($/⚙).
- *  Kullanici talebi: PnL ortali, altinda 2 yarim genislik buton. */
-function TileActions({ dollarState }: { dollarState?: 'active' | 'passive' }) {
-  const dClass = dollarState ? `dollar-${dollarState}` : '';
+/** TileActions — sol kolon 3. satir, sadece ⚙ (\$ artik ID row'da) */
+function TileActions() {
   return (
     <div className="dsp-tile-l-actions">
-      <button
-        type="button"
-        className={`dsp-tile-l-act ${dClass}`}
-        title={dollarState === 'active' ? 'Aramada — pasife al' : dollarState === 'passive' ? 'Pasif — aramaya al' : 'Aktif/pasif toggle'}
-      >
-        $
-      </button>
       <button type="button" className="dsp-tile-l-act" title="Ayarlar">
         ⚙
       </button>
     </div>
+  );
+}
+
+/** DollarButton — ID row'unda ticker yaninda */
+function DollarButton({ dollarState }: { dollarState?: 'active' | 'passive' }) {
+  const dClass = dollarState ? `dollar-${dollarState}` : '';
+  return (
+    <button
+      type="button"
+      className={`dsp-tile-l-id-dollar ${dClass}`}
+      title={
+        dollarState === 'active'
+          ? 'Aramada — pasife al'
+          : dollarState === 'passive'
+          ? 'Pasif — aramaya al'
+          : 'Aktif/pasif toggle'
+      }
+    >
+      $
+    </button>
   );
 }
 
@@ -464,15 +501,16 @@ function CoinIdentityBlock({
 }) {
   return (
     <div className="dsp-tile-l">
-      {/* Row 1: Logo + Ticker */}
+      {/* Row 1: Logo + Ticker (5 char yer) + \$ buton */}
       <div className="dsp-tile-l-id" title={coin.display_name}>
         <CoinAvatar coin={coin} />
         <span className="dsp-tile-l-symbol">{coin.symbol}</span>
+        <DollarButton dollarState={dollarState} />
       </div>
       {/* Row 2: PnL big (veya 6/6 search) */}
       <SidePnl big={big} amount={amount} tone={tone} />
-      {/* Row 3: Actions \$/⚙ */}
-      <TileActions dollarState={dollarState} />
+      {/* Row 3: ⚙ Ayarlar */}
+      <TileActions />
     </div>
   );
 }
