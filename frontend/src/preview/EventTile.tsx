@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v38',
+  'eventtile-v39',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -324,14 +324,32 @@ ensureStyles(
   font-weight: ${FONT.weight.semibold};
 }
 
-/* ExitGrid — ic ferah, dis tile padding az */
+/* ExitGrid — 2x2 esik + alt 1x2 sat butonu */
 .dsp-eg {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr auto;
   gap: 6px;
   width: 100%;
   height: 100%;
 }
+.dsp-eg-sell {
+  grid-column: 1 / -1;
+  padding: 7px 10px;
+  border-radius: ${SIZE.radius}px;
+  background: ${COLOR.redSoft};
+  border: 1px solid ${COLOR.redSoft};
+  color: ${COLOR.red};
+  font-family: ${FONT.sans};
+  font-size: 12px;
+  font-weight: ${FONT.weight.bold};
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  line-height: 1.1;
+}
+.dsp-eg-sell:hover { filter: brightness(1.18); }
 /* ExitGrid cell — horizontal layout (label sol, value sag) */
 .dsp-eg-cell {
   padding: 6px 11px;
@@ -679,6 +697,9 @@ function ExitGrid({
         <div className="dsp-eg-lbl">FS/P</div>
         <div className="dsp-eg-val">{exits.fs_pnl ?? '—'}</div>
       </div>
+      <button type="button" className="dsp-eg-sell" title="Manuel kapatma (Market FOK)">
+        ŞİMDİ SAT
+      </button>
     </div>
   );
 }
