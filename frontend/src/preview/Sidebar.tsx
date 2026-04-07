@@ -181,33 +181,6 @@ ensureStyles(
   padding-left: 18px;
 }
 
-/* Info rows (Mode / Latency) */
-.dsp-sb-bot-info {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 0 4px;
-}
-.dsp-sb-bot-info-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: ${FONT.size.xs};
-}
-.dsp-sb-bot-info-lbl {
-  color: ${COLOR.textMuted};
-  text-transform: uppercase;
-  font-weight: ${FONT.weight.semibold};
-  letter-spacing: 0.05em;
-  width: 52px;
-  flex-shrink: 0;
-}
-.dsp-sb-bot-info-val {
-  font-family: ${FONT.mono};
-  color: ${COLOR.text};
-  font-weight: ${FONT.weight.medium};
-}
-
 /* Action buttons (3 full-width) */
 .dsp-sb-bot-actions {
   display: flex;
@@ -241,7 +214,7 @@ ensureStyles(
 .dsp-sb-bot-btn.stop  { color: ${COLOR.red}; }
 
 .dsp-sb-health {
-  padding: 10px 14px 14px;
+  padding: 12px 14px 14px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -251,17 +224,18 @@ ensureStyles(
   width: 8px;
   height: 8px;
   border-radius: 50%;
-}
-.dsp-sb-health-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  flex: 1;
-  min-width: 0;
+  flex-shrink: 0;
 }
 .dsp-sb-health-label {
   font-size: ${FONT.size.sm};
   font-weight: ${FONT.weight.semibold};
+  flex: 1;
+}
+.dsp-sb-health-lat {
+  font-family: ${FONT.mono};
+  font-size: ${FONT.size.xs};
+  color: ${COLOR.textMuted};
+  font-weight: ${FONT.weight.medium};
 }
 `
 );
@@ -459,18 +433,6 @@ function useLiveUptime(serverUptime: number | null | undefined): number | null {
   return baseRef.current.server + elapsedLocal;
 }
 
-function deriveModeText(bot: BotStatusContract | null | undefined): string {
-  if (!bot) return 'Offline';
-  if (bot.startup_guard_blocked) return 'Blocked';
-  if (bot.shutdown_in_progress) return 'Shutdown';
-  if (bot.restore_phase) return 'Recovery';
-  if (bot.health === 'critical') return 'Critical';
-  if (bot.health === 'degraded') return 'Degraded';
-  if (bot.running === false) return 'Idle';
-  if (bot.paused) return 'Paused';
-  return 'Live';
-}
-
 /**
  * BotLocalMode — frontend-only lifecycle state.
  *
@@ -510,8 +472,6 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
     return base;
   })();
   const mode = deriveBotMode(tickedBot);
-  const modeText = deriveModeText(tickedBot);
-  const latency = bot?.latency_ms != null ? `${bot.latency_ms}ms` : '—';
 
   // Buton disabled mantigi
   const startDisabled = localMode === 'running';
@@ -538,18 +498,6 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
           </span>
         </div>
         <div className="dsp-sb-bot-hero-sub">{mode.sub}</div>
-      </div>
-
-      {/* Info rows — Mode / Latency */}
-      <div className="dsp-sb-bot-info">
-        <div className="dsp-sb-bot-info-row">
-          <span className="dsp-sb-bot-info-lbl">Mode</span>
-          <span className="dsp-sb-bot-info-val">{modeText}</span>
-        </div>
-        <div className="dsp-sb-bot-info-row">
-          <span className="dsp-sb-bot-info-lbl">Latency</span>
-          <span className="dsp-sb-bot-info-val">{latency}</span>
-        </div>
       </div>
 
       {/* Action buttons — full-width */}
@@ -593,17 +541,17 @@ function HealthIndicator({
 }) {
   const health: HealthLiteral = bot?.health ?? 'unknown';
   const tone = HEALTH_TONE[health];
+  const latency = bot?.latency_ms != null ? `${bot.latency_ms}ms` : null;
   return (
     <div className="dsp-sb-health">
       <span
         className="dsp-sb-health-dot"
         style={{ background: tone.dot, boxShadow: `0 0 6px ${tone.dot}88` }}
       />
-      <div className="dsp-sb-health-text">
-        <div className="dsp-sb-health-label" style={{ color: tone.fg }}>
-          {tone.label}
-        </div>
+      <div className="dsp-sb-health-label" style={{ color: tone.fg }}>
+        {tone.label}
       </div>
+      {latency && <div className="dsp-sb-health-lat">{latency}</div>}
     </div>
   );
 }
