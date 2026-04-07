@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v7',
+  'eventtile-v8',
   `
 .dsp-tile {
   display: grid;
@@ -71,11 +71,12 @@ ensureStyles(
 .dsp-tile.search      { }
 .dsp-tile.idle        { opacity: 0.86; }
 
-/* SOL kolon — turn 4: kompakt + sag dikey divider */
+/* SOL kolon — kompakt + sag dikey divider
+ * Tile actions ($/⚙) gecici kaldirildi -> dikey ortali, gap genisledi */
 .dsp-tile-l {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
   min-width: 0;
   padding-right: 14px;
   border-right: 1px solid ${COLOR.border};
@@ -387,43 +388,22 @@ function SidePnl({ big, amount, tone }: SidePnlProps) {
   );
 }
 
-interface TileActionsProps {
-  /** $ toggle current state — 'active' (search) | 'passive' (idle) | undefined (show only) */
-  dollarState?: 'active' | 'passive';
-  showSettings?: boolean;
-}
-function TileActions({ dollarState, showSettings = true }: TileActionsProps) {
-  return (
-    <div className="dsp-tile-l-actions">
-      {dollarState && (
-        <button
-          type="button"
-          className={`dsp-tile-l-act dollar-${dollarState}`}
-          title={dollarState === 'active' ? 'Aramada — pasife al' : 'Pasif — aramaya al'}
-        >
-          $
-        </button>
-      )}
-      {showSettings && (
-        <button type="button" className="dsp-tile-l-act" title="Ayarlar">
-          ⚙
-        </button>
-      )}
-    </div>
-  );
-}
+// TileActions ($ + ⚙) gecici olarak kaldirildi (kullanici talebi).
+// Sonraki tur baska konuma tasinacak (tile sag ust kose / tile menusu / vb.)
+// Eski CSS rule'lari (.dsp-tile-l-actions / .dsp-tile-l-act) silinmedi —
+// reuse icin hazir bekliyor.
 
 function CoinIdentityBlock({
   coin,
   big,
   amount,
   tone,
-  dollarState,
 }: {
   coin: CoinFallback;
   big?: string | null;
   amount?: string | null;
   tone?: PnlTone | null;
+  /** dollarState parametresi kaldirildi — TileActions sonraki tur baska konuma tasinacak */
   dollarState?: 'active' | 'passive';
 }) {
   return (
@@ -436,7 +416,6 @@ function CoinIdentityBlock({
         </div>
       </div>
       <SidePnl big={big} amount={amount} tone={tone} />
-      <TileActions dollarState={dollarState} />
     </div>
   );
 }
