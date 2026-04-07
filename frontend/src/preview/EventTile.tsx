@@ -48,12 +48,12 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v6',
+  'eventtile-v7',
   `
 .dsp-tile {
   display: grid;
-  grid-template-columns: 128px minmax(0, 1fr) 200px;
-  gap: 10px;
+  grid-template-columns: 140px minmax(0, 1fr) 220px;
+  gap: 0;
   padding: 10px 14px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
@@ -61,7 +61,7 @@ ensureStyles(
   font-family: ${FONT.sans};
   color: ${COLOR.text};
   min-height: 0;
-  align-items: center;
+  align-items: stretch;
   min-width: 0;
   line-height: 1.2;
 }
@@ -71,12 +71,15 @@ ensureStyles(
 .dsp-tile.search      { }
 .dsp-tile.idle        { opacity: 0.86; }
 
-/* SOL kolon — turn 4: kompakt yukseklik */
+/* SOL kolon — turn 4: kompakt + sag dikey divider */
 .dsp-tile-l {
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
+  padding-right: 14px;
+  border-right: 1px solid ${COLOR.border};
+  justify-content: center;
 }
 .dsp-tile-l-id {
   display: flex;
@@ -145,11 +148,13 @@ ensureStyles(
 .dsp-tile-l-act.dollar-active { color: ${COLOR.green}; }
 .dsp-tile-l-act.dollar-passive { color: ${COLOR.cyan}; }
 
-/* ORTA kolon */
+/* ORTA kolon — sol/sag padding (divider'lara hava) */
 .dsp-tile-m {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 0 14px;
+  justify-content: center;
   min-width: 0;
   justify-content: center;
 }
@@ -186,11 +191,13 @@ ensureStyles(
   width: 7px; height: 7px; border-radius: 50%;
 }
 
-/* SAG kolon */
+/* SAG kolon — sol dikey divider */
 .dsp-tile-r {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  padding-left: 14px;
+  border-left: 1px solid ${COLOR.border};
 }
 
 /* RuleGrid — 2 col x 3 row (kompakt sag panel icin) */
