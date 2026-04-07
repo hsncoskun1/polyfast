@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v28',
+  'eventtile-v29',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -681,6 +681,16 @@ function claimTone(status: ClaimStatusContract | null | undefined): {
   }
 }
 
+/** Claim status TR display label */
+function trClaimStatus(status: ClaimStatusContract | null | undefined): string {
+  switch (status) {
+    case 'OK': return 'OK';
+    case 'FAIL': return 'BAŞARISIZ';
+    case 'RETRY': return 'TEKRAR';
+    default: return '—';
+  }
+}
+
 function ClaimStatusPanel({
   status,
   retry,
@@ -705,9 +715,9 @@ function ClaimStatusPanel({
             boxShadow: `0 0 6px ${tone.fg}99`,
           }}
         />
-        <span className="dsp-csp-hero-lbl">STATUS</span>
+        <span className="dsp-csp-hero-lbl">DURUM</span>
         <span className="dsp-csp-hero-val" style={{ color: tone.fg }}>
-          {status ?? '—'}
+          {trClaimStatus(status)}
         </span>
       </div>
       <div className="dsp-csp-cell">
@@ -774,11 +784,31 @@ function OpenBody({
   ];
   return (
     <div className="dsp-tile-m">
-      {liveCells.length > 0 && <MidCells cells={liveCells} />}
       <MidCells cells={pnlCells} />
+      {liveCells.length > 0 && <MidCells cells={liveCells} />}
       <ActivityStatusLine activity={activity} />
     </div>
   );
+}
+
+/** Close reason TR: 'expiry' -> 'SÜRE DOLDU' */
+function trCloseReason(reason: string | null): string {
+  if (!reason) return '—';
+  const r = reason.toLowerCase();
+  if (r === 'expiry') return 'SÜRE DOLDU';
+  if (r === 'tp') return 'TP';
+  if (r === 'sl') return 'SL';
+  if (r === 'fs' || r === 'force_sell') return 'FS';
+  if (r === 'manual') return 'MANUEL';
+  return reason.toUpperCase();
+}
+
+/** Outcome TR: WIN/LOSS/PENDING -> KAZANÇ/KAYIP/BEKLİYOR */
+function trOutcome(net: number, closeReason: string | null): string {
+  if (net > 0) return 'KAZANÇ';
+  if (net < 0) return 'KAYIP';
+  if ((closeReason ?? '').toLowerCase() === 'expiry') return 'BEKLİYOR';
+  return '—';
 }
 
 function ClaimBody({
@@ -789,21 +819,15 @@ function ClaimBody({
   activity?: ActivityContract | null;
 }) {
   // Q3=a karari: KAPANIS -> OUTCOME -> ENTRY
-  const closeReason = position.close_reason ?? '—';
-  // Outcome: legacy alanlardan turetilemez, claim summary'den lookup edilirse
-  // dolu gelir; su an yoksa close_reason'dan turetelim (basit map)
-  const outcome = position.net_realized_pnl > 0
-    ? 'WIN'
-    : position.net_realized_pnl < 0
-    ? 'LOSS'
-    : closeReason === 'expiry' ? 'PENDING' : '—';
+  const closeText = trCloseReason(position.close_reason);
+  const outcome = trOutcome(position.net_realized_pnl, position.close_reason);
   const entry = position.fill_price.toFixed(2);
 
   return (
     <div className="dsp-tile-m">
       <MidCells
         cells={[
-          { label: 'Kapanış', value: closeReason.toUpperCase() },
+          { label: 'Kapanış', value: closeText },
           { label: 'Outcome', value: outcome },
           { label: 'Entry', value: entry },
         ]}
@@ -858,18 +882,18 @@ function IdleBody({ msg, activity }: { msg: string; activity?: ActivityContract 
 // ╚══════════════════════════════════════════════════════════════╝
 
 /** deriveOpenStatus — activity text + tone'dan lifecycle status etiketi.
- *  Eski dashboard mantigi: NEW / TP-NEAR / T-PROFIT / SL-NEAR / S-LOSS /
- *  F-WAIT / F-SELL / KAR / ZARAR / — */
+ *  TR cevrilmis: YENİ / TP-YAKIN / TP-KAR / SL-YAKIN / STOPLOSS / F-RISK /
+ *  FORCESELL / KAR / ZARAR / — */
 function deriveOpenStatus(position: PositionSummary): string {
   const text = position.activity?.text ?? '';
   // Lifecycle pattern eslestirme (en spesifikten en genele)
-  if (/Emir doldu|pozisyon a[çc]ild/i.test(text)) return 'NEW';
-  if (/TP\s*tetik|TP\s*@/i.test(text)) return 'T-PROFIT';
-  if (/TP\s*yakla[şs]/i.test(text)) return 'TP-NEAR';
-  if (/SL\s*tetik|SL\s*@/i.test(text)) return 'S-LOSS';
-  if (/SL\s*yakla[şs]/i.test(text)) return 'SL-NEAR';
-  if (/Force\s*sell\s*—?\s*\d+\s*saniye|FS\s*countdown/i.test(text)) return 'F-WAIT';
-  if (/Force\s*sell|FS\s*@/i.test(text)) return 'F-SELL';
+  if (/Emir doldu|pozisyon a[çc]ild/i.test(text)) return 'YENİ';
+  if (/TP\s*tetik|TP\s*@/i.test(text)) return 'TP-KAR';
+  if (/TP\s*yakla[şs]/i.test(text)) return 'TP-YAKIN';
+  if (/SL\s*tetik|SL\s*@/i.test(text)) return 'STOPLOSS';
+  if (/SL\s*yakla[şs]/i.test(text)) return 'SL-YAKIN';
+  if (/Force\s*sell\s*—?\s*\d+\s*saniye|FS\s*countdown/i.test(text)) return 'F-RISK';
+  if (/Force\s*sell|FS\s*@/i.test(text)) return 'FORCESELL';
   // Default fallback: tone bazli KAR / ZARAR
   if (position.pnl_tone === 'profit') return 'KAR';
   if (position.pnl_tone === 'loss') return 'ZARAR';
