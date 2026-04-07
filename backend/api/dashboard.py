@@ -2,17 +2,92 @@
 
 Backend davranisina DOKUNMAZ — sadece mevcut state'i okur ve sunar.
 Tum veriler Orchestrator'daki in-memory state'ten gelir.
+
+v0.8.0-backend-contract:
+- DashboardOverview genisletildi (counters + session pnl + bot_status)
+- PositionSummary genisletildi (variant, live, exits, activity)
+- ClaimSummary genisletildi (status enum align, retry schedule, payout)
+- Placeholder-first: yeni alanlar optional, orchestrator hazir degilse None
+- Frontend null-safe tuketir, eksik alan = mock fallback
 """
+
+import logging
+from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
+from backend.api.health import BotStatusContract, _build_bot_status
+from backend.logging_config.service import get_logger
+
+logger = get_logger("api.dashboard")
 
 router = APIRouter()
 
 
 # ── Response modelleri ──
 
+# v0.8.0-backend-contract: shared contract fragments (frontend eventTypes.ts karsiliklari)
+
+PnlTone = Literal["profit", "loss", "neutral", "pending", "off"]
+ActivitySeverity = Literal["success", "warning", "error", "info", "pending", "off"]
+
+
+class ActivityContract(BaseModel):
+    """Frontend ActivityStatusLine icin bildirim/aktivite metni.
+
+    text  → gorunen ana mesaj
+    severity → tone (success/warning/error/info/pending/off)
+    inline_icons → text icinde __KEY__ placeholder'lariyla render edilecek ikonlar
+    """
+
+    text: str
+    severity: Optional[ActivitySeverity] = None
+    inline_icons: Optional[list[str]] = None
+
+
+class PositionLiveContract(BaseModel):
+    """Open variant canli fiyat + delta ozeti (frontend PositionState)."""
+
+    side: Literal["UP", "DOWN"]
+    entry: str            # share price, "83"
+    live: str             # share price, "85.6"
+    delta_text: Optional[str] = None  # orn "+2.6" (opsiyonel, frontend de hesaplayabilir)
+
+
+class PositionExitsContract(BaseModel):
+    """Open variant cikis esikleri (frontend PositionExits).
+
+    Tum alanlar config esigi, CANLI DURUM DEGIL. Frontend ExitGrid
+    bu alanlari sadece esik olarak render eder — TP yaklasiyor gibi
+    canli uyarilar ActivityContract'tan gelir.
+    """
+
+    tp: str             # "87"
+    sl: str             # "81"
+    fs: str             # "30s" countdown metni
+    fs_pnl: Optional[str] = None  # "-5%" opsiyonel FS PnL esigi
+
+
 class PositionSummary(BaseModel):
+    """Pozisyon ozet kaydi.
+
+    Legacy alanlar (geriye uyumluluk): position_id, asset, side, state,
+    fill_price, requested_amount_usd, net_position_shares, close_reason,
+    net_realized_pnl, created_at
+
+    v0.8.0 extended alanlar (tumu optional):
+    - variant: 'open' | 'claim'  (frontend EventTileVariant hint)
+    - live: PositionLiveContract (canli fiyat ozeti)
+    - exits: PositionExitsContract (cikis esikleri)
+    - pnl_big: '+3.1%' formatli yuzde
+    - pnl_amount: '+0.31$' formatli USD delta
+    - pnl_tone: profit | loss | neutral | pending | off
+    - activity: ActivityContract (canli bildirim metni)
+    - event_url: Polymarket event sayfasi
+    """
+
+    # Legacy
     position_id: str
     asset: str
     side: str
@@ -24,8 +99,96 @@ class PositionSummary(BaseModel):
     net_realized_pnl: float = 0.0
     created_at: str
 
+    # v0.8.0 extended (optional, placeholder-first)
+    variant: Optional[Literal["open", "claim"]] = None
+    live: Optional[PositionLiveContract] = None
+    exits: Optional[PositionExitsContract] = None
+    pnl_big: Optional[str] = None
+    pnl_amount: Optional[str] = None
+    pnl_tone: Optional[PnlTone] = None
+    activity: Optional[ActivityContract] = None
+    event_url: Optional[str] = None
+
+
+# v0.8.0-backend-contract: frontend ClaimState enum align
+# Backend internal: PENDING | SUCCESS | FAILED
+# Frontend contract:  RETRY   | OK      | FAIL
+ClaimStatusContract = Literal["RETRY", "OK", "FAIL"]
+
+
+# v0.8.0-backend-contract: RuleSpec contract (frontend RuleVisualState aynasi)
+# Backend RuleState enum ile birebir uyumlu
+RuleStateContract = Literal["pass", "fail", "waiting", "disabled"]
+
+
+class RuleSpecContract(BaseModel):
+    """Tek bir rule'un UI icin ozeti.
+
+    Frontend RuleGrid/RuleBlock bu alanlari dogrudan tuketir.
+
+    label     → 'Zaman' / 'Fiyat' / 'Delta' / 'Spread' / 'EvMax' / 'BotMax'
+    live_value → kural anlik degeri ('3:07', '83', '$55', '1.8%', '0/1', '1/2')
+    threshold_text → opsiyonel esik metni ('30-270s', '≤3%', '≥$50', '1', '2')
+    state → backend RuleState enum degeri (pass/fail/waiting/disabled)
+    """
+
+    label: str
+    live_value: str
+    threshold_text: Optional[str] = None
+    state: RuleStateContract
+
+
+class SearchTileContract(BaseModel):
+    """Search variant tile — discovery + rule engine sentezi.
+
+    Frontend SectionBar 'search' grubunda bu kayitlari EventTile'a
+    spread eder. Mock MockTile ile shape uyumu:
+
+    - id          → tile_id
+    - coin        → coin symbol
+    - event_url   → Polymarket event sayfasi
+    - pnl_big     → '6/6' rule pass count (veya 'BAL', 'BOT')
+    - pnl_amount  → 'HAZIR' | 'BEKLE' (veya block reason)
+    - pnl_tone    → profit/neutral/loss/pending/off
+    - ptb         → PTB coin price (formatted)
+    - live        → Live coin price (formatted)
+    - delta       → |live - ptb| (formatted)
+    - rules       → 6 RuleSpecContract (Zaman/Fiyat/Delta/Spread/EvMax/BotMax)
+    - activity    → opsiyonel bildirim (ActivityContract)
+    - signal_ready → true iff tum rules pass
+    - type        → frontend EventTile type class ('pos'|'wait'|'ok'|'off')
+    """
+
+    tile_id: str
+    coin: str
+    event_url: str
+    pnl_big: str
+    pnl_amount: Optional[str] = None
+    pnl_tone: PnlTone
+    ptb: str
+    live: str
+    delta: str
+    rules: list[RuleSpecContract]
+    activity: Optional[ActivityContract] = None
+    signal_ready: bool = False
+    type: Optional[str] = None
+
 
 class ClaimSummary(BaseModel):
+    """Claim kaydi ozeti.
+
+    Legacy alanlar (geriye uyumluluk): claim_id, asset, position_id,
+    claim_status, outcome, claimed_amount_usdc, retry_count
+
+    v0.8.0 extended alanlar (frontend ClaimState icin):
+    - status: 'RETRY' | 'OK' | 'FAIL' (frontend enum)
+    - retry: mevcut retry sayisi (retry_count alias)
+    - max_retry: max retry limiti (ClaimManager.max_retries)
+    - next_sec: scheduled next retry delay (retry schedule'dan hesap)
+    - payout: formatted USDC tutari ('$5.83') — bilinmiyorsa None
+    """
+
+    # Legacy
     claim_id: str
     asset: str
     position_id: str
@@ -33,6 +196,13 @@ class ClaimSummary(BaseModel):
     outcome: str
     claimed_amount_usdc: float
     retry_count: int
+
+    # v0.8.0 extended (optional, placeholder-first)
+    status: Optional[ClaimStatusContract] = None
+    retry: Optional[int] = None
+    max_retry: Optional[int] = None
+    next_sec: Optional[int] = None
+    payout: Optional[str] = None
 
 
 class BalanceInfo(BaseModel):
@@ -60,6 +230,13 @@ class CoinSettingSummary(BaseModel):
 
 
 class DashboardOverview(BaseModel):
+    """v0.8.0-backend-contract: frontend DashboardHeader icin extended kontrat.
+
+    Mevcut legacy alanlar korundu (geriye uyumluluk). Yeni alanlar OPTIONAL:
+    orchestrator henuz surmuyorsa None doner, frontend mock fallback'e duser.
+    """
+
+    # Legacy alanlar (korundu)
     trading_enabled: bool
     balance: BalanceInfo
     open_positions: int
@@ -67,6 +244,19 @@ class DashboardOverview(BaseModel):
     session_trade_count: int
     configured_coins: int
     eligible_coins: int
+
+    # v0.8.0-backend-contract: extended alanlar (optional, placeholder-first)
+    bot_status: Optional[BotStatusContract] = None
+    bakiye_text: Optional[str] = None
+    kullanilabilir_text: Optional[str] = None
+    session_pnl: Optional[float] = None
+    session_pnl_pct: Optional[float] = None
+    acilan: Optional[int] = None
+    gorulen: Optional[int] = None
+    ag_rate: Optional[str] = None
+    win: Optional[int] = None
+    lost: Optional[int] = None
+    winrate: Optional[str] = None
 
 
 # ── Endpoints ──
@@ -79,15 +269,84 @@ def _get_orchestrator():
     return orch
 
 
+def _fmt_usd(v: float) -> str:
+    """Format USD value for display — '$248.53'."""
+    return f"${v:,.2f}"
+
+
+def _fmt_pct(v: float) -> str:
+    """Format percentage — '4.8%'."""
+    return f"{v:.1f}%"
+
+
+def _build_overview_extended(orch) -> dict:
+    """Build v0.8.0 extended overview fields (placeholder-safe).
+
+    Her alan defensive get — orchestrator henuz her sayaci surmuyorsa None.
+    Frontend null-safe tuketir, eksik alan icin mock fallback'e duser.
+    """
+    tracker = orch.position_tracker
+    balance = orch.balance_manager
+
+    # Session PnL — tracker'dan topla (henuz degerli kaynak varsa)
+    session_pnl = getattr(tracker, "session_net_pnl", None)
+    session_pnl_pct: Optional[float] = None
+    if session_pnl is not None:
+        starting = getattr(tracker, "session_start_balance", None)
+        if starting is not None and starting > 0:
+            session_pnl_pct = (session_pnl / starting) * 100
+
+    # Counters
+    acilan = getattr(tracker, "session_fill_count", None)
+    gorulen = getattr(tracker, "session_event_seen_count", None)
+    ag_rate_val: Optional[str] = None
+    if acilan is not None and gorulen is not None and gorulen > 0:
+        ag_rate_val = _fmt_pct((acilan / gorulen) * 100)
+
+    # Win / Lost / Winrate
+    win = getattr(tracker, "session_win_count", None)
+    lost = getattr(tracker, "session_lost_count", None)
+    winrate_val: Optional[str] = None
+    if win is not None and lost is not None:
+        total = win + lost
+        if total > 0:
+            winrate_val = _fmt_pct((win / total) * 100)
+
+    return {
+        "bakiye_text": _fmt_usd(balance.total_balance) if balance.total_balance is not None else None,
+        "kullanilabilir_text": _fmt_usd(balance.available_balance) if balance.available_balance is not None else None,
+        "session_pnl": round(session_pnl, 2) if session_pnl is not None else None,
+        "session_pnl_pct": round(session_pnl_pct, 2) if session_pnl_pct is not None else None,
+        "acilan": acilan,
+        "gorulen": gorulen,
+        "ag_rate": ag_rate_val,
+        "win": win,
+        "lost": lost,
+        "winrate": winrate_val,
+    }
+
+
 @router.get("/dashboard/overview", response_model=DashboardOverview)
 async def get_overview() -> DashboardOverview:
-    """Dashboard ana ozet — tek bakista tum durum."""
+    """Dashboard ana ozet — tek bakista tum durum.
+
+    v0.8.0-backend-contract: extended alanlar (counters, session_pnl,
+    bot_status). Orchestrator henuz surmuyorsa ilgili alan None doner.
+    """
     orch = _get_orchestrator()
 
     balance = orch.balance_manager
     tracker = orch.position_tracker
     claims = orch.claim_manager
     settings = orch.settings_store
+
+    # Extended fields — placeholder-safe
+    extended = _build_overview_extended(orch)
+
+    # Bot status — health endpoint'in yardimcisini reuse ederek
+    from backend.main import get_uptime
+
+    bot_status = _build_bot_status(get_uptime())
 
     return DashboardOverview(
         trading_enabled=orch.trading_enabled,
@@ -102,48 +361,506 @@ async def get_overview() -> DashboardOverview:
         session_trade_count=tracker.session_trade_count,
         configured_coins=len(settings.get_configured_coins()),
         eligible_coins=settings.eligible_count,
+        # v0.8.0-backend-contract extended
+        bot_status=bot_status,
+        **extended,
+    )
+
+
+def _derive_position_variant(p) -> Literal["open", "claim"]:
+    """Position state + needs_redeem'den frontend variant hint'i uret.
+
+    - needs_redeem=True (EXPIRY ile kapanmis, token elde) → 'claim'
+    - is_open ve aktif → 'open'
+    - default → 'open' (pending/close_pending/close_failed vb)
+    """
+    if getattr(p, "is_closed", False) and getattr(p, "needs_redeem", False):
+        return "claim"
+    return "open"
+
+
+def _derive_pnl_tone(net_pnl: Optional[float]) -> Optional[PnlTone]:
+    """Net PnL'den PnlTone turet.
+
+    None → None (frontend default'a duser)
+    >0   → 'profit'
+    <0   → 'loss'
+    ==0  → 'neutral'
+    """
+    if net_pnl is None:
+        return None
+    if net_pnl > 0:
+        return "profit"
+    if net_pnl < 0:
+        return "loss"
+    return "neutral"
+
+
+def _format_pnl_pct(pct: Optional[float]) -> Optional[str]:
+    """+3.1% / -2.4% formatli yuzde."""
+    if pct is None:
+        return None
+    sign = "+" if pct >= 0 else ""
+    return f"{sign}{pct:.1f}%"
+
+
+def _format_pnl_amount(amount: Optional[float]) -> Optional[str]:
+    """+0.31$ / -0.18$ formatli dolar."""
+    if amount is None:
+        return None
+    sign = "+" if amount >= 0 else ""
+    return f"{sign}{amount:.2f}$"
+
+
+def _build_position_contract(p, live_context: dict | None = None) -> PositionSummary:
+    """PositionRecord'dan extended PositionSummary uretir.
+
+    live_context: opsiyonel dict — {current_price, live_coin_price, exits, event_url, activity}
+    Henuz wire edilmediyse None, frontend mock fallback'e duser.
+    """
+    # Legacy fields
+    legacy = {
+        "position_id": p.position_id,
+        "asset": p.asset,
+        "side": p.side,
+        "state": p.state.value,
+        "fill_price": p.fill_price,
+        "requested_amount_usd": p.requested_amount_usd,
+        "net_position_shares": p.net_position_shares,
+        "close_reason": p.close_reason.value if p.close_reason else None,
+        "net_realized_pnl": p.net_realized_pnl,
+        "created_at": p.created_at.isoformat(),
+    }
+
+    # Variant hint
+    variant = _derive_position_variant(p)
+
+    # Live snapshot (context verilmis veya tracker'dan cek)
+    live_obj: Optional[PositionLiveContract] = None
+    pnl_big: Optional[str] = None
+    pnl_amount: Optional[str] = None
+    pnl_tone: Optional[PnlTone] = None
+
+    if live_context and "current_price" in live_context:
+        current_price = live_context["current_price"]
+        # calculate_unrealized_pnl mevcut metot
+        try:
+            pnl_data = p.calculate_unrealized_pnl(current_price)
+            net_pnl = pnl_data.get("net_unrealized_pnl_estimate")
+            net_pnl_pct = pnl_data.get("net_unrealized_pnl_pct")
+            pnl_big = _format_pnl_pct(net_pnl_pct)
+            pnl_amount = _format_pnl_amount(net_pnl)
+            pnl_tone = _derive_pnl_tone(net_pnl)
+        except Exception:
+            pass
+
+        # Live share price stringi
+        live_obj = PositionLiveContract(
+            side="UP" if p.side.upper() == "UP" else "DOWN",
+            entry=f"{p.fill_price:.2f}".rstrip("0").rstrip("."),
+            live=f"{current_price:.2f}".rstrip("0").rstrip("."),
+        )
+    elif p.is_closed and p.net_realized_pnl is not None:
+        # Kapali pozisyon icin gerceklesmis net pnl
+        pnl_amount = _format_pnl_amount(p.net_realized_pnl)
+        pnl_tone = _derive_pnl_tone(p.net_realized_pnl)
+        if p.requested_amount_usd > 0:
+            pct = (p.net_realized_pnl / p.requested_amount_usd) * 100
+            pnl_big = _format_pnl_pct(pct)
+
+    # Exits — live_context'ten veya None
+    exits_obj: Optional[PositionExitsContract] = None
+    if live_context and "exits" in live_context:
+        e = live_context["exits"]
+        exits_obj = PositionExitsContract(
+            tp=str(e.get("tp", "")),
+            sl=str(e.get("sl", "")),
+            fs=str(e.get("fs", "")),
+            fs_pnl=e.get("fs_pnl"),
+        )
+
+    # Activity
+    activity_obj: Optional[ActivityContract] = None
+    if live_context and "activity" in live_context:
+        a = live_context["activity"]
+        if isinstance(a, dict) and "text" in a:
+            activity_obj = ActivityContract(
+                text=a["text"],
+                severity=a.get("severity"),
+                inline_icons=a.get("inline_icons"),
+            )
+
+    event_url = live_context.get("event_url") if live_context else None
+
+    return PositionSummary(
+        **legacy,
+        variant=variant,
+        live=live_obj,
+        exits=exits_obj,
+        pnl_big=pnl_big,
+        pnl_amount=pnl_amount,
+        pnl_tone=pnl_tone,
+        activity=activity_obj,
+        event_url=event_url,
     )
 
 
 @router.get("/dashboard/positions", response_model=list[PositionSummary])
 async def get_positions() -> list[PositionSummary]:
-    """Tum pozisyonlari listele."""
+    """Tum pozisyonlari listele (legacy + v0.8.0 extended alanlar).
+
+    Placeholder-safe: live_context orchestrator'dan geldigi gibi kullanilir.
+    Orchestrator henuz live price/exits/activity saglamiyorsa ilgili alanlar
+    None doner, frontend mock fallback'e duser.
+    """
     orch = _get_orchestrator()
 
+    # Live context (henuz implementasyonda yok — placeholder None)
+    # Orchestrator wire edildiginde her pozisyon icin asagidaki sekilde
+    # live_context hazirlanacak:
+    #   {
+    #     "current_price": float,   # live share price
+    #     "exits": {"tp": "87", "sl": "81", "fs": "30s", "fs_pnl": "-5%"},
+    #     "activity": {"text": "● TP yaklasiyor", "severity": "success"},
+    #     "event_url": "https://polymarket.com/event/...",
+    #   }
+    def _get_live_context(position) -> Optional[dict]:
+        builder = getattr(orch, "build_position_live_context", None)
+        if callable(builder):
+            try:
+                ctx = builder(position)
+                return ctx if isinstance(ctx, dict) else None
+            except Exception:
+                return None
+        return None
+
     return [
-        PositionSummary(
-            position_id=p.position_id,
-            asset=p.asset,
-            side=p.side,
-            state=p.state.value,
-            fill_price=p.fill_price,
-            requested_amount_usd=p.requested_amount_usd,
-            net_position_shares=p.net_position_shares,
-            close_reason=p.close_reason.value if p.close_reason else None,
-            net_realized_pnl=p.net_realized_pnl,
-            created_at=p.created_at.isoformat(),
-        )
+        _build_position_contract(p, live_context=_get_live_context(p))
         for p in orch.position_tracker.get_all_positions()
     ]
 
 
+def _map_claim_status_to_contract(internal_status: str) -> ClaimStatusContract:
+    """Backend internal enum -> frontend contract enum.
+
+    PENDING → RETRY  (retry beklentisi)
+    SUCCESS → OK
+    FAILED  → FAIL
+
+    Bilinmeyen deger -> RETRY safe default + WARNING log
+    (sessiz silent fallback YOK — operator gorsun ki enum drift fark edilsin).
+    """
+    mapping: dict[str, ClaimStatusContract] = {
+        "pending": "RETRY",
+        "success": "OK",
+        "failed": "FAIL",
+    }
+    normalized = internal_status.lower() if internal_status else ""
+    if normalized in mapping:
+        return mapping[normalized]
+    logger.warning(
+        "Unknown claim status '%s' mapped to 'RETRY' default — "
+        "backend/frontend enum drift olabilir, kontrat uyumunu gozden gecirin",
+        internal_status,
+    )
+    return "RETRY"
+
+
+def _claim_next_retry_sec(retry_count: int, schedule: list[int], steady: int) -> int:
+    """Retry count'a gore sonraki scheduled delay.
+
+    Not: Bu SCHEDULED delay — gercek countdown icin last_attempt_at
+    alani gerekir (su an ClaimRecord'da yok). Frontend bunu 'tipik next
+    retry' olarak yorumlamali. Wiring ayri is (ClaimRecord.next_retry_at).
+    """
+    if retry_count < len(schedule):
+        return schedule[retry_count]
+    return steady
+
+
+def _format_claim_payout(claimed_amount_usdc: float) -> Optional[str]:
+    """USDC tutarini formatted string'e cevir ('$5.83'). Sifirsa None."""
+    if claimed_amount_usdc is None or claimed_amount_usdc <= 0:
+        return None
+    return _fmt_usd(claimed_amount_usdc)
+
+
+def _build_claim_contract(c, claim_manager) -> ClaimSummary:
+    """ClaimRecord'dan extended ClaimSummary uretir.
+
+    Legacy alanlar aynen, extended alanlar hesap:
+    - status: enum align
+    - retry: retry_count alias
+    - max_retry: manager.max_retries
+    - next_sec: scheduled delay (placeholder-safe)
+    - payout: formatted USDC (bilinmiyorsa None)
+    """
+    internal_status = c.claim_status.value if hasattr(c.claim_status, "value") else str(c.claim_status)
+
+    return ClaimSummary(
+        # Legacy
+        claim_id=c.claim_id,
+        asset=c.asset,
+        position_id=c.position_id,
+        claim_status=internal_status,
+        outcome=c.outcome.value if hasattr(c.outcome, "value") else str(c.outcome),
+        claimed_amount_usdc=c.claimed_amount_usdc,
+        retry_count=c.retry_count,
+        # v0.8.0 extended
+        status=_map_claim_status_to_contract(internal_status),
+        retry=c.retry_count,
+        max_retry=getattr(claim_manager, "max_retries", None),
+        next_sec=_claim_next_retry_sec(
+            c.retry_count,
+            getattr(claim_manager, "retry_schedule", [5, 10]),
+            getattr(claim_manager, "retry_steady", 20),
+        ),
+        payout=_format_claim_payout(c.claimed_amount_usdc),
+    )
+
+
 @router.get("/dashboard/claims", response_model=list[ClaimSummary])
 async def get_claims() -> list[ClaimSummary]:
-    """Tum claim/redeem kayitlarini listele."""
+    """Tum claim/redeem kayitlarini listele (legacy + v0.8.0 extended alanlar).
+
+    Placeholder-safe: extended alanlar frontend ClaimState contract'i ile
+    uyumlu, orchestrator sagliyorsa gercek degerler, yoksa None/default.
+    """
+    orch = _get_orchestrator()
+    claim_manager = orch.claim_manager
+
+    return [
+        _build_claim_contract(c, claim_manager)
+        for c in claim_manager.get_pending_claims()
+    ]
+
+
+def _coerce_rule_state(raw) -> RuleStateContract:
+    """Orchestrator rule state -> contract Literal. Bilinmeyen -> 'waiting'."""
+    if raw is None:
+        return "waiting"
+    val = raw.value if hasattr(raw, "value") else str(raw)
+    val = val.lower()
+    if val in ("pass", "fail", "waiting", "disabled"):
+        return val  # type: ignore[return-value]
+    logger.warning(
+        "Unknown rule state '%s' -> 'waiting' fallback (rule engine/contract drift?)",
+        raw,
+    )
+    return "waiting"
+
+
+def _build_rule_specs(raw_rules) -> list[RuleSpecContract]:
+    """Orchestrator'dan gelen ham rule listesini RuleSpecContract'a cevir.
+
+    Her ham rule dict veya objet olabilir; defensive get.
+    Beklenen anahtarlar: label, live_value, threshold_text, state.
+    """
+    out: list[RuleSpecContract] = []
+    if not raw_rules:
+        return out
+    for r in raw_rules:
+        try:
+            if isinstance(r, dict):
+                label = str(r.get("label", ""))
+                live_value = str(r.get("live_value", ""))
+                threshold_text = r.get("threshold_text")
+                state = _coerce_rule_state(r.get("state"))
+            else:
+                label = str(getattr(r, "label", ""))
+                live_value = str(getattr(r, "live_value", ""))
+                threshold_text = getattr(r, "threshold_text", None)
+                state = _coerce_rule_state(getattr(r, "state", None))
+            out.append(
+                RuleSpecContract(
+                    label=label,
+                    live_value=live_value,
+                    threshold_text=threshold_text,
+                    state=state,
+                )
+            )
+        except Exception:
+            logger.warning("Skipping malformed rule spec: %r", r)
+            continue
+    return out
+
+
+def _build_search_tile(raw) -> SearchTileContract:
+    """Orchestrator search snapshot entry'sinden SearchTileContract uretir.
+
+    raw: dict — orchestrator.build_search_snapshot() tarafindan sunulan entry.
+    Eksik alanlar defensive default'a duser. signal_ready rules'tan turetilir
+    (ham raw signal_ready varsa ona oncelik ver).
+    """
+    if not isinstance(raw, dict):
+        raise ValueError("search snapshot entry must be a dict")
+
+    rules = _build_rule_specs(raw.get("rules"))
+
+    # signal_ready — ham degere oncelik, yoksa considered rules'tan turet.
+    # 'disabled' rule'lar sayilmadan hariç tutulur: kullanici kasten kapattigi
+    # icin sinyal olgunlugunu bozmamali. Geriye kalanlarin tamami 'pass' olmali.
+    if "signal_ready" in raw:
+        signal_ready = bool(raw.get("signal_ready"))
+    else:
+        considered = [r for r in rules if r.state != "disabled"]
+        signal_ready = bool(considered) and all(r.state == "pass" for r in considered)
+
+    # Activity — opsiyonel
+    activity_obj: Optional[ActivityContract] = None
+    a = raw.get("activity")
+    if isinstance(a, dict) and "text" in a:
+        activity_obj = ActivityContract(
+            text=a["text"],
+            severity=a.get("severity"),
+            inline_icons=a.get("inline_icons"),
+        )
+
+    pnl_tone_raw = raw.get("pnl_tone") or "neutral"
+    if pnl_tone_raw not in ("profit", "loss", "neutral", "pending", "off"):
+        pnl_tone_raw = "neutral"
+
+    return SearchTileContract(
+        tile_id=str(raw.get("tile_id") or raw.get("id") or ""),
+        coin=str(raw.get("coin", "")),
+        event_url=str(raw.get("event_url", "")),
+        pnl_big=str(raw.get("pnl_big", "")),
+        pnl_amount=raw.get("pnl_amount"),
+        pnl_tone=pnl_tone_raw,  # type: ignore[arg-type]
+        ptb=str(raw.get("ptb", "")),
+        live=str(raw.get("live", "")),
+        delta=str(raw.get("delta", "")),
+        rules=rules,
+        activity=activity_obj,
+        signal_ready=signal_ready,
+        type=raw.get("type"),
+    )
+
+
+# v0.8.0-backend-contract: Idle variant contract
+IdleKind = Literal["no_events", "waiting_rules", "bot_stopped", "cooldown", "error"]
+
+
+class IdleTileContract(BaseModel):
+    """Idle variant tile — bos dashboard durumu icin.
+
+    Frontend SectionBar 'idle' bolumu bu kayitlari gosterir: hicbir event yok,
+    bot durdu, cooldown, rule waiting, external failure vb.
+
+    tile_id   → stable kimlik ('idle-no-events', 'idle-cooldown-btc')
+    coin      → varsa coin (cooldown/waiting icin), yoksa None
+    idle_kind → bos durum kategorisi
+    msg       → kullaniciya gosterilecek ana mesaj
+    activity  → opsiyonel ek bildirim (ActivityContract)
+    rules     → opsiyonel rule listesi (waiting_rules icin)
+    event_url → varsa ilgili event linki
+    """
+
+    tile_id: str
+    coin: Optional[str] = None
+    idle_kind: IdleKind
+    msg: str
+    activity: Optional[ActivityContract] = None
+    rules: Optional[list[RuleSpecContract]] = None
+    event_url: Optional[str] = None
+
+
+def _build_idle_tile(raw) -> IdleTileContract:
+    """Orchestrator idle snapshot entry'sinden IdleTileContract uretir."""
+    if not isinstance(raw, dict):
+        raise ValueError("idle snapshot entry must be a dict")
+
+    kind_raw = str(raw.get("idle_kind") or "no_events").lower()
+    if kind_raw not in ("no_events", "waiting_rules", "bot_stopped", "cooldown", "error"):
+        logger.warning("Unknown idle_kind '%s' -> 'no_events' fallback", kind_raw)
+        kind_raw = "no_events"
+
+    activity_obj: Optional[ActivityContract] = None
+    a = raw.get("activity")
+    if isinstance(a, dict) and "text" in a:
+        activity_obj = ActivityContract(
+            text=a["text"],
+            severity=a.get("severity"),
+            inline_icons=a.get("inline_icons"),
+        )
+
+    rules_list: Optional[list[RuleSpecContract]] = None
+    if raw.get("rules") is not None:
+        rules_list = _build_rule_specs(raw.get("rules"))
+
+    return IdleTileContract(
+        tile_id=str(raw.get("tile_id") or raw.get("id") or f"idle-{kind_raw}"),
+        coin=raw.get("coin"),
+        idle_kind=kind_raw,  # type: ignore[arg-type]
+        msg=str(raw.get("msg", "")),
+        activity=activity_obj,
+        rules=rules_list,
+        event_url=raw.get("event_url"),
+    )
+
+
+@router.get("/dashboard/idle", response_model=list[IdleTileContract])
+async def get_idle() -> list[IdleTileContract]:
+    """Idle variant tile'lar — bos durum bildirimleri.
+
+    Placeholder-safe: orchestrator henuz build_idle_snapshot() saglamiyorsa
+    bos liste doner. Frontend SectionBar 'idle' bolumu bu endpoint'i tuketir.
+    """
     orch = _get_orchestrator()
 
-    claims = []
-    for c in orch.claim_manager.get_pending_claims():
-        claims.append(ClaimSummary(
-            claim_id=c.claim_id,
-            asset=c.asset,
-            position_id=c.position_id,
-            claim_status=c.claim_status.value,
-            outcome=c.outcome.value,
-            claimed_amount_usdc=c.claimed_amount_usdc,
-            retry_count=c.retry_count,
-        ))
-    return claims
+    provider = getattr(orch, "build_idle_snapshot", None)
+    if not callable(provider):
+        return []
+
+    try:
+        raw_list = provider()
+    except Exception as exc:
+        logger.warning("build_idle_snapshot raised %s — returning empty list", exc)
+        return []
+
+    if not raw_list:
+        return []
+
+    out: list[IdleTileContract] = []
+    for raw in raw_list:
+        try:
+            out.append(_build_idle_tile(raw))
+        except Exception as exc:
+            logger.warning("Skipping malformed idle tile: %s (%r)", exc, raw)
+            continue
+    return out
+
+
+@router.get("/dashboard/search", response_model=list[SearchTileContract])
+async def get_search() -> list[SearchTileContract]:
+    """Discovery + rule engine sentezi — search variant tile'lari.
+
+    Placeholder-safe: orchestrator henuz build_search_snapshot() saglamiyorsa
+    bos liste doner. Frontend SectionBar 'search' bolumu bu endpoint'i tuketir.
+    """
+    orch = _get_orchestrator()
+
+    provider = getattr(orch, "build_search_snapshot", None)
+    if not callable(provider):
+        return []
+
+    try:
+        raw_list = provider()
+    except Exception as exc:
+        logger.warning("build_search_snapshot raised %s — returning empty list", exc)
+        return []
+
+    if not raw_list:
+        return []
+
+    out: list[SearchTileContract] = []
+    for raw in raw_list:
+        try:
+            out.append(_build_search_tile(raw))
+        except Exception as exc:
+            logger.warning("Skipping malformed search tile: %s (%r)", exc, raw)
+            continue
+    return out
 
 
 @router.get("/dashboard/settings", response_model=list[CoinSettingSummary])
@@ -162,6 +879,126 @@ async def get_settings() -> list[CoinSettingSummary]:
         )
         for s in orch.settings_store.get_all()
     ]
+
+
+# v0.8.0-backend-contract: Coin metadata contract
+# Registry fallback — orchestrator coin metadata provider yoksa bu statik
+# mapping kullanilir. Frontend coinRegistry.ts aynasi.
+_COIN_METADATA_FALLBACK: dict[str, dict[str, str]] = {
+    "BTC": {"display_name": "Bitcoin", "logo_url": "/icons/btc.svg"},
+    "ETH": {"display_name": "Ethereum", "logo_url": "/icons/eth.svg"},
+    "SOL": {"display_name": "Solana", "logo_url": "/icons/sol.svg"},
+    "XRP": {"display_name": "Ripple", "logo_url": "/icons/xrp.svg"},
+    "DOGE": {"display_name": "Dogecoin", "logo_url": "/icons/doge.svg"},
+    "ADA": {"display_name": "Cardano", "logo_url": "/icons/ada.svg"},
+}
+
+
+class CoinInfoContract(BaseModel):
+    """Tek bir coin'in frontend icin birlesik metadata + ayar ozeti.
+
+    Frontend coin listesini bu endpoint'ten bir defa ceker; sonra
+    event tile'lar sadece symbol ile referans verip metadata'yi
+    bu ortak registry'den coker.
+
+    symbol        → 'BTC' (CoinSetting.coin ile ayni)
+    display_name  → 'Bitcoin' (varsa orchestrator'dan, yoksa fallback)
+    logo_url      → '/icons/btc.svg' (opsiyonel)
+    configured    → SettingsStore.is_configured
+    enabled       → SettingsStore.coin_enabled
+    trade_eligible → SettingsStore.is_trade_eligible
+    side_mode     → 'both' | 'up_only' | 'down_only' vb
+    order_amount  → tek islem USD tutari
+    """
+
+    symbol: str
+    display_name: Optional[str] = None
+    logo_url: Optional[str] = None
+    configured: bool = False
+    enabled: bool = False
+    trade_eligible: bool = False
+    side_mode: Optional[str] = None
+    order_amount: Optional[float] = None
+
+
+def _lookup_coin_metadata(orch, symbol: str) -> dict[str, Optional[str]]:
+    """Orchestrator provider > static fallback registry > bos.
+
+    Orchestrator kasti olarak get_coin_metadata(symbol) yoksa sessizce
+    fallback'e duser (warning log YOK — fallback normal path).
+    """
+    provider = getattr(orch, "get_coin_metadata", None)
+    if callable(provider):
+        try:
+            meta = provider(symbol)
+            if isinstance(meta, dict):
+                return {
+                    "display_name": meta.get("display_name") or meta.get("name"),
+                    "logo_url": meta.get("logo_url") or meta.get("icon"),
+                }
+        except Exception as exc:
+            logger.warning(
+                "get_coin_metadata('%s') raised %s — fallback registry'e dusuluyor",
+                symbol,
+                exc,
+            )
+
+    fallback = _COIN_METADATA_FALLBACK.get(symbol.upper(), {})
+    return {
+        "display_name": fallback.get("display_name"),
+        "logo_url": fallback.get("logo_url"),
+    }
+
+
+def _build_coin_info(orch, s) -> CoinInfoContract:
+    """CoinSetting + metadata registry birlestirmesi."""
+    meta = _lookup_coin_metadata(orch, s.coin)
+
+    side_mode_val = None
+    try:
+        side_mode_val = s.side_mode.value if hasattr(s.side_mode, "value") else str(s.side_mode)
+    except Exception:
+        side_mode_val = None
+
+    return CoinInfoContract(
+        symbol=s.coin,
+        display_name=meta.get("display_name"),
+        logo_url=meta.get("logo_url"),
+        configured=bool(getattr(s, "is_configured", False)),
+        enabled=bool(getattr(s, "coin_enabled", False)),
+        trade_eligible=bool(getattr(s, "is_trade_eligible", False)),
+        side_mode=side_mode_val,
+        order_amount=getattr(s, "order_amount", None),
+    )
+
+
+@router.get("/dashboard/coins", response_model=list[CoinInfoContract])
+async def get_coins() -> list[CoinInfoContract]:
+    """Coin metadata + ayar registry — tek kaynak.
+
+    Frontend bu listeyi bir defa cekip coin bazli lookup yapar.
+    Orchestrator get_coin_metadata(symbol) provider'i varsa oncelikli,
+    yoksa static fallback kullanilir.
+    """
+    orch = _get_orchestrator()
+
+    try:
+        coins = orch.settings_store.get_all()
+    except Exception as exc:
+        logger.warning("settings_store.get_all() raised %s — bos liste", exc)
+        return []
+
+    if not coins:
+        return []
+
+    out: list[CoinInfoContract] = []
+    for s in coins:
+        try:
+            out.append(_build_coin_info(orch, s))
+        except Exception as exc:
+            logger.warning("Skipping malformed coin setting: %s (%r)", exc, s)
+            continue
+    return out
 
 
 @router.get("/dashboard/trading-status", response_model=TradingStatus)
