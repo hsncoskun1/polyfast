@@ -94,12 +94,59 @@ export const FONT = {
 
 export const SIZE = {
   sidebarWidth: 240,
-  topBarHeight: 64,
+  topBarHeight: 76, // 64 -> 76 (chip strip premium icin)
   sectionStripHeight: 40,
   tileMinHeight: 96,
   radius: 6,
   radiusLg: 10,
 } as const;
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  SECTION TONE                                                ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+/**
+ * 3 ana section'in tone'u — header + empty state + count badge.
+ * Karar: Acik=green, Aranan=brand(mor), Aranmayan=cyan.
+ */
+export type SectionKey = 'open' | 'search' | 'idle';
+
+export const SECTION_TONE: Record<
+  SectionKey,
+  {
+    fg: string;
+    bg: string;
+    border: string;
+    glow: string;
+    title: string;
+    subtitle: string;
+  }
+> = {
+  open: {
+    fg: COLOR.green,
+    bg: COLOR.greenSoft,
+    border: COLOR.greenSoft,
+    glow: COLOR.greenGlow,
+    title: 'AÇIK İŞLEMLER',
+    subtitle: 'Açık pozisyonlar ve claim bekleyenler',
+  },
+  search: {
+    fg: COLOR.brand,
+    bg: COLOR.brandSoft,
+    border: COLOR.borderStrong,
+    glow: COLOR.brandGlow,
+    title: 'İŞLEM ARANANLAR',
+    subtitle: 'Sinyal bekleyen coinler',
+  },
+  idle: {
+    fg: COLOR.cyan,
+    bg: COLOR.cyanSoft,
+    border: COLOR.cyanSoft,
+    glow: COLOR.cyanGlow,
+    title: 'İŞLEM ARANMAYANLAR',
+    subtitle: 'Pasif veya kural beklenen coinler',
+  },
+};
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  TONE MAPS                                                   ║
