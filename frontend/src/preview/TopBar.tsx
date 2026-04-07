@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v5',
+  'topbar-v6',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -268,17 +268,17 @@ export default function TopBar({ overview, mockMode = false }: TopBarProps) {
 
       {/* Group 2 — ACTIVITY */}
       <div className="dsp-tb-group">
-        <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} color={COLOR.cyan} />
-        <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} color={COLOR.textMuted} />
-        <KpiCell label="A/G" value={overview?.ag_rate ?? '—'} color={COLOR.yellow} />
+        <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} color={COLOR.brand} />
+        <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} color={COLOR.brand} />
+        <KpiCell label="A/G Rate" value={overview?.ag_rate ?? '—'} color={COLOR.brand} />
       </div>
 
       <div className="dsp-tb-divider" />
 
       {/* Group 3 — OUTCOME */}
       <div className="dsp-tb-group">
-        <KpiCell label="Win" value={fmtNum(overview?.win)} color={COLOR.green} />
-        <KpiCell label="Lost" value={fmtNum(overview?.lost)} color={COLOR.red} />
+        <KpiCell label="Kazanan" value={fmtNum(overview?.win)} color={COLOR.green} />
+        <KpiCell label="Kaybeden" value={fmtNum(overview?.lost)} color={COLOR.red} />
         <KpiCell label="Bekleyen" value={fmtNum(overview?.pending_claims)} color={COLOR.yellow} />
         <KpiCell label="Winrate" value={overview?.winrate ?? '—'} color={winrateColor(overview?.winrate)} />
       </div>
