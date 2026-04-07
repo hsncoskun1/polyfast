@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v19',
+  'eventtile-v20',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -89,13 +89,13 @@ ensureStyles(
   padding-right: 14px;
   border-right: 1px solid ${COLOR.border};
 }
-/* ID row: 3 col grid — logo + ticker (5 char yer) + $ buton */
+/* ID row: 3 col grid — logo + ticker (5 char yer) + $ buton, sikici padding */
 .dsp-tile-l-id {
   display: grid;
-  grid-template-columns: 24px 1fr 26px;
+  grid-template-columns: 22px 1fr 24px;
   align-items: center;
-  gap: 7px;
-  padding: 0 8px;
+  gap: 6px;
+  padding: 0 4px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
@@ -118,13 +118,15 @@ ensureStyles(
 .dsp-tile-l-id-dollar.dollar-passive { color: ${COLOR.cyan}; border-color: ${COLOR.cyanSoft}; }
 .dsp-tile-l-id-dollar:hover { background: ${COLOR.surfaceHover}; }
 .dsp-tile-l-avatar {
-  width: 24px; height: 24px;
+  width: 22px; height: 22px;
   border-radius: 4px;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px;
   font-weight: ${FONT.weight.bold};
   flex-shrink: 0;
   overflow: hidden;
+  border: none !important;
+  background: transparent !important;
 }
 .dsp-tile-l-avatar img {
   width: 100%;
@@ -164,21 +166,22 @@ ensureStyles(
 .dsp-tile-l-amt {
   display: none;
 }
-/* Actions (3. satir) — \$ ID row'a tasindi, sadece ⚙ kaldi */
+/* Actions (3. satir) — Ayarlar butonu, PnL box ile ayni boyut */
 .dsp-tile-l-actions {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 4px;
+  display: flex;
   min-height: 0;
 }
 .dsp-tile-l-act {
+  flex: 1;
   display: flex; align-items: center; justify-content: center;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
   color: ${COLOR.textMuted};
-  font-size: 14px;
-  font-weight: ${FONT.weight.bold};
+  font-size: 12px;
+  font-weight: ${FONT.weight.semibold};
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   cursor: pointer;
   font-family: ${FONT.sans};
   padding: 0;
@@ -399,18 +402,10 @@ ensureStyles(
 
 function CoinAvatar({ coin }: { coin: CoinFallback }) {
   const tone = coin.tone ?? DEFAULT_COIN_TONE;
-  // Gercek logo varsa img, yoksa harf fallback (CDN fail-safe)
+  // Border ve bg kaldirildi (kullanici talebi) — sadece logo / harf
   if (coin.logo_url) {
     return (
-      <div
-        className="dsp-tile-l-avatar"
-        title={coin.display_name}
-        style={{
-          background: `${tone}14`,
-          border: `1.5px solid ${tone}55`,
-          padding: 3,
-        }}
-      >
+      <div className="dsp-tile-l-avatar" title={coin.display_name}>
         <img
           src={coin.logo_url}
           alt={coin.symbol}
@@ -426,11 +421,7 @@ function CoinAvatar({ coin }: { coin: CoinFallback }) {
     <div
       className="dsp-tile-l-avatar"
       title={coin.display_name}
-      style={{
-        background: `${tone}14`,
-        border: `1.5px solid ${tone}55`,
-        color: tone,
-      }}
+      style={{ color: tone }}
     >
       {coin.symbol[0]}
     </div>
@@ -455,12 +446,13 @@ function SidePnl({ big, amount, tone }: SidePnlProps) {
   );
 }
 
-/** TileActions — sol kolon 3. satir, sadece ⚙ (\$ artik ID row'da) */
+/** TileActions — sol kolon 3. satir, 'Ayarlar' yazili tek buton
+ *  PnL box ile ayni boyut. \$ artik ID row'da. */
 function TileActions() {
   return (
     <div className="dsp-tile-l-actions">
-      <button type="button" className="dsp-tile-l-act" title="Ayarlar">
-        ⚙
+      <button type="button" className="dsp-tile-l-act" title="Coin ayarları">
+        Ayarlar
       </button>
     </div>
   );
