@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v44',
+  'eventtile-v45',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -623,6 +623,27 @@ function MidCells({ cells, vertical, hideLabels }: MidCellsProps) {
   );
 }
 
+/** Compact numeric formatter — büyük sayıları K/M formatına döker.
+ *  "$1000.00" -> "$1.00K", "-15234.50" -> "-15.2K", "$1234567" -> "$1.2M"
+ *  Küçük değerler değişmeden döner. Tam değer tooltip'te kalır. */
+function compactNumber(raw: string | null | undefined): string {
+  if (!raw) return '—';
+  const m = raw.match(/^([+-]?)(\$?)(\d+(?:[.,]\d+)?)(.*)$/);
+  if (!m) return raw;
+  const [, sign, dollar, numStr, suffix] = m;
+  const n = parseFloat(numStr.replace(',', '.'));
+  if (isNaN(n)) return raw;
+  const abs = Math.abs(n);
+  let out: string;
+  if (abs >= 1_000_000) out = (n / 1_000_000).toFixed(1) + 'M';
+  else if (abs >= 10_000) out = (n / 1_000).toFixed(1) + 'K';
+  else if (abs >= 1_000) out = (n / 1_000).toFixed(2) + 'K';
+  else return raw;
+  // pozitif n için sign zaten boş; hesap çarpımı işaret korur, baş tekrar koymayalım
+  const finalSign = n < 0 ? '' : sign;
+  return finalSign + dollar + out + suffix;
+}
+
 /** signed numeric → color (+ green, - red, 0 muted) */
 function signColor(raw: string | null | undefined): string | undefined {
   if (!raw) return undefined;
@@ -839,7 +860,7 @@ function OpenBody({
     ? [
         { label: 'Giriş', value: `${live.side === 'UP' ? '▲' : '▼'} ${live.entry}`, color: sideColor },
         { label: 'Canlı', value: live.live, color: signColor(live.delta_text) ?? COLOR.text },
-        { label: 'Delta', value: live.delta_text ?? '—', color: signColor(live.delta_text) },
+        { label: 'Delta', value: compactNumber(live.delta_text), color: signColor(live.delta_text) },
       ]
     : [];
   // Row 2 — Maliyet / NET PNL % / NET PNL USD
@@ -850,9 +871,9 @@ function OpenBody({
   const netUsd = position.pnl_amount ?? '—';
   const pnlColor = position.pnl_tone ? PNL_TONE[position.pnl_tone].fg : undefined;
   const pnlCells = [
-    { label: 'Maliyet', value: cost, color: COLOR.cyan },
-    { label: 'Net %', value: netPct, color: pnlColor },
-    { label: 'Net USD', value: netUsd, color: pnlColor },
+    { label: 'Tutar', value: compactNumber(cost), color: COLOR.cyan },
+    { label: 'PNL%', value: netPct, color: pnlColor },
+    { label: 'USD', value: compactNumber(netUsd), color: pnlColor },
   ];
   return (
     <div className="dsp-tile-m">
@@ -942,9 +963,9 @@ function SearchBody({
     <div className="dsp-tile-m">
       <MidCells
         cells={[
-          { label: 'PTB', value: ptb, color: COLOR.yellow },
-          { label: 'Canlı', value: live, color: signColor(delta) ?? COLOR.text },
-          { label: 'Delta', value: delta, color: signColor(delta) ?? COLOR.yellow },
+          { label: 'PTB', value: compactNumber(ptb), color: COLOR.yellow },
+          { label: 'Canlı', value: compactNumber(live), color: signColor(delta) ?? COLOR.text },
+          { label: 'Delta', value: compactNumber(delta), color: signColor(delta) ?? COLOR.yellow },
         ]}
       />
       <ActivityStatusLine activity={activity} />
