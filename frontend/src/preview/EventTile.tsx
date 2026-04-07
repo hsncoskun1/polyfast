@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v36',
+  'eventtile-v37',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -762,7 +762,7 @@ function ClaimStatusPanel({
         </div>
       </div>
       <div className="dsp-csp-payout">
-        <span className="dsp-csp-payout-lbl">Ödeme</span>
+        <span className="dsp-csp-payout-lbl">Tahsil</span>
         <span
           className="dsp-csp-payout-val"
           style={{
