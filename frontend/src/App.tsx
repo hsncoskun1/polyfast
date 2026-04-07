@@ -3,27 +3,46 @@ import { getHealth, type HealthResponse } from './api/client';
 import DashboardPreview from './DashboardPreview';
 import DashboardSidebarPreview from './preview/DashboardSidebarPreview';
 
+/**
+ * URL davranis haritasi:
+ *   /                                   -> DashboardPreview (default, mevcut)
+ *   /?preview=sidebar                   -> DashboardSidebarPreview gercek backend
+ *   /?preview=sidebar&mock=full         -> DashboardSidebarPreview MOCK showcase
+ *   /                + Exit Preview     -> Eski health page (korundu)
+ *
+ * Kural: 'mock=full' disinda baska mock varyasyonu yok.
+ */
+function readUrlParams(): { previewMode: string | null; mockMode: boolean } {
+  if (typeof window === 'undefined') return { previewMode: null, mockMode: false };
+  const params = new URLSearchParams(window.location.search);
+  return {
+    previewMode: params.get('preview'),
+    mockMode: params.get('mock') === 'full',
+  };
+}
+
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(true);
 
-  // v0.8.0-sidebar: query param ile yeni sidebar preview erisimi
-  // localhost:5173/?preview=sidebar -> DashboardSidebarPreview
-  // localhost:5173/                  -> mevcut DashboardPreview (default)
-  const previewMode =
-    typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('preview')
-      : null;
-  if (previewMode === 'sidebar') {
-    return <DashboardSidebarPreview />;
-  }
+  const { previewMode, mockMode } = readUrlParams();
+  const isSidebarPreview = previewMode === 'sidebar';
 
+  // Health fetch sadece eski dashboard akisi icin gerekli — sidebar preview
+  // kendi useDashboardData hook'unu kullanir, mock mode'da hicbir fetch yok.
+  // Hook her zaman cagrilir (rules of hooks); sidebar preview iken bos kalir.
   useEffect(() => {
+    if (isSidebarPreview) return;
     getHealth()
       .then(setHealth)
       .catch((err) => setError(err.message));
-  }, []);
+  }, [isSidebarPreview]);
+
+  // Yeni sidebar preview — gercek veya mock
+  if (isSidebarPreview) {
+    return <DashboardSidebarPreview mockMode={mockMode} />;
+  }
 
   // Preview mode — yeni dashboard goster
   if (showPreview) {
