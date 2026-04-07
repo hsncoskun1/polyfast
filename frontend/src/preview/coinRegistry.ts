@@ -42,16 +42,24 @@ export const COIN_TONE: Record<string, string> = {
 /** Bilinmeyen coin fallback tone — brand mor. */
 export const DEFAULT_COIN_TONE = '#8b5cf6';
 
+/**
+ * Logo CDN — atomiclabs/cryptocurrency-icons (jsdelivr).
+ * Color SVG, ~32x32, public CDN, free, no auth.
+ */
+const LOGO_CDN = 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530/svg/color';
+const logoUrl = (sym: string) => `${LOGO_CDN}/${sym.toLowerCase()}.svg`;
+
 export const COIN_FALLBACK: Record<string, CoinFallback> = {
-  BTC:   { symbol: 'BTC',   display_name: 'Bitcoin',   tone: COIN_TONE.BTC },
-  ETH:   { symbol: 'ETH',   display_name: 'Ethereum',  tone: COIN_TONE.ETH },
-  SOL:   { symbol: 'SOL',   display_name: 'Solana',    tone: COIN_TONE.SOL },
-  XRP:   { symbol: 'XRP',   display_name: 'Ripple',    tone: COIN_TONE.XRP },
-  DOGE:  { symbol: 'DOGE',  display_name: 'Dogecoin',  tone: COIN_TONE.DOGE },
-  ADA:   { symbol: 'ADA',   display_name: 'Cardano',   tone: COIN_TONE.ADA },
-  MATIC: { symbol: 'MATIC', display_name: 'Polygon',   tone: COIN_TONE.MATIC },
-  BNB:   { symbol: 'BNB',   display_name: 'BNB',       tone: COIN_TONE.BNB },
-  LINK:  { symbol: 'LINK',  display_name: 'Chainlink', tone: COIN_TONE.LINK },
+  BTC:   { symbol: 'BTC',   display_name: 'Bitcoin',   tone: COIN_TONE.BTC,   logo_url: logoUrl('btc') },
+  ETH:   { symbol: 'ETH',   display_name: 'Ethereum',  tone: COIN_TONE.ETH,   logo_url: logoUrl('eth') },
+  SOL:   { symbol: 'SOL',   display_name: 'Solana',    tone: COIN_TONE.SOL,   logo_url: logoUrl('sol') },
+  XRP:   { symbol: 'XRP',   display_name: 'Ripple',    tone: COIN_TONE.XRP,   logo_url: logoUrl('xrp') },
+  DOGE:  { symbol: 'DOGE',  display_name: 'Dogecoin',  tone: COIN_TONE.DOGE,  logo_url: logoUrl('doge') },
+  ADA:   { symbol: 'ADA',   display_name: 'Cardano',   tone: COIN_TONE.ADA,   logo_url: logoUrl('ada') },
+  MATIC: { symbol: 'MATIC', display_name: 'Polygon',   tone: COIN_TONE.MATIC, logo_url: logoUrl('matic') },
+  BNB:   { symbol: 'BNB',   display_name: 'BNB',       tone: COIN_TONE.BNB,   logo_url: logoUrl('bnb') },
+  LINK:  { symbol: 'LINK',  display_name: 'Chainlink', tone: COIN_TONE.LINK,  logo_url: logoUrl('link') },
+  AVAX:  { symbol: 'AVAX',  display_name: 'Avalanche', tone: '#e84142',       logo_url: logoUrl('avax') },
 };
 
 /**

@@ -48,19 +48,18 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v9',
+  'eventtile-v10',
   `
 .dsp-tile {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr) 220px;
   gap: 0;
-  padding: 10px 14px;
+  padding: 26px 16px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  height: 149px;
   align-items: stretch;
   min-width: 0;
   line-height: 1.2;
@@ -72,59 +71,55 @@ ensureStyles(
 .dsp-tile.idle        { opacity: 0.86; }
 
 /* SOL kolon — kompakt + sag dikey divider
- * Tile actions ($/⚙) gecici kaldirildi -> dikey ortali, gap genisledi */
+ * Avatar (kare) + symbol tek satir, alttinda PnL kart icinde */
 .dsp-tile-l {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  padding-right: 14px;
+  padding-right: 16px;
   border-right: 1px solid ${COLOR.border};
-  justify-content: center;
+  justify-content: space-between;
 }
 .dsp-tile-l-id {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 7px 10px;
+  background: ${COLOR.surface};
+  border: 1px solid ${COLOR.divider};
+  border-radius: ${SIZE.radius}px;
 }
 .dsp-tile-l-avatar {
-  width: 30px; height: 30px;
-  border-radius: 50%;
+  width: 28px; height: 28px;
+  border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
   font-size: 13px;
   font-weight: ${FONT.weight.bold};
   flex-shrink: 0;
-  /* bg + border-color inline style ile coin tone'dan gelir */
-}
-.dsp-tile-l-name {
-  display: flex; flex-direction: column; min-width: 0;
 }
 .dsp-tile-l-symbol {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   line-height: 1.1;
-}
-.dsp-tile-l-display {
-  font-size: 11px;
-  color: ${COLOR.text};
-  font-weight: ${FONT.weight.semibold};
-  opacity: 0.7;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .dsp-tile-l-pnl {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+  padding: 8px 12px;
+  background: ${COLOR.surface};
+  border: 1px solid ${COLOR.divider};
+  border-radius: ${SIZE.radius}px;
+  align-items: flex-start;
 }
 .dsp-tile-l-big {
   font-family: ${FONT.mono};
-  font-size: 20px;
+  font-size: 18px;
   font-weight: ${FONT.weight.bold};
-  line-height: 1.05;
+  line-height: 1.1;
 }
 .dsp-tile-l-amt {
   font-family: ${FONT.mono};
@@ -192,12 +187,12 @@ ensureStyles(
   width: 7px; height: 7px; border-radius: 50%;
 }
 
-/* SAG kolon — sol dikey divider */
+/* SAG kolon — sol dikey divider, content dikey ortali */
 .dsp-tile-r {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding-left: 14px;
+  padding-left: 16px;
   border-left: 1px solid ${COLOR.border};
 }
 
@@ -353,16 +348,37 @@ ensureStyles(
 // ╚══════════════════════════════════════════════════════════════╝
 
 function CoinAvatar({ coin }: { coin: CoinFallback }) {
-  // turn 3: tone'lu avatar (coin marka rengi soft bg + ince border)
-  // Ileride logo_url ile asset bazli render eklenebilir
   const tone = coin.tone ?? DEFAULT_COIN_TONE;
+  // Gercek logo varsa img, yoksa harf fallback (CDN fail-safe)
+  if (coin.logo_url) {
+    return (
+      <div
+        className="dsp-tile-l-avatar"
+        title={coin.display_name}
+        style={{
+          background: `${tone}14`,
+          border: `1.5px solid ${tone}55`,
+          padding: 3,
+        }}
+      >
+        <img
+          src={coin.logo_url}
+          alt={coin.symbol}
+          width={22}
+          height={22}
+          loading="lazy"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
+      </div>
+    );
+  }
   return (
     <div
       className="dsp-tile-l-avatar"
       title={coin.display_name}
       style={{
-        background: `${tone}14`, // %8 alpha
-        border: `1.5px solid ${tone}55`, // %33 alpha
+        background: `${tone}14`,
+        border: `1.5px solid ${tone}55`,
         color: tone,
       }}
     >
@@ -408,12 +424,9 @@ function CoinIdentityBlock({
 }) {
   return (
     <div className="dsp-tile-l">
-      <div className="dsp-tile-l-id">
+      <div className="dsp-tile-l-id" title={coin.display_name}>
         <CoinAvatar coin={coin} />
-        <div className="dsp-tile-l-name">
-          <div className="dsp-tile-l-symbol">{coin.symbol}</div>
-          <div className="dsp-tile-l-display">{coin.display_name}</div>
-        </div>
+        <span className="dsp-tile-l-symbol">{coin.symbol}</span>
       </div>
       <SidePnl big={big} amount={amount} tone={tone} />
     </div>
