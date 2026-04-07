@@ -48,20 +48,22 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v4',
+  'eventtile-v6',
   `
 .dsp-tile {
   display: grid;
-  grid-template-columns: 190px 1fr 270px;
-  gap: 12px;
+  grid-template-columns: 128px minmax(0, 1fr) 200px;
+  gap: 10px;
   padding: 10px 14px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  min-height: 110px;
+  min-height: 0;
+  align-items: center;
   min-width: 0;
+  line-height: 1.2;
 }
 .dsp-tile.claim { border-color: ${COLOR.brandSoft}; }
 .dsp-tile.open-profit { border-left: 3px solid ${COLOR.green}; }
@@ -79,13 +81,13 @@ ensureStyles(
 .dsp-tile-l-id {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
 .dsp-tile-l-avatar {
-  width: 32px; height: 32px;
+  width: 30px; height: 30px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: ${FONT.size.md};
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   flex-shrink: 0;
   /* bg + border-color inline style ile coin tone'dan gelir */
@@ -152,11 +154,12 @@ ensureStyles(
   justify-content: center;
 }
 .dsp-tile-m-row {
-  display: flex; gap: 14px; align-items: baseline;
-  min-width: 0; flex-wrap: wrap;
+  display: flex; gap: 12px; align-items: baseline;
+  min-width: 0; flex-wrap: nowrap; overflow: hidden;
 }
 .dsp-tile-m-cell {
   display: flex; flex-direction: column; min-width: 0;
+  flex-shrink: 1;
 }
 .dsp-tile-m-lbl {
   font-size: 9px;
@@ -164,12 +167,16 @@ ensureStyles(
   font-weight: ${FONT.weight.semibold};
   color: ${COLOR.textMuted};
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 .dsp-tile-m-val {
   font-family: ${FONT.mono};
-  font-size: ${FONT.size.lg};
+  font-size: 13px;
   font-weight: ${FONT.weight.semibold};
   color: ${COLOR.text};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .dsp-tile-m-act {
   display: flex; gap: 8px; align-items: center;

@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v6',
+  'composition-v7',
   `
 .dsp-root {
   display: flex;
@@ -44,6 +44,7 @@ ensureStyles(
   background: ${COLOR.bg};
   font-family: ${FONT.sans};
   color: ${COLOR.text};
+  line-height: 1.3;
 }
 .dsp-main {
   flex: 1;
