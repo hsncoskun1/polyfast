@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v41',
+  'eventtile-v42',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -245,6 +245,14 @@ ensureStyles(
   gap: 6px;
   box-sizing: border-box;
 }
+.dsp-tile-m-row.vertical .dsp-tile-m-cell {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 4px;
+  gap: 0;
+}
+.dsp-tile-m-row.vertical .dsp-tile-m-val { text-align: center; }
 .dsp-tile-m-lbl {
   font-size: 11px;
   text-transform: uppercase;
@@ -593,6 +601,7 @@ function CoinIdentityBlock({
 
 interface MidCellsProps {
   cells: Array<{ label: string; value: string; color?: string }>;
+  vertical?: boolean;
 }
 function fitClass(v: string): string {
   const len = v.length;
@@ -600,9 +609,9 @@ function fitClass(v: string): string {
   if (len >= 7) return 'dsp-tile-m-val fit-md';
   return 'dsp-tile-m-val';
 }
-function MidCells({ cells }: MidCellsProps) {
+function MidCells({ cells, vertical }: MidCellsProps) {
   return (
-    <div className="dsp-tile-m-row">
+    <div className={`dsp-tile-m-row${vertical ? ' vertical' : ''}`}>
       {cells.map((c) => (
         <div key={c.label} className="dsp-tile-m-cell">
           <div className="dsp-tile-m-lbl">{c.label}</div>
@@ -885,7 +894,10 @@ function ClaimBody({
   const outcome = trOutcome(position.net_realized_pnl, position.close_reason);
   // fill_price 0-1 range raw, display 0-100 (Polymarket share cents)
   // 0.65 -> 65
-  const entry = Math.round(position.fill_price * 100).toString();
+  const side = position.side ?? position.live?.side ?? 'UP';
+  const arrow = side === 'UP' ? '▲' : '▼';
+  const entry = `${arrow} ${Math.round(position.fill_price * 100)}`;
+  const entryColor = side === 'UP' ? COLOR.green : COLOR.red;
 
   const closeColor =
     closeText === 'TP' ? COLOR.green :
@@ -901,10 +913,11 @@ function ClaimBody({
   return (
     <div className="dsp-tile-m">
       <MidCells
+        vertical
         cells={[
           { label: 'Kapanış', value: closeText, color: closeColor },
           { label: 'Sonuç', value: outcome, color: outcomeColor },
-          { label: 'Giriş', value: entry, color: COLOR.cyan },
+          { label: 'Giriş', value: entry, color: entryColor },
         ]}
       />
       <ActivityStatusLine activity={activity} />
