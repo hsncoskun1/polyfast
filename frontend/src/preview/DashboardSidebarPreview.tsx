@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v4',
+  'composition-v5',
   `
 .dsp-root {
   display: flex;
@@ -123,12 +123,12 @@ ensureStyles(
   letter-spacing: 0.02em;
 }
 /* Section rows — auto-fit 2 col grid (Q1=1440 hedef, Q2=auto-fit responsive)
- * Genis ekranda 2 kolon, dar ekranda otomatik 1 kolon (minmax 560px)
- * 1440 viewport: sidebar 252 + content 44 padding = 1144 / 2 ≈ 565 per col
- * Tile internal 580 wide → tam siginma (Q3 mock degistirilmedi) */
+ * 1440 viewport: sidebar 252 + main padding 44 = 1144 - section gap 12 = 1132
+ * Section content ~1128. Gap 12 dahil hesap: (1128 - 12) / 2 = 558 per col.
+ * minmax(540, 1fr) -> 1440'ta 2 col, 1366'da 1 col fallback. */
 .dsp-section-rows {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(540px, 1fr));
   gap: 12px;
 }
 
