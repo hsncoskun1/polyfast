@@ -2,7 +2,7 @@
 
 > **Bu dosya her anlamlı commit'te güncellenir** ve push edilir. Olası bir kayıpta GitHub'dan baktığında en son durumu ve devam edilmesi gereken adımı görürsün.
 >
-> **Son güncelleme:** 2026-04-07 (sidebar preview turn 4 — 8 tile single screen)
+> **Son güncelleme:** 2026-04-07 (sol kolon 3 satir grid + 19 mock cap kaldirildi)
 > **Aktif branch:** `main`
 > **Aktif önizleme URL:** `localhost:5173/?preview=sidebar&mock=full`
 > **Çalışma dizini:** `C:\polyfast`
@@ -32,10 +32,13 @@
 - ✅ TopBar — KPI strip 76px, 3 grup, ortalı yazılar, mor bell sidebar'da
 - ✅ SectionFilterStrip — 38px, görünür tab'lar, tone'lu dot
 - ✅ EventTile — 4 variant (open/claim/search/idle), vertical divider sol|orta|sağ
-- ✅ Sol kolon kart layout: kare logo + sembol box + altta PnL ortalı + 2 buton ($/⚙)
+- ✅ Sol kolon **3 eşit satır grid** (id/pnl/actions her biri ~37px)
+  - Row 1: kare logo + ticker (sembol)
+  - Row 2: PnL big ortalı (veya 6/6 search)
+  - Row 3: $/⚙ butonları 2 col yan yana
 - ✅ Gerçek coin logoları (jsdelivr CDN: atomiclabs/cryptocurrency-icons)
-- ✅ Mock 19 senaryo dosyada (composition 4+2+2 = 8 ile sınırlı)
-- ✅ 8 tile tek ekranda (defensive 820 viewport, fits 800/820/850)
+- ✅ Mock 19 senaryo — **CAP KALDIRILDI**, hepsi gözüküyor (10 open/claim + 6 search + 3 idle, scrollable)
+- ✅ Tile h 138 (sabit, defensive 820 viewport)
 - ✅ Status / Retry / Payout (claim) — wired claims listesinden lookup
 - ✅ Ürün kararları kayıtlı: `~/.claude/projects/C--polyfast/memory/`
 

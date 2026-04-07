@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v15',
+  'eventtile-v16',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -76,22 +76,25 @@ ensureStyles(
 .dsp-tile.search      { }
 .dsp-tile.idle        { opacity: 0.86; }
 
-/* SOL kolon — kompakt + sag dikey divider
- * Avatar (kare) + symbol tek satir, alttinda PnL kart icinde */
+/* SOL kolon — 3 esit satir grid:
+ *  Row 1: ID box (logo + ticker)
+ *  Row 2: PnL box (big rakam ortali)
+ *  Row 3: Actions row (\$/⚙ 2 col)
+ * Hepsi eşit yükseklikte, hizali. */
 .dsp-tile-l {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 4px;
   min-width: 0;
-  padding-right: 16px;
+  padding-right: 14px;
   border-right: 1px solid ${COLOR.border};
-  justify-content: space-between;
 }
 .dsp-tile-l-id {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 5px 9px;
+  padding: 0 9px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
@@ -118,43 +121,39 @@ ensureStyles(
   letter-spacing: 0.04em;
   line-height: 1.1;
 }
-/* PnL box: big rakam ortali + altta 2 buton (50/50) */
+/* PnL box (2. satir) — big rakam ortali, sadece bu kart */
 .dsp-tile-l-pnl {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 5px 8px 6px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
-  align-items: stretch;
 }
 .dsp-tile-l-big {
   font-family: ${FONT.mono};
-  font-size: 15px;
+  font-size: 16px;
   font-weight: ${FONT.weight.bold};
-  line-height: 1.1;
+  line-height: 1;
   text-align: center;
 }
 .dsp-tile-l-amt {
-  display: none; /* gecici: actions ile ayni satirda yer kalmadi */
-  font-family: ${FONT.mono};
-  font-size: 11px;
-  color: ${COLOR.textMuted};
+  display: none;
 }
+/* Actions (3. satir) — 2 col grid */
 .dsp-tile-l-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
 }
 .dsp-tile-l-act {
-  height: 22px;
   display: flex; align-items: center; justify-content: center;
-  background: ${COLOR.bgRaised};
-  border: 1px solid ${COLOR.border};
-  border-radius: 4px;
+  background: ${COLOR.surface};
+  border: 1px solid ${COLOR.divider};
+  border-radius: ${SIZE.radius}px;
   color: ${COLOR.textMuted};
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   font-family: ${FONT.sans};
 }
@@ -409,17 +408,16 @@ interface SidePnlProps {
   big?: string | null;
   amount?: string | null;
   tone?: PnlTone | null;
-  dollarState?: 'active' | 'passive';
 }
-function SidePnl({ big, amount, tone, dollarState }: SidePnlProps) {
-  if (!big && !amount) return null;
+function SidePnl({ big, amount, tone }: SidePnlProps) {
   const t = tone ?? 'off';
   const fg = PNL_TONE[t].fg;
   return (
     <div className="dsp-tile-l-pnl">
-      {big && <div className="dsp-tile-l-big" style={{ color: fg }}>{big}</div>}
+      <div className="dsp-tile-l-big" style={{ color: fg }}>
+        {big || '—'}
+      </div>
       {amount && <div className="dsp-tile-l-amt">{amount}</div>}
-      <TileActions dollarState={dollarState} />
     </div>
   );
 }
@@ -459,11 +457,15 @@ function CoinIdentityBlock({
 }) {
   return (
     <div className="dsp-tile-l">
+      {/* Row 1: Logo + Ticker */}
       <div className="dsp-tile-l-id" title={coin.display_name}>
         <CoinAvatar coin={coin} />
         <span className="dsp-tile-l-symbol">{coin.symbol}</span>
       </div>
-      <SidePnl big={big} amount={amount} tone={tone} dollarState={dollarState} />
+      {/* Row 2: PnL big (veya 6/6 search) */}
+      <SidePnl big={big} amount={amount} tone={tone} />
+      {/* Row 3: Actions \$/⚙ */}
+      <TileActions dollarState={dollarState} />
     </div>
   );
 }

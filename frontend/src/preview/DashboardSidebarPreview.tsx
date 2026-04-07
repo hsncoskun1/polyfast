@@ -408,12 +408,7 @@ function sortPositions(positions: PositionSummary[]): PositionSummary[] {
   });
 }
 
-/**
- * Mock single-screen kapasite: 4+2+2 = 8 tile (1080 viewport).
- * Mock'taki tum 19 senaryo dosyada KALIR (gelistirme/test icin),
- * ana ekran sadece ilk N gosterilir (kullanici talebi).
- */
-const MOCK_VISIBLE = { open: 4, search: 2, idle: 2 } as const;
+// (Mock cap kaldirildi — tum 19 senaryo gozukuyor, kullanici talebi)
 
 interface StopConfirmModalProps {
   openPositionCount: number;
@@ -480,14 +475,10 @@ export default function DashboardSidebarPreview({
   // Madde 1.4: stop confirmation modal
   const [stopModalOpen, setStopModalOpen] = useState(false);
 
-  const allPositions: PositionSummary[] = data.positions ?? [];
-  const allSearch: SearchTileContract[] = data.search ?? [];
-  const allIdle: IdleTileContract[] = data.idle ?? [];
-
-  // Mock mod single-screen capping (kullanici talebi: 4+2+2 = 8 tile sigsin)
-  const positions = mockMode ? allPositions.slice(0, MOCK_VISIBLE.open) : allPositions;
-  const search = mockMode ? allSearch.slice(0, MOCK_VISIBLE.search) : allSearch;
-  const idle = mockMode ? allIdle.slice(0, MOCK_VISIBLE.idle) : allIdle;
+  // Mock cap kaldirildi — tum 19 senaryo gosterilir (kullanici talebi)
+  const positions: PositionSummary[] = data.positions ?? [];
+  const search: SearchTileContract[] = data.search ?? [];
+  const idle: IdleTileContract[] = data.idle ?? [];
 
   const sortedPositions = useMemo(() => sortPositions(positions), [positions]);
 
