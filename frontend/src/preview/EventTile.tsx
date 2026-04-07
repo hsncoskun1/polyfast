@@ -48,19 +48,24 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v11',
+  'eventtile-v12',
   `
+/* tile height hesabi (1080 viewport, 3 section header acik, 4 sat = 8 tile):
+ *   1080 - 84(topbar) - 44(strip) - 30(content pad) - 90(3 hdr) - 24(hdr gap)
+ *        - 10(inner row gap) - 28(section arasi gap) = 770
+ *   770 / 4 sat = 192/sat dahil row gap (10) -> 182 net tile
+ *   tile internal: padding 14+14 + border 1+1 = 30 -> content 152 */
 .dsp-tile {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr) 220px;
   gap: 0;
-  padding: 18px 16px;
+  padding: 14px 16px;
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  height: 168px;
+  height: 152px;
   align-items: stretch;
   min-width: 0;
   line-height: 1.2;
