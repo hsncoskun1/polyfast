@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v47',
+  'eventtile-v48',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -623,26 +623,19 @@ function MidCells({ cells, vertical, hideLabels }: MidCellsProps) {
   );
 }
 
-/** Subscript zero notation (CoinGecko stili).
- *  -0.000025 -> "-0.0₄25"  (4 sıfır, sonra 25) */
-const SUB_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
+/** Parantezli sıfır sayısı (CoinGecko mantığı, okunur).
+ *  -0.000025 -> "-0.0(4)25"  (decimal sonrası 4 sıfır, sonra 25) */
 function tinyFormat(n: number): string | null {
   if (n === 0) return null;
   const sign = n < 0 ? '-' : '';
   const a = Math.abs(n);
-  // scientific notation'i normalize et
   const str = a.toFixed(20).replace(/0+$/, '');
   const m = str.match(/^0\.(0+)(\d+)$/);
   if (!m) return null;
   const zeros = m[1].length;
-  if (zeros < 2) return null; // 0.01 ve üstü normal göster
+  if (zeros < 2) return null;
   const digits = m[2].slice(0, 3);
-  const sub = zeros
-    .toString()
-    .split('')
-    .map((d) => SUB_DIGITS[+d])
-    .join('');
-  return `${sign}0.0${sub}${digits}`;
+  return `${sign}0.0(${zeros})${digits}`;
 }
 
 /** Compact numeric formatter — büyük sayıları K/M, çok küçükleri 0.0₄25 stiline indirir.
