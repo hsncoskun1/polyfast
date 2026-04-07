@@ -404,6 +404,7 @@ export default function DashboardSidebarPreview({
                     variant={p.variant === 'claim' ? 'claim' : 'open'}
                     position={p}
                     coins={data.coins}
+                    claims={data.claims}
                   />
                 ))
               )}
