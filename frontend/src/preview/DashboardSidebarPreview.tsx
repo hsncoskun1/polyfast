@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v3',
+  'composition-v4',
   `
 .dsp-root {
   display: flex;
@@ -122,10 +122,14 @@ ensureStyles(
   text-align: center;
   letter-spacing: 0.02em;
 }
+/* Section rows — auto-fit 2 col grid (Q1=1440 hedef, Q2=auto-fit responsive)
+ * Genis ekranda 2 kolon, dar ekranda otomatik 1 kolon (minmax 560px)
+ * 1440 viewport: sidebar 252 + content 44 padding = 1144 / 2 ≈ 565 per col
+ * Tile internal 580 wide → tam siginma (Q3 mock degistirilmedi) */
 .dsp-section-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+  gap: 12px;
 }
 
 /* Empty state — premium kart, kompakt (turn 2: 110px) */
