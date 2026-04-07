@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v45',
+  'eventtile-v46',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -600,7 +600,7 @@ function CoinIdentityBlock({
 // ╚══════════════════════════════════════════════════════════════╝
 
 interface MidCellsProps {
-  cells: Array<{ label: string; value: string; color?: string }>;
+  cells: Array<{ label: string; value: string; color?: string; title?: string }>;
   vertical?: boolean;
   hideLabels?: boolean;
 }
@@ -614,7 +614,7 @@ function MidCells({ cells, vertical, hideLabels }: MidCellsProps) {
   return (
     <div className={`dsp-tile-m-row${vertical ? ' vertical' : ''}`}>
       {cells.map((c) => (
-        <div key={c.label} className="dsp-tile-m-cell">
+        <div key={c.label} className="dsp-tile-m-cell" title={c.title}>
           {!hideLabels && <div className="dsp-tile-m-lbl">{c.label}</div>}
           <div className={fitClass(c.value)} style={c.color ? { color: c.color } : undefined}>{c.value}</div>
         </div>
@@ -623,25 +623,26 @@ function MidCells({ cells, vertical, hideLabels }: MidCellsProps) {
   );
 }
 
-/** Compact numeric formatter — büyük sayıları K/M formatına döker.
- *  "$1000.00" -> "$1.00K", "-15234.50" -> "-15.2K", "$1234567" -> "$1.2M"
- *  Küçük değerler değişmeden döner. Tam değer tooltip'te kalır. */
-function compactNumber(raw: string | null | undefined): string {
-  if (!raw) return '—';
+/** Compact numeric formatter — büyük sayıları K/M, çok küçükleri ≈0'a indirir.
+ *  Tam değer tooltip'te kalır.
+ *  "$1000.00" -> "$1.00K"; "-15234.50" -> "-15.2K"; "-0.000025" -> "≈0"
+ */
+function compactNumber(raw: string | null | undefined): { display: string; title?: string } {
+  if (!raw) return { display: '—' };
   const m = raw.match(/^([+-]?)(\$?)(\d+(?:[.,]\d+)?)(.*)$/);
-  if (!m) return raw;
+  if (!m) return { display: raw };
   const [, sign, dollar, numStr, suffix] = m;
-  const n = parseFloat(numStr.replace(',', '.'));
-  if (isNaN(n)) return raw;
+  const n = parseFloat((sign === '-' ? '-' : '') + numStr.replace(',', '.'));
+  if (isNaN(n)) return { display: raw };
   const abs = Math.abs(n);
-  let out: string;
-  if (abs >= 1_000_000) out = (n / 1_000_000).toFixed(1) + 'M';
-  else if (abs >= 10_000) out = (n / 1_000).toFixed(1) + 'K';
-  else if (abs >= 1_000) out = (n / 1_000).toFixed(2) + 'K';
-  else return raw;
-  // pozitif n için sign zaten boş; hesap çarpımı işaret korur, baş tekrar koymayalım
-  const finalSign = n < 0 ? '' : sign;
-  return finalSign + dollar + out + suffix;
+  // Çok küçük değerler -> ≈0 + tooltip'te tam değer
+  if (abs > 0 && abs < 0.01) {
+    return { display: '≈0', title: raw };
+  }
+  if (abs >= 1_000_000) return { display: (n / 1_000_000).toFixed(1) + 'M' + (dollar ? '' : '') + (suffix || ''), title: raw };
+  if (abs >= 10_000)    return { display: (n / 1_000).toFixed(1) + 'K' + (suffix || ''), title: raw };
+  if (abs >= 1_000)     return { display: (n / 1_000).toFixed(2) + 'K' + (suffix || ''), title: raw };
+  return { display: raw };
 }
 
 /** signed numeric → color (+ green, - red, 0 muted) */
@@ -856,24 +857,28 @@ function OpenBody({
   const live = position.live;
   // Row 1 — Giris / Canli / Delta
   const sideColor = live ? (live.side === 'UP' ? COLOR.green : COLOR.red) : undefined;
+  const cLive = live ? compactNumber(live.live) : { display: '—' };
+  const cDelta = live ? compactNumber(live.delta_text) : { display: '—' };
   const liveCells = live
     ? [
         { label: 'Giriş', value: `${live.side === 'UP' ? '▲' : '▼'} ${live.entry}`, color: sideColor },
-        { label: 'Canlı', value: live.live, color: signColor(live.delta_text) ?? COLOR.text },
-        { label: 'Delta', value: compactNumber(live.delta_text), color: signColor(live.delta_text) },
+        { label: 'Canlı', value: cLive.display, title: cLive.title, color: signColor(live.delta_text) ?? COLOR.text },
+        { label: 'Delta', value: cDelta.display, title: cDelta.title, color: signColor(live.delta_text) },
       ]
     : [];
   // Row 2 — Maliyet / NET PNL % / NET PNL USD
-  const cost = position.requested_amount_usd != null
+  const costRaw = position.requested_amount_usd != null
     ? `$${position.requested_amount_usd.toFixed(2)}`
     : '—';
   const netPct = position.pnl_big ?? '—';
-  const netUsd = position.pnl_amount ?? '—';
+  const netUsdRaw = position.pnl_amount ?? '—';
+  const cCost = compactNumber(costRaw);
+  const cNetUsd = compactNumber(netUsdRaw);
   const pnlColor = position.pnl_tone ? PNL_TONE[position.pnl_tone].fg : undefined;
   const pnlCells = [
-    { label: 'Tutar', value: compactNumber(cost), color: COLOR.cyan },
+    { label: 'Tutar', value: cCost.display, title: cCost.title, color: COLOR.cyan },
     { label: 'PNL%', value: netPct, color: pnlColor },
-    { label: 'USD', value: compactNumber(netUsd), color: pnlColor },
+    { label: 'USD', value: cNetUsd.display, title: cNetUsd.title, color: pnlColor },
   ];
   return (
     <div className="dsp-tile-m">
@@ -963,9 +968,9 @@ function SearchBody({
     <div className="dsp-tile-m">
       <MidCells
         cells={[
-          { label: 'PTB', value: compactNumber(ptb), color: COLOR.yellow },
-          { label: 'Canlı', value: compactNumber(live), color: signColor(delta) ?? COLOR.text },
-          { label: 'Delta', value: compactNumber(delta), color: signColor(delta) ?? COLOR.yellow },
+          { label: 'PTB', value: compactNumber(ptb).display, title: compactNumber(ptb).title, color: COLOR.yellow },
+          { label: 'Canlı', value: compactNumber(live).display, title: compactNumber(live).title, color: signColor(delta) ?? COLOR.text },
+          { label: 'Delta', value: compactNumber(delta).display, title: compactNumber(delta).title, color: signColor(delta) ?? COLOR.yellow },
         ]}
       />
       <ActivityStatusLine activity={activity} />
