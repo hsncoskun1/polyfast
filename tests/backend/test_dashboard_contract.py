@@ -1000,3 +1000,131 @@ async def test_idle_multiple_mixed_kinds(stub_orchestrator):
     assert len(data) == 3
     kinds = {t["tile_id"]: t["idle_kind"] for t in data}
     assert kinds == {"i1": "no_events", "i2": "waiting_rules", "i3": "bot_stopped"}
+
+
+# ─── /api/dashboard/coins — coin metadata + registry fallback tests ─
+
+
+def _make_coin_setting(
+    coin: str = "BTC",
+    coin_enabled: bool = True,
+    is_configured: bool = True,
+    is_trade_eligible: bool = True,
+    side_mode_val: str = "both",
+    order_amount: float = 2.0,
+):
+    return SimpleNamespace(
+        coin=coin,
+        coin_enabled=coin_enabled,
+        is_configured=is_configured,
+        is_trade_eligible=is_trade_eligible,
+        side_mode=SimpleNamespace(value=side_mode_val),
+        order_amount=order_amount,
+    )
+
+
+@pytest.mark.asyncio
+async def test_coins_returns_503_without_orchestrator():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/coins")
+    assert resp.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_coins_empty_when_no_coins(stub_orchestrator):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/coins")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_coins_fallback_registry_metadata(stub_orchestrator):
+    """get_coin_metadata yokken static registry fallback kullanilir."""
+    stub_orchestrator.settings_store.get_all = lambda: [_make_coin_setting("BTC")]
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/coins")
+
+    data = resp.json()
+    assert len(data) == 1
+    c = data[0]
+    assert c["symbol"] == "BTC"
+    assert c["display_name"] == "Bitcoin"
+    assert c["logo_url"] == "/icons/btc.svg"
+    assert c["configured"] is True
+    assert c["enabled"] is True
+    assert c["trade_eligible"] is True
+    assert c["side_mode"] == "both"
+    assert c["order_amount"] == 2.0
+
+
+@pytest.mark.asyncio
+async def test_coins_orchestrator_provider_wins_over_fallback(stub_orchestrator):
+    """orchestrator.get_coin_metadata varsa fallback'e tercih edilir."""
+    stub_orchestrator.settings_store.get_all = lambda: [_make_coin_setting("BTC")]
+    stub_orchestrator.get_coin_metadata = lambda sym: {
+        "display_name": "Bitcoin (Live)",
+        "logo_url": "/cdn/btc-live.png",
+    }
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/coins")
+
+    c = resp.json()[0]
+    assert c["display_name"] == "Bitcoin (Live)"
+    assert c["logo_url"] == "/cdn/btc-live.png"
+
+
+@pytest.mark.asyncio
+async def test_coins_unknown_symbol_no_metadata(stub_orchestrator):
+    """Registry'de olmayan sembol icin display_name/logo None."""
+    stub_orchestrator.settings_store.get_all = lambda: [_make_coin_setting("ZZZ")]
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/coins")
+
+    c = resp.json()[0]
+    assert c["symbol"] == "ZZZ"
+    assert c["display_name"] is None
+    assert c["logo_url"] is None
+    # Settings alanlari yine dolu
+    assert c["configured"] is True
+
+
+@pytest.mark.asyncio
+async def test_coins_provider_exception_falls_back(stub_orchestrator):
+    """get_coin_metadata exception firlatirsa sessizce fallback'e duser."""
+    stub_orchestrator.settings_store.get_all = lambda: [_make_coin_setting("ETH")]
+    def _boom(sym):
+        raise RuntimeError("metadata provider down")
+    stub_orchestrator.get_coin_metadata = _boom
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/coins")
+
+    c = resp.json()[0]
+    assert c["display_name"] == "Ethereum"
+    assert c["logo_url"] == "/icons/eth.svg"
+
+
+@pytest.mark.asyncio
+async def test_coins_multiple_mixed_registry(stub_orchestrator):
+    stub_orchestrator.settings_store.get_all = lambda: [
+        _make_coin_setting("BTC"),
+        _make_coin_setting("SOL", coin_enabled=False),
+        _make_coin_setting("XYZ"),
+    ]
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/dashboard/coins")
+
+    data = resp.json()
+    assert len(data) == 3
+    by_sym = {c["symbol"]: c for c in data}
+    assert by_sym["BTC"]["display_name"] == "Bitcoin"
+    assert by_sym["SOL"]["display_name"] == "Solana"
+    assert by_sym["SOL"]["enabled"] is False
+    assert by_sym["XYZ"]["display_name"] is None

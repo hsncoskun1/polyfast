@@ -881,6 +881,126 @@ async def get_settings() -> list[CoinSettingSummary]:
     ]
 
 
+# v0.8.0-backend-contract: Coin metadata contract
+# Registry fallback — orchestrator coin metadata provider yoksa bu statik
+# mapping kullanilir. Frontend coinRegistry.ts aynasi.
+_COIN_METADATA_FALLBACK: dict[str, dict[str, str]] = {
+    "BTC": {"display_name": "Bitcoin", "logo_url": "/icons/btc.svg"},
+    "ETH": {"display_name": "Ethereum", "logo_url": "/icons/eth.svg"},
+    "SOL": {"display_name": "Solana", "logo_url": "/icons/sol.svg"},
+    "XRP": {"display_name": "Ripple", "logo_url": "/icons/xrp.svg"},
+    "DOGE": {"display_name": "Dogecoin", "logo_url": "/icons/doge.svg"},
+    "ADA": {"display_name": "Cardano", "logo_url": "/icons/ada.svg"},
+}
+
+
+class CoinInfoContract(BaseModel):
+    """Tek bir coin'in frontend icin birlesik metadata + ayar ozeti.
+
+    Frontend coin listesini bu endpoint'ten bir defa ceker; sonra
+    event tile'lar sadece symbol ile referans verip metadata'yi
+    bu ortak registry'den coker.
+
+    symbol        → 'BTC' (CoinSetting.coin ile ayni)
+    display_name  → 'Bitcoin' (varsa orchestrator'dan, yoksa fallback)
+    logo_url      → '/icons/btc.svg' (opsiyonel)
+    configured    → SettingsStore.is_configured
+    enabled       → SettingsStore.coin_enabled
+    trade_eligible → SettingsStore.is_trade_eligible
+    side_mode     → 'both' | 'up_only' | 'down_only' vb
+    order_amount  → tek islem USD tutari
+    """
+
+    symbol: str
+    display_name: Optional[str] = None
+    logo_url: Optional[str] = None
+    configured: bool = False
+    enabled: bool = False
+    trade_eligible: bool = False
+    side_mode: Optional[str] = None
+    order_amount: Optional[float] = None
+
+
+def _lookup_coin_metadata(orch, symbol: str) -> dict[str, Optional[str]]:
+    """Orchestrator provider > static fallback registry > bos.
+
+    Orchestrator kasti olarak get_coin_metadata(symbol) yoksa sessizce
+    fallback'e duser (warning log YOK — fallback normal path).
+    """
+    provider = getattr(orch, "get_coin_metadata", None)
+    if callable(provider):
+        try:
+            meta = provider(symbol)
+            if isinstance(meta, dict):
+                return {
+                    "display_name": meta.get("display_name") or meta.get("name"),
+                    "logo_url": meta.get("logo_url") or meta.get("icon"),
+                }
+        except Exception as exc:
+            logger.warning(
+                "get_coin_metadata('%s') raised %s — fallback registry'e dusuluyor",
+                symbol,
+                exc,
+            )
+
+    fallback = _COIN_METADATA_FALLBACK.get(symbol.upper(), {})
+    return {
+        "display_name": fallback.get("display_name"),
+        "logo_url": fallback.get("logo_url"),
+    }
+
+
+def _build_coin_info(orch, s) -> CoinInfoContract:
+    """CoinSetting + metadata registry birlestirmesi."""
+    meta = _lookup_coin_metadata(orch, s.coin)
+
+    side_mode_val = None
+    try:
+        side_mode_val = s.side_mode.value if hasattr(s.side_mode, "value") else str(s.side_mode)
+    except Exception:
+        side_mode_val = None
+
+    return CoinInfoContract(
+        symbol=s.coin,
+        display_name=meta.get("display_name"),
+        logo_url=meta.get("logo_url"),
+        configured=bool(getattr(s, "is_configured", False)),
+        enabled=bool(getattr(s, "coin_enabled", False)),
+        trade_eligible=bool(getattr(s, "is_trade_eligible", False)),
+        side_mode=side_mode_val,
+        order_amount=getattr(s, "order_amount", None),
+    )
+
+
+@router.get("/dashboard/coins", response_model=list[CoinInfoContract])
+async def get_coins() -> list[CoinInfoContract]:
+    """Coin metadata + ayar registry — tek kaynak.
+
+    Frontend bu listeyi bir defa cekip coin bazli lookup yapar.
+    Orchestrator get_coin_metadata(symbol) provider'i varsa oncelikli,
+    yoksa static fallback kullanilir.
+    """
+    orch = _get_orchestrator()
+
+    try:
+        coins = orch.settings_store.get_all()
+    except Exception as exc:
+        logger.warning("settings_store.get_all() raised %s — bos liste", exc)
+        return []
+
+    if not coins:
+        return []
+
+    out: list[CoinInfoContract] = []
+    for s in coins:
+        try:
+            out.append(_build_coin_info(orch, s))
+        except Exception as exc:
+            logger.warning("Skipping malformed coin setting: %s (%r)", exc, s)
+            continue
+    return out
+
+
 @router.get("/dashboard/trading-status", response_model=TradingStatus)
 async def get_trading_status() -> TradingStatus:
     """Trading durumu — degraded mode kontrolu."""
