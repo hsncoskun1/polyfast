@@ -17,7 +17,7 @@
 
 import { useMemo, useState } from 'react';
 import { useDashboardData } from '../hooks/useDashboardData';
-import { COLOR, FONT, SIZE, ensureStyles } from './styles';
+import { COLOR, FONT, SIZE, SECTION_TONE, ensureStyles, type SectionKey } from './styles';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import SectionFilterStrip, { type SectionFilter } from './SectionFilterStrip';
@@ -33,7 +33,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition',
+  'composition-v2',
   `
 .dsp-root {
   display: flex;
@@ -54,48 +54,138 @@ ensureStyles(
 .dsp-content {
   flex: 1;
   overflow-y: auto;
-  padding: 18px;
+  padding: 22px 22px 28px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 26px;
 }
+
+/* Section — header + rows */
 .dsp-section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 .dsp-section-hdr {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 4px;
+  align-items: stretch;
+  gap: 12px;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid;
+  position: relative;
 }
-.dsp-section-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: ${FONT.weight.semibold};
-  color: ${COLOR.textMuted};
+.dsp-section-hdr-bar {
+  width: 3px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
-.dsp-section-line {
+.dsp-section-hdr-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   flex: 1;
-  height: 1px;
-  background: ${COLOR.divider};
+  min-width: 0;
+}
+.dsp-section-hdr-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dsp-section-hdr-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dsp-section-hdr-title {
+  font-size: 13px;
+  font-weight: ${FONT.weight.bold};
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.dsp-section-hdr-subtitle {
+  font-size: 11px;
+  color: ${COLOR.textMuted};
+  font-weight: ${FONT.weight.medium};
+  padding-left: 17px;
+}
+.dsp-section-hdr-badge {
+  font-family: ${FONT.mono};
+  font-size: 12px;
+  font-weight: ${FONT.weight.bold};
+  padding: 4px 10px;
+  border-radius: 12px;
+  align-self: center;
+  border: 1px solid;
+  min-width: 32px;
+  text-align: center;
+  letter-spacing: 0.02em;
 }
 .dsp-section-rows {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
+
+/* Empty state — premium kart (140-160px) */
 .dsp-empty {
-  padding: 18px;
-  border-radius: ${SIZE.radius}px;
+  padding: 26px 22px;
+  border-radius: ${SIZE.radiusLg}px;
   background: ${COLOR.surface};
-  border: 1px dashed ${COLOR.divider};
-  color: ${COLOR.textMuted};
+  border: 1px solid ${COLOR.border};
+  border-left-width: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   text-align: center;
-  font-size: ${FONT.size.md};
+  min-height: 140px;
+  justify-content: center;
 }
+.dsp-empty-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+.dsp-empty-title {
+  font-size: 14px;
+  font-weight: ${FONT.weight.bold};
+  color: ${COLOR.text};
+  letter-spacing: 0.02em;
+}
+.dsp-empty-desc {
+  font-size: 12px;
+  color: ${COLOR.textMuted};
+  line-height: 1.5;
+  max-width: 340px;
+}
+.dsp-empty-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 10px;
+  background: ${COLOR.bgRaised};
+  border: 1px solid ${COLOR.divider};
+  font-size: 10px;
+  color: ${COLOR.textMuted};
+  font-family: ${FONT.mono};
+  margin-top: 2px;
+}
+.dsp-empty-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: ${COLOR.green};
+}
+.dsp-empty-status-dot.err { background: ${COLOR.red}; }
+
 .dsp-loading-banner {
   padding: 8px 18px;
   background: ${COLOR.brandSoft};
@@ -120,26 +210,100 @@ ensureStyles(
 // ╚══════════════════════════════════════════════════════════════╝
 
 interface SectionProps {
-  title: string;
+  sectionKey: SectionKey;
   count: number;
   children: React.ReactNode;
 }
-function Section({ title, count, children }: SectionProps) {
+function Section({ sectionKey, count, children }: SectionProps) {
+  const tone = SECTION_TONE[sectionKey];
   return (
     <section className="dsp-section">
-      <div className="dsp-section-hdr">
-        <span className="dsp-section-title">
-          {title} · {count}
-        </span>
-        <span className="dsp-section-line" />
+      <div
+        className="dsp-section-hdr"
+        style={{ borderBottomColor: `${tone.fg}22` }}
+      >
+        <div
+          className="dsp-section-hdr-bar"
+          style={{ background: tone.fg }}
+        />
+        <div className="dsp-section-hdr-text">
+          <div className="dsp-section-hdr-title-row">
+            <span
+              className="dsp-section-hdr-dot"
+              style={{
+                background: tone.fg,
+                boxShadow: `0 0 6px ${tone.fg}99`,
+              }}
+            />
+            <span
+              className="dsp-section-hdr-title"
+              style={{ color: tone.fg }}
+            >
+              {tone.title}
+            </span>
+          </div>
+          <div className="dsp-section-hdr-subtitle">{tone.subtitle}</div>
+        </div>
+        <div
+          className="dsp-section-hdr-badge"
+          style={{
+            background: tone.bg,
+            color: tone.fg,
+            borderColor: tone.border,
+          }}
+        >
+          {count}
+        </div>
       </div>
       <div className="dsp-section-rows">{children}</div>
     </section>
   );
 }
 
-function EmptyState({ msg }: { msg: string }) {
-  return <div className="dsp-empty">{msg}</div>;
+interface EmptyStateProps {
+  sectionKey: SectionKey;
+  title: string;
+  description: string;
+  icon: string;
+  /** Backend canli mi (status chip rengi icin) */
+  online: boolean;
+  /** Status chip metni */
+  statusText: string;
+}
+function EmptyState({
+  sectionKey,
+  title,
+  description,
+  icon,
+  online,
+  statusText,
+}: EmptyStateProps) {
+  const tone = SECTION_TONE[sectionKey];
+  return (
+    <div
+      className="dsp-empty"
+      style={{ borderLeftColor: tone.fg }}
+    >
+      <div
+        className="dsp-empty-icon"
+        style={{
+          color: tone.fg,
+          borderColor: `${tone.fg}55`,
+          background: tone.bg,
+        }}
+      >
+        {icon}
+      </div>
+      <div className="dsp-empty-title">{title}</div>
+      <div className="dsp-empty-desc">{description}</div>
+      <div className="dsp-empty-status">
+        <span
+          className={`dsp-empty-status-dot${online ? '' : ' err'}`}
+        />
+        <span>{statusText}</span>
+      </div>
+    </div>
+  );
 }
 
 // Sirala: claim variant once, sonra open
@@ -176,6 +340,12 @@ export default function DashboardSidebarPreview() {
   const showSearch = filter === 'all' || filter === 'search';
   const showIdle = filter === 'all' || filter === 'idle';
 
+  // Status chip: hep gosterilir (Q3 = a)
+  const online = data.errorStreak < 3;
+  const statusText = online
+    ? 'Backend bağlı · 3s polling'
+    : `Bağlantı sorunlu · ${data.errorStreak} retry`;
+
   return (
     <div className="dsp-root">
       <Sidebar health={data.health} />
@@ -188,19 +358,26 @@ export default function DashboardSidebarPreview() {
         />
 
         {data.loading && (
-          <div className="dsp-loading-banner">Veri yukleniyor…</div>
+          <div className="dsp-loading-banner">Veri yükleniyor…</div>
         )}
         {!data.loading && data.errorStreak >= 3 && (
           <div className="dsp-error-banner">
-            Backend baglantisi sorunlu — {data.errorStreak} ust uste hata
+            Backend bağlantısı sorunlu — {data.errorStreak} üst üste hata
           </div>
         )}
 
         <div className="dsp-content">
           {showOpen && (
-            <Section title="AÇIK İŞLEMLER" count={positions.length}>
+            <Section sectionKey="open" count={positions.length}>
               {positions.length === 0 ? (
-                <EmptyState msg="Şu an açık işlem yok" />
+                <EmptyState
+                  sectionKey="open"
+                  icon="◯"
+                  title="Henüz açık işlem yok"
+                  description="Bot yeni 5M event arıyor — sinyal oluştuğunda burada görünür"
+                  online={online}
+                  statusText={statusText}
+                />
               ) : (
                 sortedPositions.map((p) => (
                   <EventTile
@@ -215,9 +392,16 @@ export default function DashboardSidebarPreview() {
           )}
 
           {showSearch && (
-            <Section title="İŞLEM ARANANLAR" count={search.length}>
+            <Section sectionKey="search" count={search.length}>
               {search.length === 0 ? (
-                <EmptyState msg="Şu an aranan işlem yok — bot kuralların oluşmasını bekliyor" />
+                <EmptyState
+                  sectionKey="search"
+                  icon="⌕"
+                  title="Sinyal aranıyor"
+                  description="Kuralların tüm coinler için oluşmasını bekliyoruz — eligible olanlar burada listelenecek"
+                  online={online}
+                  statusText={statusText}
+                />
               ) : (
                 search.map((s) => (
                   <EventTile
@@ -232,9 +416,16 @@ export default function DashboardSidebarPreview() {
           )}
 
           {showIdle && (
-            <Section title="İŞLEM ARANMAYANLAR" count={idle.length}>
+            <Section sectionKey="idle" count={idle.length}>
               {idle.length === 0 ? (
-                <EmptyState msg="Şu an pasif coin yok" />
+                <EmptyState
+                  sectionKey="idle"
+                  icon="⊙"
+                  title="Pasif coin yok"
+                  description="Tüm coinler aktif ya da henüz kayıt yok — manuel kapatılan coinler burada görünür"
+                  online={online}
+                  statusText={statusText}
+                />
               ) : (
                 idle.map((i) => (
                   <EventTile
