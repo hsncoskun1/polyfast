@@ -144,7 +144,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'neutral',
     live: { side: 'UP', entry: '68', live: '68.0', delta_text: '0.0' },
     exits: { tp: '74', sl: '62', fs: '5:00', fs_pnl: '-5%' },
-    activity: { text: '✓ Emir doldu — UP 68, pozisyon açıldı', severity: 'success' },
+    activity: { text: '✓ Emir doldu · UP 68, pozisyon açıldı', severity: 'success' },
   },
 
   // ─── OPEN LIFECYCLE 2: TP yaklasiyor ───
@@ -157,7 +157,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'profit',
     live: { side: 'UP', entry: '83', live: '85.6', delta_text: '+2.6' },
     exits: { tp: '87', sl: '81', fs: '2:14', fs_pnl: '-5%' },
-    activity: { text: '● TP yaklaşıyor — hedef 87', severity: 'success' },
+    activity: { text: '● TP yaklaşıyor · hedef 87', severity: 'success' },
   },
 
   // ─── OPEN LIFECYCLE 3: TP closed (positif kapali ama henuz claim olmamis) ───
@@ -170,7 +170,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'profit',
     live: { side: 'UP', entry: '78', live: '88.5', delta_text: '+10.5' },
     exits: { tp: '88', sl: '72', fs: '0:42', fs_pnl: '-5%' },
-    activity: { text: '✓ TP @ 88 — +1.34$ kapatma emri gönderildi', severity: 'success' },
+    activity: { text: '✓ TP @ 88 · +1.34$ kapatma emri gönderildi', severity: 'success' },
   },
 
   // ─── OPEN LIFECYCLE 4: SL yaklasiyor ───
@@ -183,7 +183,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'DOWN', entry: '55', live: '52.8', delta_text: '-2.2' },
     exits: { tp: '60', sl: '52', fs: '1:48', fs_pnl: '-5%' },
-    activity: { text: '▲ SL yaklaşıyor — Limit 52', severity: 'warning' },
+    activity: { text: '▲ SL yaklaşıyor · Limit 52', severity: 'warning' },
   },
 
   // ─── OPEN LIFECYCLE 5: SL tetiklendi ───
@@ -196,7 +196,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'UP', entry: '71', live: '56.0', delta_text: '-15.0' },
     exits: { tp: '76', sl: '56', fs: '0:18', fs_pnl: '-5%' },
-    activity: { text: '⚡ SL tetiklendi — satış emri gönderildi', severity: 'error' },
+    activity: { text: '⚡ SL tetiklendi · satış emri gönderildi', severity: 'error' },
   },
 
   // ─── OPEN LIFECYCLE 6: FS countdown ───
@@ -209,7 +209,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'DOWN', entry: '62', live: '64.2', delta_text: '+2.2' },
     exits: { tp: '67', sl: '58', fs: '0:08', fs_pnl: '-5%' },
-    activity: { text: '⚡ Force sell — 8 saniye sonra zorunlu kapatma', severity: 'pending' },
+    activity: { text: '⚡ Force sell · 8 saniye sonra zorunlu kapatma', severity: 'pending' },
   },
 
   // ─── OPEN LIFECYCLE 7: FS closed ───
@@ -222,7 +222,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'UP', entry: '56', live: '50.0', delta_text: '-6.0' },
     exits: { tp: '61', sl: '51', fs: '0:00', fs_pnl: '-5%' },
-    activity: { text: '⚡ FS @ 50 — -0.06$ Force sell ile kapandı', severity: 'warning' },
+    activity: { text: '⚡ FS @ 50 · -0.06$ Force sell ile kapandı', severity: 'warning' },
   },
 
   // ─── CLAIM LIFECYCLE 1: pending RETRY ───
@@ -232,7 +232,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_big: 'CLAIM',
     pnl_amount: 'PENDING',
     pnl_tone: 'pending',
-    activity: { text: '⏳ Claim bekliyor — tamamlanmadan yeni işlem açılamaz', severity: 'pending' },
+    activity: { text: '⏳ Claim bekliyor · tamamlanmadan yeni işlem açılamaz', severity: 'pending' },
   },
 
   // ─── CLAIM LIFECYCLE 2: OK ───
@@ -243,7 +243,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_big: '+21.0%',
     pnl_amount: '+0.42$',
     pnl_tone: 'profit',
-    activity: { text: '✓ Claim başarılı — $4.21 hesaba aktarıldı', severity: 'success' },
+    activity: { text: '✓ Claim başarılı · $4.21 hesaba aktarıldı', severity: 'success' },
   },
 
   // ─── CLAIM LIFECYCLE 3: FAIL ───
@@ -254,7 +254,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_big: '-100%',
     pnl_amount: '-2.00$',
     pnl_tone: 'loss',
-    activity: { text: '✕ Max retry — manuel müdahale gerek', severity: 'error' },
+    activity: { text: '✕ Max retry · manuel müdahale gerek', severity: 'error' },
   },
 ];
 
@@ -337,7 +337,7 @@ export const MOCK_SEARCH: SearchTileContract[] = [
     live: '111,289',
     delta: '$55',
     rules: allPass(),
-    activity: { text: '● Sinyal hazır — FOK 56 gönderiliyor', severity: 'success' },
+    activity: { text: '● Sinyal hazır · FOK 56 gönderiliyor', severity: 'success' },
     signal_ready: true,
     type: 'ok',
   },
@@ -355,7 +355,7 @@ export const MOCK_SEARCH: SearchTileContract[] = [
     live: '3,876',
     delta: '$56',
     rules: allPass('2:48', '78', '$56', '2.1%'),
-    activity: { text: '◉ FOK 56 — dolum bekleniyor', severity: 'info' },
+    activity: { text: '◉ FOK 56 · dolum bekleniyor', severity: 'info' },
     signal_ready: true,
     type: 'wait',
   },
@@ -380,7 +380,7 @@ export const MOCK_SEARCH: SearchTileContract[] = [
       { label: 'EvMax',  live_value: '0/1',  threshold_text: '1',       state: 'pass' },
       { label: 'BotMax', live_value: '2/3',  threshold_text: '3',       state: 'pass' },
     ],
-    activity: { text: '◌ Delta yetersiz — sinyal bekleniyor', severity: 'pending' },
+    activity: { text: '◌ Delta yetersiz · sinyal bekleniyor', severity: 'pending' },
     signal_ready: false,
     type: 'wait',
   },
@@ -405,7 +405,7 @@ export const MOCK_SEARCH: SearchTileContract[] = [
       { label: 'EvMax',  live_value: '0/1',  threshold_text: '1',       state: 'pass' },
       { label: 'BotMax', live_value: '2/3',  threshold_text: '3',       state: 'pass' },
     ],
-    activity: { text: '▲ Spread yüksek — bekleniyor', severity: 'warning' },
+    activity: { text: '▲ Spread yüksek · bekleniyor', severity: 'warning' },
     signal_ready: false,
     type: 'wait',
   },
@@ -430,7 +430,7 @@ export const MOCK_SEARCH: SearchTileContract[] = [
       { label: 'EvMax',  live_value: '0/1',  threshold_text: '1',       state: 'pass' },
       { label: 'BotMax', live_value: '3/3',  threshold_text: '3',       state: 'fail' },
     ],
-    activity: { text: '✕ Bot max doldu — bekleniyor', severity: 'error' },
+    activity: { text: '✕ Bot max doldu · bekleniyor', severity: 'error' },
     signal_ready: false,
     type: 'wait',
   },
@@ -448,7 +448,7 @@ export const MOCK_SEARCH: SearchTileContract[] = [
     live: '14.31',
     delta: '$60',
     rules: allPass('1:30', '142', '$60', '1.9%'),
-    activity: { text: '✕ Balance yetersiz — min $1.00', severity: 'error' },
+    activity: { text: '✕ Balance yetersiz · min $1.00', severity: 'error' },
     signal_ready: false,
     type: 'wait',
   },
@@ -497,7 +497,7 @@ export const MOCK_IDLE: IdleTileContract[] = [
     coin: 'BTC',
     idle_kind: 'error',
     msg: 'PTB fetch hatası',
-    activity: { text: '✕ Polymarket fiyat çekilemedi — son deneme: 30s önce', severity: 'error' },
+    activity: { text: '✕ Polymarket fiyat çekilemedi · son deneme: 30s önce', severity: 'error' },
     rules: null,
     event_url: null,
   },
