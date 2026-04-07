@@ -2,7 +2,7 @@
 
 > **Bu dosya her anlamlı commit'te güncellenir** ve push edilir. Olası bir kayıpta GitHub'dan baktığında en son durumu ve devam edilmesi gereken adımı görürsün.
 >
-> **Son güncelleme:** 2026-04-07 (tile h 138 + ID row \$ buton + count badge title yanina + grid ic ferah)
+> **Son güncelleme:** 2026-04-08 (TR ceviriler + open status lifecycle + mid row swap + entry x100 fix)
 > **Aktif branch:** `main`
 > **Aktif önizleme URL:** `localhost:5173/?preview=sidebar&mock=full`
 > **Çalışma dizini:** `C:\polyfast`
@@ -43,6 +43,19 @@
 - ✅ Tile dış padding **az** (5/14 → 6/14)
 - ✅ Section header **count badge title yanında** (sağda uzakta değil)
 - ✅ ExitGrid cell padding 6/11, val 14px, gap 6 (TP/SL/FS/FS PnL)
+- ✅ **TR çeviriler tüm tile içerikleri:**
+  - Open status: YENİ / TP-YAKIN / TP-KAR / SL-YAKIN / STOPLOSS / F-RISK / FORCESELL / KAR / ZARAR
+  - Claim outcome: KAZANÇ / KAYIP / BEKLİYOR
+  - Claim status: BAŞARILI / BAŞARISIZ / TEKRAR
+  - Claim panel: DURUM / Ödeme / Sonuç / Giriş / Kapanış
+  - Close reason: SÜRE DOLDU
+- ✅ **Open variant mid panel** 3 satır:
+  - Row 1: Maliyet / Net % / Net USD
+  - Row 2: Giriş / Canlı / Delta
+  - Row 3: Activity
+- ✅ Sol kolon (open) PnL box artık **lifecycle status etiketi** (KAR/ZARAR yerine T-PROFIT/STOPLOSS gibi)
+- ✅ Entry display 0-100 cents (fill_price * 100, raw 0.65 → 65)
+- ✅ Mid cells kompakt (yüksek değer desteği — BTC $111,234 / DOGE delta sığar)
 - ✅ Status / Retry / Payout (claim) — wired claims listesinden lookup
 - ✅ Ürün kararları kayıtlı: `~/.claude/projects/C--polyfast/memory/`
 
@@ -130,6 +143,7 @@
 | 2026-04-07 17:24 | `C:\polyfast-backups\polyfast_2026-04-07_17-24_turn3-bitti` | `a5e7db9` |
 | 2026-04-07 23:12 | `C:\polyfast-backups\polyfast_2026-04-07_23-12_8tile-fit` | `bb239fe` |
 | 2026-04-08 00:30 | `C:\polyfast-backups\polyfast_2026-04-08_00-30_id-row-dollar` | `65574f0` |
+| 2026-04-08 02:30 | `C:\polyfast-backups\polyfast_2026-04-08_02-30_tr-translations` | `f5a7bf7` |
 
 GitHub remote: `github.com/hsncoskun1/polyfast` (her commit + push güvende)
 
