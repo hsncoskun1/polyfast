@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v39',
+  'eventtile-v40',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -234,25 +234,26 @@ ensureStyles(
   box-sizing: border-box;
 }
 .dsp-tile-m-cell {
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: row;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   min-width: 0;
-  padding: 3px 4px;
+  padding: 4px 8px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
-  gap: 0;
+  gap: 6px;
   box-sizing: border-box;
 }
 .dsp-tile-m-lbl {
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
   letter-spacing: 0.06em;
   white-space: nowrap;
   line-height: 1.1;
+  flex-shrink: 0;
 }
 .dsp-tile-m-val {
   font-family: ${FONT.mono};
@@ -263,8 +264,8 @@ ensureStyles(
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.15;
-  max-width: 100%;
-  text-align: center;
+  min-width: 0;
+  text-align: right;
 }
 /* Activity bar — full width mid panel, ortali (sabit kart, gelen text ortali) */
 .dsp-tile-m-act {
