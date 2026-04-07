@@ -240,7 +240,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
   {
     ...baseClaim('mock-pos-9', 'ADA'),
     net_realized_pnl: 0.42,
-    pnl_big: '+21.0%',
+    pnl_big: 'CLAIM',
     pnl_amount: '+0.42$',
     pnl_tone: 'profit',
     activity: { text: 'Claim başarılı | $4.21 hesaba aktarıldı', severity: 'success' },

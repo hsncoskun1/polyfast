@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v6',
+  'topbar-v7',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -105,6 +105,18 @@ ensureStyles(
 .dsp-tb-chip.pnl.neutral .dsp-tb-chip-value { color: ${COLOR.text}; }
 .dsp-tb-chip.pnl.off .dsp-tb-chip-value { color: ${COLOR.textDim}; }
 
+/* Tonelu chip — boxed bg + colored value (oturum pnl gibi) */
+.dsp-tb-chip.tone-green   { background: ${COLOR.greenSoft};  border-color: ${COLOR.greenSoft}; }
+.dsp-tb-chip.tone-green   .dsp-tb-chip-value { color: ${COLOR.green}; }
+.dsp-tb-chip.tone-red     { background: ${COLOR.redSoft};    border-color: ${COLOR.redSoft}; }
+.dsp-tb-chip.tone-red     .dsp-tb-chip-value { color: ${COLOR.red}; }
+.dsp-tb-chip.tone-yellow  { background: ${COLOR.yellowSoft}; border-color: ${COLOR.yellowSoft}; }
+.dsp-tb-chip.tone-yellow  .dsp-tb-chip-value { color: ${COLOR.yellow}; }
+.dsp-tb-chip.tone-brand   { background: ${COLOR.brandSoft};  border-color: ${COLOR.brandSoft}; }
+.dsp-tb-chip.tone-brand   .dsp-tb-chip-value { color: ${COLOR.brand}; }
+.dsp-tb-chip.tone-cyan    { background: rgba(6, 182, 212, 0.16); border-color: rgba(6, 182, 212, 0.16); }
+.dsp-tb-chip.tone-cyan    .dsp-tb-chip-value { color: ${COLOR.cyan}; }
+
 /* Sound button */
 .dsp-tb-actions {
   display: flex;
@@ -163,34 +175,37 @@ ensureStyles(
 // ║  Local renderers                                             ║
 // ╚══════════════════════════════════════════════════════════════╝
 
+type ChipTone = 'green' | 'red' | 'yellow' | 'brand' | 'cyan';
 interface KpiCellProps {
   label: string;
   value: string;
   tone?: PnlTone;
   color?: string;
+  chipTone?: ChipTone;
 }
 
-function KpiCell({ label, value, tone, color: colorProp }: KpiCellProps) {
+function KpiCell({ label, value, tone, color: colorProp, chipTone }: KpiCellProps) {
   const color = colorProp ?? (tone ? PNL_TONE[tone].fg : COLOR.text);
+  const cls = `dsp-tb-chip${chipTone ? ` tone-${chipTone}` : ''}`;
   return (
-    <div className="dsp-tb-chip">
+    <div className={cls}>
       <div className="dsp-tb-chip-label">{label}</div>
-      <div className="dsp-tb-chip-value" style={{ color }}>
+      <div className="dsp-tb-chip-value" style={chipTone ? undefined : { color }}>
         {value}
       </div>
     </div>
   );
 }
 
-/** Winrate -> tone (>=50% profit, <50% loss, missing neutral). */
-function winrateColor(raw: string | null | undefined): string {
-  if (!raw) return COLOR.text;
+/** Winrate -> chipTone (>=50 green, >0 yellow, =0 red). */
+function winrateChipTone(raw: string | null | undefined): ChipTone {
+  if (!raw) return 'brand';
   const m = raw.match(/(-?\d+(?:\.\d+)?)/);
-  if (!m) return COLOR.text;
+  if (!m) return 'brand';
   const pct = parseFloat(m[1]);
-  if (pct >= 50) return COLOR.green;
-  if (pct > 0) return COLOR.yellow;
-  return COLOR.red;
+  if (pct >= 50) return 'green';
+  if (pct > 0) return 'yellow';
+  return 'red';
 }
 
 /** PnL chip — 2 satir (deger + yuzde), tone bg */
@@ -250,11 +265,11 @@ export default function TopBar({ overview, mockMode = false }: TopBarProps) {
     <div className="dsp-topbar">
       {/* Group 1 — MONEY */}
       <div className="dsp-tb-group">
-        <KpiCell label="Bakiye" value={fmtMoney(overview?.bakiye_text)} color={COLOR.cyan} />
+        <KpiCell label="Bakiye" value={fmtMoney(overview?.bakiye_text)} chipTone="brand" />
         <KpiCell
           label="Kullanılabilir"
           value={fmtMoney(overview?.kullanilabilir_text)}
-          color={COLOR.green}
+          chipTone="green"
         />
         <PnlCell
           label="Oturum PnL"
@@ -268,19 +283,23 @@ export default function TopBar({ overview, mockMode = false }: TopBarProps) {
 
       {/* Group 2 — ACTIVITY */}
       <div className="dsp-tb-group">
-        <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} color={COLOR.brand} />
-        <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} color={COLOR.brand} />
-        <KpiCell label="A/G Rate" value={overview?.ag_rate ?? '—'} color={COLOR.brand} />
+        <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} chipTone="brand" />
+        <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} chipTone="brand" />
+        <KpiCell label="A/G Rate" value={overview?.ag_rate ?? '—'} chipTone="brand" />
       </div>
 
       <div className="dsp-tb-divider" />
 
       {/* Group 3 — OUTCOME */}
       <div className="dsp-tb-group">
-        <KpiCell label="Kazanan" value={fmtNum(overview?.win)} color={COLOR.green} />
-        <KpiCell label="Kaybeden" value={fmtNum(overview?.lost)} color={COLOR.red} />
-        <KpiCell label="Bekleyen" value={fmtNum(overview?.pending_claims)} color={COLOR.yellow} />
-        <KpiCell label="Winrate" value={overview?.winrate ?? '—'} color={winrateColor(overview?.winrate)} />
+        <KpiCell label="Kazanan" value={fmtNum(overview?.win)} chipTone="green" />
+        <KpiCell label="Kaybeden" value={fmtNum(overview?.lost)} chipTone="red" />
+        <KpiCell label="Bekleyen" value={fmtNum(overview?.pending_claims)} chipTone="yellow" />
+        <KpiCell
+          label="Winrate"
+          value={overview?.winrate ?? '—'}
+          chipTone={winrateChipTone(overview?.winrate)}
+        />
       </div>
 
       {mockMode && (
