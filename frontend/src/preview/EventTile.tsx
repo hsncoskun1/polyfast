@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v42',
+  'eventtile-v43',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -602,6 +602,7 @@ function CoinIdentityBlock({
 interface MidCellsProps {
   cells: Array<{ label: string; value: string; color?: string }>;
   vertical?: boolean;
+  hideLabels?: boolean;
 }
 function fitClass(v: string): string {
   const len = v.length;
@@ -609,12 +610,12 @@ function fitClass(v: string): string {
   if (len >= 7) return 'dsp-tile-m-val fit-md';
   return 'dsp-tile-m-val';
 }
-function MidCells({ cells, vertical }: MidCellsProps) {
+function MidCells({ cells, vertical, hideLabels }: MidCellsProps) {
   return (
     <div className={`dsp-tile-m-row${vertical ? ' vertical' : ''}`}>
       {cells.map((c) => (
         <div key={c.label} className="dsp-tile-m-cell">
-          <div className="dsp-tile-m-lbl">{c.label}</div>
+          {!hideLabels && <div className="dsp-tile-m-lbl">{c.label}</div>}
           <div className={fitClass(c.value)} style={c.color ? { color: c.color } : undefined}>{c.value}</div>
         </div>
       ))}
@@ -914,6 +915,7 @@ function ClaimBody({
     <div className="dsp-tile-m">
       <MidCells
         vertical
+        hideLabels
         cells={[
           { label: 'Kapanış', value: closeText, color: closeColor },
           { label: 'Sonuç', value: outcome, color: outcomeColor },
