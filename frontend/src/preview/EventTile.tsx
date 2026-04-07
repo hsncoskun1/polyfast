@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v24',
+  'eventtile-v25',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -100,14 +100,16 @@ ensureStyles(
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
 }
+/* \$ buton: sadece 2 state — gri (default/passive) + yesil (active)
+ * Eski dashboard stili: inline chip, container'a gomulu, mor kullanmadan */
 .dsp-tile-l-id-dollar {
   width: 22px;
   height: 22px;
-  display: flex; align-items: center; justify-content: center;
-  background: ${COLOR.brandSoft};
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(126, 126, 146, 0.16); /* gri soft default */
   border: none;
   border-radius: 50%;
-  color: ${COLOR.brand};
+  color: ${COLOR.textMuted};
   font-size: 15px;
   font-weight: ${FONT.weight.bold};
   cursor: pointer;
@@ -121,11 +123,12 @@ ensureStyles(
   color: ${COLOR.green};
 }
 .dsp-tile-l-id-dollar.dollar-passive {
-  background: ${COLOR.cyanSoft};
-  color: ${COLOR.cyan};
+  /* passive = default gri (idle tile) */
+  background: rgba(126, 126, 146, 0.16);
+  color: ${COLOR.textMuted};
 }
 .dsp-tile-l-id-dollar:hover {
-  filter: brightness(1.2);
+  filter: brightness(1.25);
 }
 .dsp-tile-l-avatar {
   width: 22px; height: 22px;
