@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v4',
+  'topbar-v5',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -167,10 +167,11 @@ interface KpiCellProps {
   label: string;
   value: string;
   tone?: PnlTone;
+  color?: string;
 }
 
-function KpiCell({ label, value, tone }: KpiCellProps) {
-  const color = tone ? PNL_TONE[tone].fg : COLOR.text;
+function KpiCell({ label, value, tone, color: colorProp }: KpiCellProps) {
+  const color = colorProp ?? (tone ? PNL_TONE[tone].fg : COLOR.text);
   return (
     <div className="dsp-tb-chip">
       <div className="dsp-tb-chip-label">{label}</div>
@@ -179,6 +180,17 @@ function KpiCell({ label, value, tone }: KpiCellProps) {
       </div>
     </div>
   );
+}
+
+/** Winrate -> tone (>=50% profit, <50% loss, missing neutral). */
+function winrateColor(raw: string | null | undefined): string {
+  if (!raw) return COLOR.text;
+  const m = raw.match(/(-?\d+(?:\.\d+)?)/);
+  if (!m) return COLOR.text;
+  const pct = parseFloat(m[1]);
+  if (pct >= 50) return COLOR.green;
+  if (pct > 0) return COLOR.yellow;
+  return COLOR.red;
 }
 
 /** PnL chip — 2 satir (deger + yuzde), tone bg */
@@ -238,10 +250,11 @@ export default function TopBar({ overview, mockMode = false }: TopBarProps) {
     <div className="dsp-topbar">
       {/* Group 1 — MONEY */}
       <div className="dsp-tb-group">
-        <KpiCell label="Bakiye" value={fmtMoney(overview?.bakiye_text)} />
+        <KpiCell label="Bakiye" value={fmtMoney(overview?.bakiye_text)} color={COLOR.cyan} />
         <KpiCell
           label="Kullanılabilir"
           value={fmtMoney(overview?.kullanilabilir_text)}
+          color={COLOR.green}
         />
         <PnlCell
           label="Oturum PnL"
@@ -255,19 +268,19 @@ export default function TopBar({ overview, mockMode = false }: TopBarProps) {
 
       {/* Group 2 — ACTIVITY */}
       <div className="dsp-tb-group">
-        <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} />
-        <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} />
-        <KpiCell label="A/G" value={overview?.ag_rate ?? '—'} />
+        <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} color={COLOR.cyan} />
+        <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} color={COLOR.textMuted} />
+        <KpiCell label="A/G" value={overview?.ag_rate ?? '—'} color={COLOR.yellow} />
       </div>
 
       <div className="dsp-tb-divider" />
 
       {/* Group 3 — OUTCOME */}
       <div className="dsp-tb-group">
-        <KpiCell label="Win" value={fmtNum(overview?.win)} />
-        <KpiCell label="Lost" value={fmtNum(overview?.lost)} />
-        <KpiCell label="Bekleyen" value={fmtNum(overview?.pending_claims)} />
-        <KpiCell label="Winrate" value={overview?.winrate ?? '—'} />
+        <KpiCell label="Win" value={fmtNum(overview?.win)} color={COLOR.green} />
+        <KpiCell label="Lost" value={fmtNum(overview?.lost)} color={COLOR.red} />
+        <KpiCell label="Bekleyen" value={fmtNum(overview?.pending_claims)} color={COLOR.yellow} />
+        <KpiCell label="Winrate" value={overview?.winrate ?? '—'} color={winrateColor(overview?.winrate)} />
       </div>
 
       {mockMode && (
