@@ -48,7 +48,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v23',
+  'eventtile-v24',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -104,11 +104,11 @@ ensureStyles(
   width: 22px;
   height: 22px;
   display: flex; align-items: center; justify-content: center;
-  background: ${COLOR.bgRaised};
-  border: 1px solid ${COLOR.divider};
+  background: ${COLOR.brandSoft};
+  border: none;
   border-radius: 50%;
-  color: ${COLOR.textMuted};
-  font-size: 12px;
+  color: ${COLOR.brand};
+  font-size: 15px;
   font-weight: ${FONT.weight.bold};
   cursor: pointer;
   font-family: ${FONT.sans};
@@ -116,9 +116,17 @@ ensureStyles(
   line-height: 1;
   flex-shrink: 0;
 }
-.dsp-tile-l-id-dollar.dollar-active { color: ${COLOR.green}; border-color: ${COLOR.greenSoft}; }
-.dsp-tile-l-id-dollar.dollar-passive { color: ${COLOR.cyan}; border-color: ${COLOR.cyanSoft}; }
-.dsp-tile-l-id-dollar:hover { background: ${COLOR.surfaceHover}; }
+.dsp-tile-l-id-dollar.dollar-active {
+  background: ${COLOR.greenSoft};
+  color: ${COLOR.green};
+}
+.dsp-tile-l-id-dollar.dollar-passive {
+  background: ${COLOR.cyanSoft};
+  color: ${COLOR.cyan};
+}
+.dsp-tile-l-id-dollar:hover {
+  filter: brightness(1.2);
+}
 .dsp-tile-l-avatar {
   width: 22px; height: 22px;
   border-radius: 50%;
