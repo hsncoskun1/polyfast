@@ -351,10 +351,10 @@ async def get_overview() -> DashboardOverview:
     return DashboardOverview(
         trading_enabled=orch.trading_enabled,
         balance=BalanceInfo(
-            available=balance.available_balance,
-            total=balance.total_balance,
-            is_stale=balance.is_stale,
-            age_seconds=round(balance.age_seconds, 1),
+            available=balance.available_balance if balance.available_balance is not None else 0.0,
+            total=balance.total_balance if balance.total_balance is not None else 0.0,
+            is_stale=bool(balance.is_stale),
+            age_seconds=round(balance.age_seconds, 1) if balance.age_seconds is not None else 0.0,
         ),
         open_positions=tracker.open_position_count,
         pending_claims=claims.pending_count,
