@@ -1,11 +1,23 @@
 import { useEffect, useState } from 'react';
 import { getHealth, type HealthResponse } from './api/client';
 import DashboardPreview from './DashboardPreview';
+import DashboardSidebarPreview from './preview/DashboardSidebarPreview';
 
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(true);
+
+  // v0.8.0-sidebar: query param ile yeni sidebar preview erisimi
+  // localhost:5173/?preview=sidebar -> DashboardSidebarPreview
+  // localhost:5173/                  -> mevcut DashboardPreview (default)
+  const previewMode =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('preview')
+      : null;
+  if (previewMode === 'sidebar') {
+    return <DashboardSidebarPreview />;
+  }
 
   useEffect(() => {
     getHealth()
