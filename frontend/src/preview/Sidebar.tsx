@@ -14,6 +14,8 @@
  */
 
 import { COLOR, FONT, SIZE, HEALTH_TONE, ensureStyles } from './styles';
+// (eski 'sidebar' key'i ile inject edilmis CSS'i override etmek icin
+// yeni bir key kullaniyoruz: sidebar-v2)
 import type {
   BotStatusContract,
   HealthLiteral,
@@ -25,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar',
+  'sidebar-v2',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -98,54 +100,108 @@ ensureStyles(
 
 .dsp-sb-spacer { flex: 1; }
 
+/* Bot panel — 3 katmanli command center */
 .dsp-sb-bot {
-  padding: 12px 14px;
+  padding: 12px 12px 14px;
   border-top: 1px solid ${COLOR.divider};
+  background: ${COLOR.bg};
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
-.dsp-sb-bot-row {
+
+/* Hero (status) */
+.dsp-sb-bot-hero {
+  padding: 10px 12px;
+  border-radius: ${SIZE.radius}px;
+  border: 1px solid ${COLOR.border};
+  background: ${COLOR.surface};
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dsp-sb-bot-hero-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.dsp-sb-bot-dot {
-  width: 8px;
-  height: 8px;
+.dsp-sb-bot-hero-dot {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
-.dsp-sb-bot-label {
-  font-size: ${FONT.size.sm};
-  font-weight: ${FONT.weight.semibold};
+.dsp-sb-bot-hero-label {
+  font-size: ${FONT.size.lg};
+  font-weight: ${FONT.weight.bold};
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  flex: 1;
 }
-.dsp-sb-bot-uptime {
+.dsp-sb-bot-hero-sub {
   font-family: ${FONT.mono};
   font-size: ${FONT.size.xs};
   color: ${COLOR.textMuted};
+  padding-left: 18px;
 }
-.dsp-sb-bot-controls {
+
+/* Info rows (Mode / Latency) */
+.dsp-sb-bot-info {
   display: flex;
-  gap: 6px;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 4px;
+}
+.dsp-sb-bot-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: ${FONT.size.xs};
+}
+.dsp-sb-bot-info-lbl {
+  color: ${COLOR.textMuted};
+  text-transform: uppercase;
+  font-weight: ${FONT.weight.semibold};
+  letter-spacing: 0.05em;
+  width: 52px;
+  flex-shrink: 0;
+}
+.dsp-sb-bot-info-val {
+  font-family: ${FONT.mono};
+  color: ${COLOR.text};
+  font-weight: ${FONT.weight.medium};
+}
+
+/* Action buttons (3 full-width) */
+.dsp-sb-bot-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .dsp-sb-bot-btn {
-  flex: 1;
-  padding: 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radius}px;
   font-size: ${FONT.size.md};
+  font-weight: ${FONT.weight.medium};
   color: ${COLOR.text};
   cursor: pointer;
   font-family: ${FONT.sans};
+  text-align: left;
 }
-.dsp-sb-bot-btn:hover { background: ${COLOR.surfaceHover}; }
-.dsp-sb-bot-btn.stop { color: ${COLOR.red}; }
+.dsp-sb-bot-btn[disabled] { opacity: 0.45; cursor: default; }
+.dsp-sb-bot-btn:not([disabled]):hover { background: ${COLOR.surfaceHover}; }
+.dsp-sb-bot-btn .dsp-sb-bot-btn-icon {
+  width: 14px;
+  text-align: center;
+  font-size: ${FONT.size.md};
+}
+.dsp-sb-bot-btn.play  { color: ${COLOR.green}; }
 .dsp-sb-bot-btn.pause { color: ${COLOR.yellow}; }
-.dsp-sb-bot-btn.play { color: ${COLOR.green}; }
+.dsp-sb-bot-btn.stop  { color: ${COLOR.red}; }
 
 .dsp-sb-health {
   padding: 10px 14px 14px;
@@ -228,53 +284,53 @@ function NavList() {
   );
 }
 
-// Bot mode derive — basit (animasyonlu BotModeChip sonraki tur)
-function deriveBotMode(bot: BotStatusContract | null | undefined): {
+// Bot mode derive — 7 mode + sub text
+interface BotMode {
   label: string;
+  sub: string; // hero alt satiri (uptime / aciklama)
   dot: string;
-  uptime: string;
-} {
+}
+function deriveBotMode(bot: BotStatusContract | null | undefined): BotMode {
   if (!bot) {
-    return { label: 'BAĞLANTI YOK', dot: COLOR.textDim, uptime: '—' };
+    return { label: 'BAĞLANTI YOK', sub: 'Backend yanıt vermiyor', dot: COLOR.textDim };
   }
-  // Lifecycle priority
   if (bot.shutdown_in_progress) {
-    return { label: 'KAPANIYOR', dot: COLOR.red, uptime: '—' };
+    return { label: 'KAPANIYOR', sub: 'Shutdown akışı sürüyor', dot: COLOR.red };
   }
   if (bot.startup_guard_blocked) {
-    return { label: 'BLOK', dot: COLOR.red, uptime: '—' };
+    return { label: 'BLOK', sub: 'Startup guard engelliyor', dot: COLOR.red };
   }
   if (bot.restore_phase) {
-    return { label: 'RESTORE', dot: COLOR.cyan, uptime: '—' };
+    return { label: 'RESTORE', sub: 'Recovery devam ediyor', dot: COLOR.cyan };
   }
   if (bot.paused) {
     return {
       label: 'DURAKLATILDI',
+      sub: `Bekliyor · ${formatUptime(bot.uptime_sec)}`,
       dot: COLOR.yellow,
-      uptime: formatUptime(bot.uptime_sec),
     };
   }
   if (bot.running === false) {
-    return { label: 'DURDU', dot: COLOR.textDim, uptime: '—' };
+    return { label: 'DURDU', sub: 'Bot başlatılmadı', dot: COLOR.textDim };
   }
   if (bot.health === 'degraded') {
     return {
       label: 'KISITLI',
+      sub: `Degraded mode · ${formatUptime(bot.uptime_sec)}`,
       dot: COLOR.yellow,
-      uptime: formatUptime(bot.uptime_sec),
     };
   }
   if (bot.health === 'critical') {
     return {
       label: 'KRITIK',
+      sub: `Critical · ${formatUptime(bot.uptime_sec)}`,
       dot: COLOR.red,
-      uptime: formatUptime(bot.uptime_sec),
     };
   }
   return {
     label: 'NORMAL',
+    sub: `Çalışıyor · ${formatUptime(bot.uptime_sec)}`,
     dot: COLOR.green,
-    uptime: formatUptime(bot.uptime_sec),
   };
 }
 
@@ -287,26 +343,70 @@ function formatUptime(sec: number | null | undefined): string {
   return `${m}dk ${String(s).padStart(2, '0')}sn`;
 }
 
+function deriveModeText(bot: BotStatusContract | null | undefined): string {
+  if (!bot) return 'Offline';
+  if (bot.startup_guard_blocked) return 'Blocked';
+  if (bot.shutdown_in_progress) return 'Shutdown';
+  if (bot.restore_phase) return 'Recovery';
+  if (bot.health === 'critical') return 'Critical';
+  if (bot.health === 'degraded') return 'Degraded';
+  if (bot.running === false) return 'Idle';
+  if (bot.paused) return 'Paused';
+  return 'Live';
+}
+
 function BotStatusPanel({ bot }: { bot: BotStatusContract | null | undefined }) {
   const mode = deriveBotMode(bot);
+  const modeText = deriveModeText(bot);
+  const latency = bot?.latency_ms != null ? `${bot.latency_ms}ms` : '—';
+
   return (
     <div className="dsp-sb-bot">
-      <div className="dsp-sb-bot-row">
-        <span className="dsp-sb-bot-dot" style={{ background: mode.dot }} />
-        <span className="dsp-sb-bot-label" style={{ color: mode.dot }}>
-          {mode.label}
-        </span>
-        <span className="dsp-sb-bot-uptime">{mode.uptime}</span>
+      {/* Hero — buyuk status */}
+      <div
+        className="dsp-sb-bot-hero"
+        style={{ borderColor: `${mode.dot}55` }}
+      >
+        <div className="dsp-sb-bot-hero-row">
+          <span
+            className="dsp-sb-bot-hero-dot"
+            style={{
+              background: mode.dot,
+              boxShadow: `0 0 8px ${mode.dot}88`,
+            }}
+          />
+          <span className="dsp-sb-bot-hero-label" style={{ color: mode.dot }}>
+            {mode.label}
+          </span>
+        </div>
+        <div className="dsp-sb-bot-hero-sub">{mode.sub}</div>
       </div>
-      <div className="dsp-sb-bot-controls">
+
+      {/* Info rows — Mode / Latency */}
+      <div className="dsp-sb-bot-info">
+        <div className="dsp-sb-bot-info-row">
+          <span className="dsp-sb-bot-info-lbl">Mode</span>
+          <span className="dsp-sb-bot-info-val">{modeText}</span>
+        </div>
+        <div className="dsp-sb-bot-info-row">
+          <span className="dsp-sb-bot-info-lbl">Latency</span>
+          <span className="dsp-sb-bot-info-val">{latency}</span>
+        </div>
+      </div>
+
+      {/* Action buttons — full-width */}
+      <div className="dsp-sb-bot-actions">
         <button className="dsp-sb-bot-btn play" type="button" disabled>
-          ▶
+          <span className="dsp-sb-bot-btn-icon">▶</span>
+          <span>Başlat</span>
         </button>
         <button className="dsp-sb-bot-btn pause" type="button" disabled>
-          ⏸
+          <span className="dsp-sb-bot-btn-icon">⏸</span>
+          <span>Duraklat</span>
         </button>
         <button className="dsp-sb-bot-btn stop" type="button" disabled>
-          ⏹
+          <span className="dsp-sb-bot-btn-icon">⏹</span>
+          <span>Durdur</span>
         </button>
       </div>
     </div>
@@ -315,23 +415,21 @@ function BotStatusPanel({ bot }: { bot: BotStatusContract | null | undefined }) 
 
 function HealthIndicator({
   bot,
-  latency,
 }: {
   bot: BotStatusContract | null | undefined;
-  latency?: number | null;
 }) {
   const health: HealthLiteral = bot?.health ?? 'unknown';
   const tone = HEALTH_TONE[health];
+  // Connection meta — uptime'dan turetilir (latency bot panelinde gozukuyor)
+  const uptime = bot?.uptime_sec != null && bot.uptime_sec > 0 ? `${Math.floor(bot.uptime_sec / 60)}dk uptime` : 'baglanti aktif';
   return (
     <div className="dsp-sb-health">
-      <span className="dsp-sb-health-dot" style={{ background: tone.dot }} />
+      <span className="dsp-sb-health-dot" style={{ background: tone.dot, boxShadow: `0 0 6px ${tone.dot}88` }} />
       <div className="dsp-sb-health-text">
         <div className="dsp-sb-health-label" style={{ color: tone.fg }}>
           {tone.label}
         </div>
-        <div className="dsp-sb-health-meta">
-          {latency != null ? `${latency}ms` : 'latency —'}
-        </div>
+        <div className="dsp-sb-health-meta">{uptime}</div>
       </div>
     </div>
   );
@@ -353,7 +451,7 @@ export default function Sidebar({ health }: SidebarProps) {
       <NavList />
       <div className="dsp-sb-spacer" />
       <BotStatusPanel bot={bot} />
-      <HealthIndicator bot={bot} latency={bot?.latency_ms ?? null} />
+      <HealthIndicator bot={bot} />
     </aside>
   );
 }
