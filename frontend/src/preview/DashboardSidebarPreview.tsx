@@ -35,11 +35,11 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v14',
+  'composition-v15',
   `
 .dsp-root {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
@@ -47,6 +47,13 @@ ensureStyles(
   font-family: ${FONT.sans};
   color: ${COLOR.text};
   line-height: 1.3;
+}
+.dsp-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 .dsp-body {
   flex: 1;
@@ -533,13 +540,14 @@ export default function DashboardSidebarPreview({
 
   return (
     <div className="dsp-root">
-      <TopBar overview={data.overview} />
-      <div className="dsp-body">
       <Sidebar
         health={data.health}
         localBotMode={botLocalMode}
         onBotAction={handleBotAction}
       />
+      <div className="dsp-right">
+        <TopBar overview={data.overview} />
+        <div className="dsp-body">
       <OpenRail positions={sortedPositions} />
       <div className="dsp-main">
         <SectionFilterStrip
@@ -607,6 +615,7 @@ export default function DashboardSidebarPreview({
           )}
         </div>
       </div>
+        </div>
       </div>
       {stopModalOpen && (
         <StopConfirmModal
