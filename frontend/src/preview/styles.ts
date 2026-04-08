@@ -131,7 +131,7 @@ export const SECTION_TONE: Record<
     subtitle: 'Açık pozisyonlar ve claim bekleyenler',
   },
   search: {
-    fg: COLOR.cyan,
+    fg: '#0e7490',
     bg: COLOR.cyanSoft,
     border: COLOR.cyanSoft,
     glow: COLOR.cyanGlow,
