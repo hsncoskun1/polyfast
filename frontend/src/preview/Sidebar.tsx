@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v7',
+  'sidebar-v8',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -152,8 +152,8 @@ ensureStyles(
 .dsp-sb-bot-hero {
   padding: 10px 12px;
   border-radius: ${SIZE.radius}px;
-  border: 1px solid ${COLOR.cyan};
-  background: ${COLOR.cyanSoft};
+  border: 1px solid ${COLOR.border};
+  background: ${COLOR.surface};
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -193,8 +193,8 @@ ensureStyles(
   align-items: center;
   gap: 8px;
   padding: 7px 12px;
-  background: ${COLOR.cyanSoft};
-  border: 1px solid ${COLOR.cyan};
+  background: ${COLOR.surface};
+  border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radius}px;
   font-size: ${FONT.size.md};
   font-weight: ${FONT.weight.medium};
