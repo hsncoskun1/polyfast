@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v16',
+  'openrail-v17',
   `
 .dsp-orail {
   width: 100%;
@@ -77,9 +77,9 @@ ensureStyles(
   border-radius: ${SIZE.radius}px;
   padding: 14px 16px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   grid-template-rows: auto auto auto auto auto;
-  column-gap: 14px;
+  column-gap: 12px;
   row-gap: 8px;
   min-width: 0;
   overflow: hidden;
@@ -141,9 +141,16 @@ ensureStyles(
 .dsp-ocard-status.s-claim   { color: ${COLOR.yellow};background: ${COLOR.yellowSoft};border-color: ${COLOR.yellowSoft}; }
 .dsp-ocard-status.s-none    { color: ${COLOR.textMuted}; background: ${COLOR.bg}; border-color: ${COLOR.divider}; }
 
-/* Row 1 col 3: PNL% hero + USD */
-.dsp-ocard-pnl {
+/* Row 1 col 3: sell button (pct solu) */
+.dsp-ocard-sell-slot {
   grid-column: 3;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+}
+/* Row 1 col 4: PNL% hero + USD */
+.dsp-ocard-pnl {
+  grid-column: 4;
   grid-row: 1;
   display: flex;
   flex-direction: column;
@@ -206,7 +213,7 @@ ensureStyles(
   grid-column: 1 / -1;
   grid-row: 5;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 6px;
   align-items: center;
 }
@@ -215,8 +222,8 @@ ensureStyles(
   height: 26px;
   border-radius: 50%;
   border: none;
-  background: rgba(126,126,146,0.16);
-  color: ${COLOR.textMuted};
+  background: ${COLOR.yellowSoft};
+  color: ${COLOR.yellow};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -391,8 +398,18 @@ function OpenCard({ position }: { position: PositionSummary }) {
 
       <div className="dsp-ocard-id">
         <span className="dsp-ocard-ticker">{position.asset}</span>
-        <button type="button" className="dsp-ocard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
         <button type="button" className="dsp-ocard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
+        <button type="button" className="dsp-ocard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
+      </div>
+
+      <div className="dsp-ocard-sell-slot">
+        <button
+          type="button"
+          className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
+          disabled={sellDisabled}
+        >
+          {sellLabel(sellState)}
+        </button>
       </div>
 
       <div className="dsp-ocard-pnl">
@@ -460,13 +477,6 @@ function OpenCard({ position }: { position: PositionSummary }) {
               <span className="dsp-ocard-exit-lbl">FS</span>
               <span className="dsp-ocard-exit-val">{exits.fs}</span>
             </div>
-            <button
-              type="button"
-              className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
-              disabled={sellDisabled}
-            >
-              {sellLabel(sellState)}
-            </button>
             <div className="dsp-ocard-exit fsp">
               <span className="dsp-ocard-exit-lbl">F/P</span>
               <span className="dsp-ocard-exit-val">{exits.fs_pnl ?? '—'}</span>
