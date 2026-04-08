@@ -322,7 +322,7 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
             title={`${tile.coin} Polymarket event'i aç`}
           >
             <span>{tile.coin}</span>
-            <span className="dsp-scard-ticker-ico">↗</span>
+            <span className="dsp-scard-ticker-ico" aria-hidden>🔗</span>
           </a>
           <button type="button" className="dsp-scard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
           <button type="button" className="dsp-scard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>

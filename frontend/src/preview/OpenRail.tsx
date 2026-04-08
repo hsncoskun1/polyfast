@@ -444,7 +444,7 @@ function OpenCard({ position }: { position: PositionSummary }) {
             title={`${position.asset} Polymarket event'i aç`}
           >
             <span>{position.asset}</span>
-            <span className="dsp-ocard-ticker-ico">↗</span>
+            <span className="dsp-ocard-ticker-ico" aria-hidden>🔗</span>
           </a>
           <button type="button" className="dsp-ocard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
           <button type="button" className="dsp-ocard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>

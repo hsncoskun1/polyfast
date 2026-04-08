@@ -1,0 +1,222 @@
+/**
+ * IdleRail — "İşlem Aranmayanlar" sekmesi.
+ * SearchCard benzeri tasarım, sarı tone.
+ *
+ *   [logo | ticker+$+⚙]      [idle kind hero]
+ *   [activity bildirim tam satır]
+ *   [kural grid 3x2 (varsa) veya sebep metni]
+ */
+
+import { COLOR, FONT, SIZE, ACTIVITY_TONE, ensureStyles } from './styles';
+import { COIN_FALLBACK } from './coinRegistry';
+import type { IdleTileContract } from '../api/dashboard';
+
+ensureStyles(
+  'idlerail-v1',
+  `
+.dsp-irail-list {
+  display: grid;
+  grid-auto-rows: calc((100% - 18px) / 4);
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-color: ${COLOR.yellow} transparent;
+  scrollbar-width: thin;
+}
+.dsp-irail-list::-webkit-scrollbar { width: 8px; }
+.dsp-irail-list::-webkit-scrollbar-track { background: transparent; }
+.dsp-irail-list::-webkit-scrollbar-thumb { background: ${COLOR.yellow}; border-radius: 4px; }
+
+.dsp-icard {
+  min-height: 0;
+  background: ${COLOR.surface};
+  border: 1px solid ${COLOR.divider};
+  border-radius: ${SIZE.radius}px;
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto 1fr;
+  column-gap: 8px;
+  row-gap: 3px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Row 1 — id (logo + ticker + butonlar) */
+.dsp-icard-id {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.dsp-icard-logo {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: ${COLOR.bg};
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.dsp-icard-logo img { width: 124%; height: 124%; object-fit: contain; }
+.dsp-icard-ticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 18px;
+  font-weight: ${FONT.weight.bold};
+  color: ${COLOR.text};
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+}
+.dsp-icard-ticker:hover { color: ${COLOR.yellow}; }
+.dsp-icard-ticker-ico { font-size: 12px; opacity: 0.75; line-height: 1; }
+.dsp-icard-icbtn {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: ${COLOR.yellowSoft};
+  color: ${COLOR.yellow};
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: ${FONT.weight.bold};
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0;
+  font-family: ${FONT.sans};
+}
+.dsp-icard-icbtn.dollar { background: ${COLOR.greenSoft}; color: ${COLOR.green}; }
+
+/* Row 1 col 2 — kind hero */
+.dsp-icard-kind {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-family: ${FONT.mono};
+  font-size: 15px;
+  font-weight: ${FONT.weight.bold};
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: ${COLOR.yellow};
+}
+
+/* Row 2 — activity tam genişlik (scard ile aynı stil) */
+.dsp-icard-act {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin-top: 3px;
+  padding: 5px 10px;
+  background: ${COLOR.bgRaised};
+  border: 1px solid;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: ${FONT.weight.semibold};
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  animation: dsp-icard-act-pulse 1.8s ease-in-out infinite;
+}
+@keyframes dsp-icard-act-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+  50%      { opacity: 0.78; box-shadow: 0 0 10px 1px currentColor; }
+}
+
+/* Row 3 — açıklama / sebep (msg) */
+.dsp-icard-msg {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  background: ${COLOR.bg};
+  border: 1px solid ${COLOR.divider};
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: ${FONT.weight.semibold};
+  color: ${COLOR.textMuted};
+  text-align: center;
+  line-height: 1.3;
+  margin-top: 3px;
+}
+`
+);
+
+const KIND_LABEL: Record<string, string> = {
+  no_events: 'EVENT YOK',
+  waiting_rules: 'KURAL BEKLİYOR',
+  bot_stopped: 'BOT DURDURULDU',
+  cooldown: 'COOLDOWN',
+  error: 'HATA',
+};
+
+function IdleCard({ tile }: { tile: IdleTileContract }) {
+  const coin = tile.coin ? COIN_FALLBACK[tile.coin] : undefined;
+  const coinTone = coin?.tone;
+  const bgStyle = coinTone
+    ? { background: `linear-gradient(135deg, ${coinTone}1f 0%, ${COLOR.surface} 55%)` }
+    : undefined;
+  return (
+    <div className="dsp-icard" style={bgStyle}>
+      <div className="dsp-icard-id">
+        <div className="dsp-icard-logo">
+          {coin?.logo_url ? <img src={coin.logo_url} alt={tile.coin ?? ''} /> : null}
+        </div>
+        {tile.coin ? (
+          <a
+            className="dsp-icard-ticker"
+            href={tile.event_url ?? '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`${tile.coin} aç`}
+          >
+            <span>{tile.coin}</span>
+            <span className="dsp-icard-ticker-ico" aria-hidden>🔗</span>
+          </a>
+        ) : (
+          <span className="dsp-icard-ticker">SİSTEM</span>
+        )}
+        <button type="button" className="dsp-icard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
+        <button type="button" className="dsp-icard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
+      </div>
+
+      <div className="dsp-icard-kind">{KIND_LABEL[tile.idle_kind] ?? tile.idle_kind}</div>
+
+      {tile.activity?.text && (
+        <div
+          className="dsp-icard-act"
+          style={(() => {
+            const t = ACTIVITY_TONE[tile.activity.severity ?? 'info'];
+            return { color: t.fg, borderColor: `${t.fg}44`, background: `${t.fg}14` };
+          })()}
+        >
+          {tile.activity.text}
+        </div>
+      )}
+
+      <div className="dsp-icard-msg">{tile.msg}</div>
+    </div>
+  );
+}
+
+export default function IdleRail({ tiles }: { tiles: IdleTileContract[] }) {
+  return (
+    <div className="dsp-irail-list">
+      {tiles.map((t) => (
+        <IdleCard key={t.tile_id} tile={t} />
+      ))}
+    </div>
+  );
+}

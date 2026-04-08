@@ -23,6 +23,7 @@ import TopBar from './TopBar';
 import EventTile from './EventTile';
 import OpenRail from './OpenRail';
 import SearchRail from './SearchRail';
+import IdleRail from './IdleRail';
 import { MOCK_DATA } from './mockData';
 import type {
   PositionSummary,
@@ -733,9 +734,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            idleOnly.map((i) => (
-              <EventTile key={i.tile_id} variant="idle" idle={i} coins={data.coins} />
-            ))
+            <IdleRail tiles={idleOnly} />
           ))}
           {mainTab === 'settings' && (idleSettings.length === 0 ? (
             <EmptyState
@@ -747,9 +746,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            idleSettings.map((i) => (
-              <EventTile key={i.tile_id} variant="idle" idle={i} coins={data.coins} />
-            ))
+            <IdleRail tiles={idleSettings} />
           ))}
         </div>
       </div>
