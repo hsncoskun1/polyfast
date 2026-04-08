@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v18',
+  'composition-v19',
   `
 .dsp-root {
   display: flex;
@@ -67,7 +67,7 @@ ensureStyles(
   overflow: hidden;
 }
 .dsp-orail-wrap {
-  width: 340px;
+  width: 640px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -542,7 +542,7 @@ export default function DashboardSidebarPreview({
   const sortedPositions = useMemo(() => sortPositions(positions), [positions]);
 
   const showSearch = true;
-  const showIdle = true;
+  const showIdle = false;
 
   // Status chip: hep gosterilir (Q3 = a)
   const online = data.errorStreak < 3;

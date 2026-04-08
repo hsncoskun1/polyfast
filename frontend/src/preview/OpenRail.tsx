@@ -9,10 +9,10 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v6',
+  'openrail-v7',
   `
 .dsp-orail {
-  width: 340px;
+  width: 640px;
   flex-shrink: 0;
   background: ${COLOR.bg};
   border-left: 1px solid ${COLOR.border};
@@ -49,10 +49,11 @@ ensureStyles(
 .dsp-orail-list {
   flex: 1;
   overflow: hidden;
-  padding: 8px 10px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  padding: 6px 10px 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 1fr;
+  gap: 6px;
 }
 
 /* Kart — 3 micro-row: header (logo+ticker+durum), money (pnl%+usd), prices (giriş/canlı/delta) */
@@ -343,7 +344,7 @@ function OpenCard({ position }: { position: PositionSummary }) {
 }
 
 export default function OpenRail({ positions }: { positions: PositionSummary[] }) {
-  const openOnly = positions.filter((p) => p.variant !== 'claim').slice(0, 4);
+  const openOnly = positions.filter((p) => p.variant !== 'claim').slice(0, 6);
   return (
     <aside className="dsp-orail">
       <div className="dsp-orail-list">

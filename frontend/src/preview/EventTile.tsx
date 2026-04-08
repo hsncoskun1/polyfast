@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v54',
+  'eventtile-v55',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -64,7 +64,7 @@ ensureStyles(
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  height: 140px;
+  height: 150px;
   align-items: stretch;
   min-width: 0;
   line-height: 1.2;
@@ -631,42 +631,10 @@ function MidCells({ cells, vertical, hideLabels }: MidCellsProps) {
   );
 }
 
-/** Parantezli sıfır sayısı (CoinGecko mantığı, okunur).
- *  -0.000025 -> "-0.0(4)25"  (decimal sonrası 4 sıfır, sonra 25) */
-function tinyFormat(n: number): string | null {
-  if (n === 0) return null;
-  const sign = n < 0 ? '-' : '';
-  const a = Math.abs(n);
-  const str = a.toFixed(20).replace(/0+$/, '');
-  const m = str.match(/^0\.(0+)(\d+)$/);
-  if (!m) return null;
-  const zeros = m[1].length;
-  if (zeros < 2) return null;
-  const digits = m[2].slice(0, 3);
-  return `${sign}0.0(${zeros})${digits}`;
-}
-
-/** Compact numeric formatter — büyük sayıları K/M, çok küçükleri 0.0₄25 stiline indirir.
- *  Tam değer tooltip'te kalır.
- *  "$1000.00" -> "$1.00K"; "-15234.50" -> "-15.2K"; "-0.000025" -> "-0.0₄25"
- */
+/** Sade numeric formatter — ham değeri olduğu gibi döndürür.
+ *  K/M ve parantez notasyonu kaldırıldı. */
 function compactNumber(raw: string | null | undefined): { display: string; title?: string } {
   if (!raw) return { display: '—' };
-  const m = raw.match(/^([+-]?)(\$?)(\d+(?:[.,]\d+)?)(.*)$/);
-  if (!m) return { display: raw };
-  const [, sign, dollar, numStr, suffix] = m;
-  const n = parseFloat((sign === '-' ? '-' : '') + numStr.replace(',', '.'));
-  if (isNaN(n)) return { display: raw };
-  const abs = Math.abs(n);
-  // Çok küçük değerler -> CoinGecko subscript notasyonu
-  if (abs > 0 && abs < 0.01) {
-    const tiny = tinyFormat(n);
-    if (tiny) return { display: dollar + tiny + (suffix || ''), title: raw };
-    return { display: '≈0', title: raw };
-  }
-  if (abs >= 1_000_000) return { display: (n / 1_000_000).toFixed(1) + 'M' + (suffix || ''), title: raw };
-  if (abs >= 10_000)    return { display: (n / 1_000).toFixed(1) + 'K' + (suffix || ''), title: raw };
-  if (abs >= 1_000)     return { display: (n / 1_000).toFixed(2) + 'K' + (suffix || ''), title: raw };
   return { display: raw };
 }
 
