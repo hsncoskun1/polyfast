@@ -123,7 +123,7 @@ export const SECTION_TONE: Record<
   }
 > = {
   open: {
-    fg: COLOR.green,
+    fg: '#ecfdf5',
     bg: COLOR.greenSoft,
     border: COLOR.greenSoft,
     glow: COLOR.greenGlow,
@@ -131,7 +131,7 @@ export const SECTION_TONE: Record<
     subtitle: 'Açık pozisyonlar ve claim bekleyenler',
   },
   search: {
-    fg: '#0e7490',
+    fg: '#ecfeff',
     bg: COLOR.cyanSoft,
     border: COLOR.cyanSoft,
     glow: COLOR.cyanGlow,
