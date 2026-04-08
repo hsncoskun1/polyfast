@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v22',
+  'openrail-v23',
   `
 .dsp-orail {
   width: 100%;
@@ -181,12 +181,14 @@ ensureStyles(
   overflow: hidden;
   min-width: 0;
   transform-origin: top center;
-  animation: dsp-ocard-act-in 0.42s cubic-bezier(0.2, 0.8, 0.25, 1);
+  animation: dsp-ocard-act-loop 3s cubic-bezier(0.2, 0.8, 0.25, 1) infinite;
 }
-@keyframes dsp-ocard-act-in {
+@keyframes dsp-ocard-act-loop {
   0%   { transform: translateY(-8px) scaleY(0); opacity: 0; }
-  60%  { transform: translateY(-2px) scaleY(1.06); opacity: 0.9; }
-  100% { transform: translateY(0) scaleY(1); opacity: 1; }
+  20%  { transform: translateY(-2px) scaleY(1.06); opacity: 0.9; }
+  30%  { transform: translateY(0) scaleY(1); opacity: 1; }
+  80%  { transform: translateY(0) scaleY(1); opacity: 1; }
+  100% { transform: translateY(-8px) scaleY(0); opacity: 0; }
 }
 .dsp-ocard-act-dot {
   width: 7px; height: 7px; border-radius: 50%;
