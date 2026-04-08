@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v3',
+  'sidebar-v4',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -67,17 +67,16 @@ ensureStyles(
   gap: 10px;
 }
 .dsp-sb-brand-logo {
-  width: 190px;
-  height: auto;
-  max-width: 100%;
+  width: 56px;
+  height: 56px;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 14px rgba(6,182,212,0.35));
+  filter: drop-shadow(0 0 12px rgba(34,211,238,0.45));
 }
 .dsp-sb-brand-title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.05em;
-  background: linear-gradient(90deg, ${COLOR.brand}, #c084fc);
+  letter-spacing: 0.06em;
+  background: linear-gradient(90deg, #22d3ee, #67e8f9);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -249,11 +248,31 @@ function BrandBlock() {
   return (
     <div className="dsp-sb-brand">
       <div className="dsp-sb-brand-row">
-        <img
+        <svg
           className="dsp-sb-brand-logo"
-          src="/polyfast-logo.png"
-          alt="Polyfast"
-        />
+          viewBox="0 0 64 64"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-label="Polyfast"
+        >
+          <defs>
+            <linearGradient id="dsp-pg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stopColor="#06b6d4" />
+              <stop offset="1" stopColor="#22d3ee" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M14 8 L14 56 M14 8 L40 8 Q52 8 52 22 Q52 36 40 36 L14 36"
+            stroke="url(#dsp-pg)"
+            strokeWidth="8"
+            fill="none"
+            strokeLinecap="square"
+            strokeLinejoin="round"
+          />
+          <line x1="44" y1="44" x2="58" y2="44" stroke="#22d3ee" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="40" y1="50" x2="58" y2="50" stroke="#22d3ee" strokeWidth="2.5" strokeLinecap="round" opacity="0.7" />
+          <line x1="44" y1="56" x2="58" y2="56" stroke="#22d3ee" strokeWidth="2.5" strokeLinecap="round" opacity="0.45" />
+        </svg>
+        <div className="dsp-sb-brand-title">POLYFAST</div>
       </div>
     </div>
   );
