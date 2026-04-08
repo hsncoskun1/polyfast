@@ -102,7 +102,7 @@ ensureStyles(
   column-gap: 10px;
   row-gap: 0;
   min-width: 0;
-  align-content: center;
+  align-content: start;
 }
 .dsp-ocard-id > .dsp-ocard-logo { grid-column: 1; grid-row: 1 / span 3; align-self: center; }
 .dsp-ocard-id-row { grid-column: 2; grid-row: 1; line-height: 1.1; }
@@ -169,7 +169,7 @@ ensureStyles(
   flex-direction: column;
   justify-content: flex-start;
   align-items: flex-end;
-  gap: 2px;
+  gap: 0;
   min-width: 0;
 }
 .dsp-ocard-pct {
