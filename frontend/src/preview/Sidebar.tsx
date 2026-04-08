@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v9',
+  'sidebar-v10',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -185,63 +185,78 @@ ensureStyles(
 /* Action buttons (3 full-width) */
 .dsp-sb-bot-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 4px;
 }
 .dsp-sb-bot-btn {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 9px 14px;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 6px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radius}px;
-  font-size: ${FONT.size.md};
   font-weight: ${FONT.weight.bold};
-  color: ${COLOR.text};
+  color: ${COLOR.textMuted};
   cursor: pointer;
   font-family: ${FONT.sans};
-  text-align: left;
-  transition: background 0.15s, border-color 0.15s;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+  opacity: 0.55;
 }
-.dsp-sb-bot-btn[disabled] { opacity: 0.55; cursor: default; }
-.dsp-sb-bot-btn:not([disabled]):hover { background: ${COLOR.surfaceHover}; }
+.dsp-sb-bot-btn[disabled] { cursor: default; }
+.dsp-sb-bot-btn:not([disabled]):hover { background: ${COLOR.surfaceHover}; opacity: 0.85; }
 .dsp-sb-bot-btn:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
 .dsp-sb-bot-btn .dsp-sb-bot-btn-icon {
-  width: 16px;
-  text-align: center;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-.dsp-sb-bot-btn .dsp-sb-bot-btn-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  line-height: 1.15;
-  min-width: 0;
-  flex: 1;
+  font-size: 16px;
+  line-height: 1;
 }
 .dsp-sb-bot-btn .dsp-sb-bot-btn-label {
-  font-size: 13px;
+  font-size: 10px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .dsp-sb-bot-btn .dsp-sb-bot-btn-sub {
   font-family: ${FONT.mono};
-  font-size: 11px;
+  font-size: 10px;
   font-weight: ${FONT.weight.semibold};
   color: ${COLOR.textMuted};
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 }
-.dsp-sb-bot-btn.play  { color: ${COLOR.green}; }
-.dsp-sb-bot-btn.pause { color: ${COLOR.yellow}; }
-.dsp-sb-bot-btn.stop  { color: ${COLOR.red}; }
-.dsp-sb-bot-btn.play.running {
+.dsp-sb-bot-btn.active {
+  opacity: 1;
+  flex: 1.5 1 0;
+}
+.dsp-sb-bot-btn.play.active {
   background: ${COLOR.greenSoft};
   border-color: ${COLOR.green};
+  color: ${COLOR.green};
 }
-.dsp-sb-bot-btn.play.running .dsp-sb-bot-btn-sub { color: ${COLOR.green}; }
+.dsp-sb-bot-btn.play.active .dsp-sb-bot-btn-sub { color: ${COLOR.green}; }
+.dsp-sb-bot-btn.pause.active {
+  background: ${COLOR.yellowSoft};
+  border-color: ${COLOR.yellow};
+  color: ${COLOR.yellow};
+}
+.dsp-sb-bot-btn.pause.active .dsp-sb-bot-btn-sub { color: ${COLOR.yellow}; }
+.dsp-sb-bot-btn.stop.active {
+  background: ${COLOR.redSoft};
+  border-color: ${COLOR.red};
+  color: ${COLOR.red};
+}
+.dsp-sb-bot-btn.stop.active .dsp-sb-bot-btn-sub { color: ${COLOR.red}; }
+.dsp-sb-bot-btn.play:not(.active)  { color: ${COLOR.green}; }
+.dsp-sb-bot-btn.pause:not(.active) { color: ${COLOR.yellow}; }
+.dsp-sb-bot-btn.stop:not(.active)  { color: ${COLOR.red}; }
 
 .dsp-sb-health {
   padding: 12px 14px 14px;
@@ -518,47 +533,54 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
   const pauseDisabled = localMode !== 'running';
   const stopDisabled = localMode === 'stopped';
 
-  // Başlat buton alt satırı: running'de canlı runtime, stopped/paused'da özet
-  const startSub = (() => {
-    if (localMode === 'running' && liveUptime != null) return formatUptime(liveUptime);
-    if (localMode === 'paused' && bot?.uptime_sec != null) return formatUptime(bot.uptime_sec);
-    if (localMode === 'stopped') return 'Hazır';
-    return '—';
-  })();
   void mode;
+
+  // Aktif mode'a göre label + sub
+  const playLabel  = localMode === 'running' ? 'Çalışıyor' : 'Başlat';
+  const pauseLabel = localMode === 'paused'  ? 'Durakladı' : 'Duraklat';
+  const stopLabel  = localMode === 'stopped' ? 'Durdu'     : 'Durdur';
+  const playSub =
+    localMode === 'running' && liveUptime != null
+      ? formatUptime(liveUptime)
+      : null;
+  const pauseSub =
+    localMode === 'paused' && bot?.uptime_sec != null
+      ? formatUptime(bot.uptime_sec)
+      : null;
+  const stopSub = localMode === 'stopped' ? 'Bekliyor' : null;
 
   return (
     <div className="dsp-sb-bot">
       <div className="dsp-sb-bot-actions">
         <button
-          className={`dsp-sb-bot-btn play${localMode === 'running' ? ' running' : ''}`}
+          className={`dsp-sb-bot-btn play${localMode === 'running' ? ' active' : ''}`}
           type="button"
           disabled={startDisabled}
           onClick={() => onAction('start')}
         >
           <span className="dsp-sb-bot-btn-icon">▶</span>
-          <span className="dsp-sb-bot-btn-text">
-            <span className="dsp-sb-bot-btn-label">Başlat</span>
-            <span className="dsp-sb-bot-btn-sub">{startSub}</span>
-          </span>
+          <span className="dsp-sb-bot-btn-label">{playLabel}</span>
+          {playSub && <span className="dsp-sb-bot-btn-sub">{playSub}</span>}
         </button>
         <button
-          className="dsp-sb-bot-btn pause"
+          className={`dsp-sb-bot-btn pause${localMode === 'paused' ? ' active' : ''}`}
           type="button"
           disabled={pauseDisabled}
           onClick={() => onAction('pause')}
         >
           <span className="dsp-sb-bot-btn-icon">⏸</span>
-          <span>Duraklat</span>
+          <span className="dsp-sb-bot-btn-label">{pauseLabel}</span>
+          {pauseSub && <span className="dsp-sb-bot-btn-sub">{pauseSub}</span>}
         </button>
         <button
-          className="dsp-sb-bot-btn stop"
+          className={`dsp-sb-bot-btn stop${localMode === 'stopped' ? ' active' : ''}`}
           type="button"
           disabled={stopDisabled}
           onClick={() => onAction('stop')}
         >
           <span className="dsp-sb-bot-btn-icon">⏹</span>
-          <span>Durdur</span>
+          <span className="dsp-sb-bot-btn-label">{stopLabel}</span>
+          {stopSub && <span className="dsp-sb-bot-btn-sub">{stopSub}</span>}
         </button>
       </div>
     </div>
