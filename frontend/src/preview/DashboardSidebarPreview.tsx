@@ -20,7 +20,6 @@ import { useDashboardData } from '../hooks/useDashboardData';
 import { COLOR, FONT, SIZE, SECTION_TONE, ensureStyles, type SectionKey } from './styles';
 import Sidebar, { type BotLocalMode } from './Sidebar';
 import TopBar from './TopBar';
-import EventTile from './EventTile';
 import OpenRail from './OpenRail';
 import SearchRail from './SearchRail';
 import IdleRail from './IdleRail';
