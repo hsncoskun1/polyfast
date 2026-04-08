@@ -438,7 +438,7 @@ function OpenCard({ position }: { position: PositionSummary }) {
         <div className="dsp-ocard-cell">
           <span className="dsp-ocard-cell-lbl">Giriş</span>
           <span className="dsp-ocard-cell-val" style={{ color: sideColor }}>
-            {live?.entry ?? '—'}
+            {side === 'UP' ? '▲' : '▼'} {live?.entry ?? '—'}
           </span>
         </div>
         <div className="dsp-ocard-cell">
