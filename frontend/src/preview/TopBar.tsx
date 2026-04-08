@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v13',
+  'topbar-v14',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -41,13 +41,14 @@ ensureStyles(
   align-items: center;
   gap: 7px;
   flex-shrink: 0;
-  padding: 6px 10px;
-  border: 1.5px solid transparent;
-  border-radius: 12px;
 }
-.dsp-tb-group.g-money    { border-color: ${COLOR.green};  background: rgba(34,197,94,0.08); }
-.dsp-tb-group.g-activity { border-color: ${COLOR.cyan};   background: rgba(6,182,212,0.08); }
-.dsp-tb-group.g-outcome  { border-color: ${COLOR.yellow}; background: rgba(234,179,8,0.08); }
+/* Grup bazlı chip rengi: solid tone bg + beyaz yazı */
+.dsp-tb-group.g-money    .dsp-tb-chip { background: ${COLOR.green};  border-color: ${COLOR.green};  color: #fff; }
+.dsp-tb-group.g-activity .dsp-tb-chip { background: ${COLOR.cyan};   border-color: ${COLOR.cyan};   color: #fff; }
+.dsp-tb-group.g-outcome  .dsp-tb-chip { background: ${COLOR.yellow}; border-color: ${COLOR.yellow}; color: #1a1505; }
+.dsp-tb-group .dsp-tb-chip .dsp-tb-chip-label,
+.dsp-tb-group .dsp-tb-chip .dsp-tb-chip-value,
+.dsp-tb-group .dsp-tb-chip .dsp-tb-chip-sub { color: inherit !important; }
 .dsp-tb-divider {
   width: 1px;
   height: 44px;
