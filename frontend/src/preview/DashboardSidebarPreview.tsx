@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v29',
+  'composition-v30',
   `
 .dsp-root {
   display: flex;
@@ -90,7 +90,9 @@ ensureStyles(
   border: 1.5px solid ${COLOR.green};
   border-radius: 0 12px 12px 12px;
   background: transparent;
-  padding: 8px;
+  padding: 10px;
+  position: relative;
+  z-index: 1;
 }
 /* Main panel — aktif sekme tonuna göre renkli çerçeve + gradient */
 .dsp-main {
@@ -109,21 +111,33 @@ ensureStyles(
 .dsp-main.tab-idle     { --dsp-main-tone: ${COLOR.yellow}; }
 .dsp-main.tab-settings { --dsp-main-tone: ${COLOR.red}; }
 .dsp-orail-title {
+  position: relative;
   display: inline-flex;
   align-self: flex-start;
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding: 0 14px;
-  border-radius: 10px 10px 0 0;
-  background: linear-gradient(180deg, rgba(34,197,94,0.72), rgba(34,197,94,0.28));
+  padding: 0 18px;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, rgba(34,197,94,0.72), rgba(34,197,94,0.38));
   border: 1.5px solid ${COLOR.green};
   border-bottom: none;
   flex-shrink: 0;
-  margin: 0 0 -1px 0;
+  margin: 0 0 -2px 0;
   height: 36px;
   box-sizing: border-box;
   min-width: 200px;
+  z-index: 2;
+}
+/* Chrome tab dış concave alt köşe — sağdaki curve  */
+.dsp-orail-title::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  background: radial-gradient(circle at top right, transparent 10px, ${COLOR.green} 10px, ${COLOR.green} 11.5px, transparent 11.5px);
 }
 .dsp-orail-title-dot {
   width: 11px; height: 11px; border-radius: 50%;
