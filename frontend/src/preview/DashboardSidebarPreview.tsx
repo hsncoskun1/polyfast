@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v35',
+  'composition-v36',
   `
 .dsp-root {
   display: flex;
@@ -91,17 +91,17 @@ ensureStyles(
   top: -36px;
   left: -2px;
   height: 36px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 0 22px;
   background: linear-gradient(180deg, rgba(34,197,94,0.82), rgba(34,197,94,0.42));
   border: 2px solid ${COLOR.green};
   border-bottom: none;
   border-radius: 12px 12px 0 0;
-  min-width: 220px;
   box-sizing: border-box;
   margin: 0;
+  white-space: nowrap;
 }
 /* Sağ alt concave — body border'a chrome-tab gibi bağlanır */
 .dsp-orail-wrap > .dsp-orail-title::after {
