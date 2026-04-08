@@ -188,9 +188,8 @@ ensureStyles(
   grid-row: 3;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  grid-auto-rows: auto;
   gap: 6px;
-  align-self: center;
 }
 
 /* Row 3 (span 3): exits + sell */
