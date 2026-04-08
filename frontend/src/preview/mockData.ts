@@ -196,7 +196,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_big: '-12.0%',
     pnl_amount: '-120.00$',
     pnl_tone: 'loss',
-    live: { side: 'UP', entry: '71', live: '56', delta_text: '-15' },
+    live: { side: 'UP', entry: '71', live: '56', delta_text: '0.000014' },
     exits: { tp: '76', sl: '56', fs: '0:18', fs_pnl: '-5%' },
     activity: { text: 'SL tetiklendi | -0.24$ satış emri gönderildi', severity: 'error' },
   },
