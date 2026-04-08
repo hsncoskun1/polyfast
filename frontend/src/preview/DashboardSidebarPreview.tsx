@@ -751,7 +751,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <SearchRail tiles={search.slice(0, 4)} />
+            <SearchRail tiles={search} />
           ))}
           {mainTab === 'idle' && (idleOnly.length === 0 ? (
             <EmptyState

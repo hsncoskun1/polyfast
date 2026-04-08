@@ -12,15 +12,22 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v4',
+  'searchrail-v5',
   `
 .dsp-srail-list {
   display: grid;
-  grid-template-rows: repeat(4, 1fr);
+  grid-auto-rows: calc((100% - 18px) / 4);
   gap: 6px;
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-color: ${COLOR.cyan} transparent;
+  scrollbar-width: thin;
 }
+.dsp-srail-list::-webkit-scrollbar { width: 8px; }
+.dsp-srail-list::-webkit-scrollbar-track { background: transparent; }
+.dsp-srail-list::-webkit-scrollbar-thumb { background: ${COLOR.cyan}; border-radius: 4px; }
 .dsp-scard {
   min-height: 0;
   background: ${COLOR.surface};
