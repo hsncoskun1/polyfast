@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v6',
+  'idlerail-v7',
   `
 .dsp-irail-list {
   display: grid;
@@ -149,12 +149,6 @@ ensureStyles(
 }
 .dsp-icard.kind-error .dsp-icard-kind,
 .dsp-icard.kind-waiting_rules .dsp-icard-kind { color: ${COLOR.red}; }
-.dsp-icard.kind-error .dsp-icard-inline-btn.gear,
-.dsp-icard.kind-waiting_rules .dsp-icard-inline-btn.gear {
-  background: ${COLOR.redSoft};
-  color: ${COLOR.red};
-  border-color: ${COLOR.red};
-}
 
 /* Row 2 — activity tam genişlik (scard ile aynı stil) */
 .dsp-icard-act {

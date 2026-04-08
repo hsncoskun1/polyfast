@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v12',
+  'sidebar-v13',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -161,6 +161,13 @@ ensureStyles(
 .dsp-sb-bot-status-dot {
   width: 9px; height: 9px; border-radius: 50%;
   flex-shrink: 0;
+}
+.dsp-sb-bot-status.running .dsp-sb-bot-status-dot {
+  animation: dsp-sb-bot-pulse 1.8s ease-in-out infinite;
+}
+@keyframes dsp-sb-bot-pulse {
+  0%, 100% { opacity: 1;    transform: scale(1); }
+  50%      { opacity: 0.6;  transform: scale(0.85); }
 }
 .dsp-sb-bot-status-label {
   font-size: 12px;
@@ -637,7 +644,7 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
   return (
     <div className="dsp-sb-bot">
       {/* Status line — bot'un mevcut durumu */}
-      <div className="dsp-sb-bot-status" style={{ borderColor: `${statusColor}55` }}>
+      <div className={`dsp-sb-bot-status ${localMode}`} style={{ borderColor: `${statusColor}55` }}>
         <span
           className="dsp-sb-bot-status-dot"
           style={{ background: statusColor, boxShadow: `0 0 8px ${statusColor}aa` }}
