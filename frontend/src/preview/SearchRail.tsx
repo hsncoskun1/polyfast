@@ -12,7 +12,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v7',
+  'searchrail-v8',
   `
 .dsp-srail-list {
   display: grid;
@@ -157,7 +157,7 @@ ensureStyles(
   min-width: 0;
 }
 .dsp-scard-cell-lbl {
-  font-size: 10px;
+  font-size: 13px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
@@ -166,7 +166,7 @@ ensureStyles(
 }
 .dsp-scard-cell-val {
   font-family: ${FONT.mono};
-  font-size: 17px;
+  font-size: 18px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   overflow: hidden;

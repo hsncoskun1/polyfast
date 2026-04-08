@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v29',
+  'openrail-v30',
   `
 .dsp-orail {
   width: 100%;
@@ -251,7 +251,7 @@ ensureStyles(
   min-width: 0;
 }
 .dsp-ocard-cell-lbl {
-  font-size: 10px;
+  font-size: 13px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
@@ -348,7 +348,7 @@ ensureStyles(
   100% { transform: translateY(8px) scaleY(0); opacity: 0; }
 }
 .dsp-ocard-exit-lbl {
-  font-size: 12px;
+  font-size: 13px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
