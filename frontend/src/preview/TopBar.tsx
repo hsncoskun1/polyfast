@@ -20,19 +20,19 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v9',
+  'topbar-v10',
   `
 .dsp-topbar {
-  height: ${SIZE.topBarHeight}px;
+  height: 56px;
   flex-shrink: 0;
   background: ${COLOR.bg};
   border-bottom: 1px solid ${COLOR.border};
   display: flex;
   align-items: center;
-  padding: 0 18px;
+  padding: 0 14px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  gap: 14px;
+  gap: 10px;
   overflow-x: auto;
 }
 
@@ -44,7 +44,7 @@ ensureStyles(
 }
 .dsp-tb-divider {
   width: 1px;
-  height: 44px;
+  height: 32px;
   background: ${COLOR.borderStrong};
   flex-shrink: 0;
   opacity: 0.55;
@@ -56,28 +56,28 @@ ensureStyles(
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  padding: 6px 14px;
+  gap: 0;
+  padding: 3px 10px 4px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radius}px;
-  min-width: 86px;
+  min-width: 68px;
   white-space: nowrap;
   flex-shrink: 0;
   position: relative;
   text-align: center;
 }
 .dsp-tb-chip-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   line-height: 1.1;
 }
 .dsp-tb-chip-value {
   font-family: ${FONT.mono};
-  font-size: 18px;
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   line-height: 1.1;
@@ -92,11 +92,11 @@ ensureStyles(
 
 /* PNL chip ozel — 2 satir, tone bg, daha buyuk vurgu */
 .dsp-tb-chip.pnl {
-  min-width: 138px;
-  padding: 5px 14px 6px;
+  min-width: 108px;
+  padding: 3px 12px 4px;
 }
 .dsp-tb-chip.pnl .dsp-tb-chip-value {
-  font-size: 19px;
+  font-size: 15px;
 }
 .dsp-tb-chip.pnl.profit { background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
 .dsp-tb-chip.pnl.profit .dsp-tb-chip-value, .dsp-tb-chip.pnl.profit .dsp-tb-chip-sub { color: ${COLOR.green}; }

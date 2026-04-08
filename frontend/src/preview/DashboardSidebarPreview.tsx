@@ -601,7 +601,12 @@ export default function DashboardSidebarPreview({
         </div>
       </div>
       <OpenRail positions={sortedPositions} />
-      <NotifRail />
+      <NotifRail
+        coins={sortedPositions
+          .filter((p) => p.variant !== 'claim')
+          .slice(0, 6)
+          .map((p) => p.asset)}
+      />
       {stopModalOpen && (
         <StopConfirmModal
           openPositionCount={positions.length}

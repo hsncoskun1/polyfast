@@ -24,10 +24,10 @@ export interface NotifItem {
 
 // ─── CSS ───
 ensureStyles(
-  'notifrail-v3',
+  'notifrail-v4',
   `
 .dsp-nrail {
-  width: 260px;
+  width: 280px;
   flex-shrink: 0;
   background: ${COLOR.bg};
   border-left: 1px solid ${COLOR.border};
@@ -63,6 +63,13 @@ ensureStyles(
   flex: 1;
   overflow: hidden;
   padding: 8px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dsp-nrail-group {
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -134,23 +141,26 @@ ensureStyles(
 `
 );
 
-// ─── Mock 15 bildirim ───
+// ─── Mock — coin başına 2 bildirim (her open kartın yanına 2 notif) ───
 export const MOCK_NOTIFS: NotifItem[] = [
-  { id: 'n1', coin: 'BTC', text: 'Yeni işlem açıldı | UP 59', time: '2s', severity: 'success' },
-  { id: 'n2', coin: 'ETH', text: 'TP tetiklendi | +1.34$', time: '14s', severity: 'success' },
-  { id: 'n3', coin: 'SOL', text: 'SL yaklaşıyor | Limit 52', time: '28s', severity: 'warning' },
-  { id: 'n4', coin: 'DOGE', text: 'SL tetiklendi | -0.24$', time: '45s', severity: 'error' },
-  { id: 'n5', coin: 'LINK', text: 'Force sell countdown | 8s', time: '1m', severity: 'pending' },
-  { id: 'n6', coin: 'BNB', text: 'FS kapandı | -0.06$', time: '1m', severity: 'warning' },
-  { id: 'n7', coin: 'XRP', text: 'Claim bekleniyor | 3/5 retry', time: '2m', severity: 'pending' },
-  { id: 'n8', coin: 'ADA', text: 'Claim başarılı | Tahsil $4.21', time: '3m', severity: 'success' },
-  { id: 'n9', coin: 'MATIC', text: 'Max retry | manuel kontrol', time: '4m', severity: 'error' },
-  { id: 'n10', coin: 'AVAX', text: 'Sinyal hazır | UP 56', time: '5m', severity: 'info' },
-  { id: 'n11', coin: 'DOT', text: 'Spread yüksek | bekleniyor', time: '6m', severity: 'warning' },
-  { id: 'n12', coin: 'UNI', text: 'Delta yetersiz | $32 < $50', time: '7m', severity: 'pending' },
-  { id: 'n13', coin: 'LTC', text: 'Balance yetersiz | min $1.00', time: '9m', severity: 'error' },
-  { id: 'n14', coin: 'TRX', text: 'Cooldown | 18s', time: '11m', severity: 'pending' },
-  { id: 'n15', coin: 'ATOM', text: 'Pozisyon kurtarıldı | restart sonrası', time: '14m', severity: 'info' },
+  // BTC
+  { id: 'n-btc-1', coin: 'BTC', text: 'Yeni işlem açıldı | UP 68', time: '2s', severity: 'success' },
+  { id: 'n-btc-2', coin: 'BTC', text: 'Emir doldu | TP hedef 74', time: '4s', severity: 'info' },
+  // ETH
+  { id: 'n-eth-1', coin: 'ETH', text: 'TP yaklaşıyor | hedef 87', time: '12s', severity: 'success' },
+  { id: 'n-eth-2', coin: 'ETH', text: 'Delta +2.6 | +0.31$', time: '18s', severity: 'success' },
+  // AVAX
+  { id: 'n-avax-1', coin: 'AVAX', text: 'TP @ 88 | +1.34$', time: '24s', severity: 'success' },
+  { id: 'n-avax-2', coin: 'AVAX', text: 'Kapatma emri gönderildi', time: '26s', severity: 'info' },
+  // SOL
+  { id: 'n-sol-1', coin: 'SOL', text: 'SL yaklaşıyor | Limit 52', time: '34s', severity: 'warning' },
+  { id: 'n-sol-2', coin: 'SOL', text: 'Delta -2.2 | -0.18$', time: '38s', severity: 'warning' },
+  // DOGE
+  { id: 'n-doge-1', coin: 'DOGE', text: 'SL tetiklendi | -0.24$', time: '45s', severity: 'error' },
+  { id: 'n-doge-2', coin: 'DOGE', text: 'Satış emri gönderildi', time: '48s', severity: 'error' },
+  // LINK
+  { id: 'n-link-1', coin: 'LINK', text: 'Force sell countdown | 8s', time: '1m', severity: 'pending' },
+  { id: 'n-link-2', coin: 'LINK', text: 'FS eşik -5% yakın', time: '1m', severity: 'pending' },
 ];
 
 // ─── Component ───
@@ -170,17 +180,34 @@ function NotifCard({ item }: { item: NotifItem }) {
   );
 }
 
-export default function NotifRail({ items = MOCK_NOTIFS }: { items?: NotifItem[] }) {
-  const visible = items.slice(0, 12);
+/** Coin listesine göre group'lar — her coin için 2 bildirim, 6 grup = 12 kart. */
+export default function NotifRail({
+  items = MOCK_NOTIFS,
+  coins,
+}: {
+  items?: NotifItem[];
+  /** OpenRail ile aynı sıra: her coin için 2 bildirim yan yana basılır. */
+  coins?: string[];
+}) {
+  const groupKeys = coins && coins.length ? coins.slice(0, 6) : Array.from(new Set(items.map((i) => i.coin))).slice(0, 6);
+  const groups = groupKeys.map((c) => ({
+    coin: c,
+    notifs: items.filter((i) => i.coin === c).slice(0, 2),
+  }));
+  const total = groups.reduce((s, g) => s + g.notifs.length, 0);
   return (
     <aside className="dsp-nrail">
       <div className="dsp-nrail-hdr">
         <span className="dsp-nrail-hdr-title">Bildirimler</span>
-        <span className="dsp-nrail-hdr-badge">{items.length}</span>
+        <span className="dsp-nrail-hdr-badge">{total}</span>
       </div>
       <div className="dsp-nrail-list">
-        {visible.map((n) => (
-          <NotifCard key={n.id} item={n} />
+        {groups.map((g) => (
+          <div key={g.coin} className="dsp-nrail-group">
+            {g.notifs.map((n) => (
+              <NotifCard key={n.id} item={n} />
+            ))}
+          </div>
         ))}
       </div>
     </aside>
