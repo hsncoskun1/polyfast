@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v10',
+  'sidebar-v11',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -232,10 +232,8 @@ ensureStyles(
   color: ${COLOR.textMuted};
   letter-spacing: 0.02em;
 }
-.dsp-sb-bot-btn.active {
-  opacity: 1;
-  flex: 1.5 1 0;
-}
+.dsp-sb-bot-btn.active { opacity: 1; }
+.dsp-sb-bot-btn.disabled-stopped { opacity: 0.4; }
 .dsp-sb-bot-btn.play.active {
   background: ${COLOR.greenSoft};
   border-color: ${COLOR.green};
@@ -534,53 +532,53 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
   const stopDisabled = localMode === 'stopped';
 
   void mode;
+  void startDisabled;
+  void pauseDisabled;
 
-  // Aktif mode'a göre label + sub
-  const playLabel  = localMode === 'running' ? 'Çalışıyor' : 'Başlat';
-  const pauseLabel = localMode === 'paused'  ? 'Durakladı' : 'Duraklat';
-  const stopLabel  = localMode === 'stopped' ? 'Durdu'     : 'Durdur';
-  const playSub =
+  // Toggle: running ise ⏸ Duraklat (sarı) — pause aksiyonu tetikler
+  //         paused  ise ▶ Devam Et (yeşil) — start aksiyonu tetikler
+  //         stopped ise ▶ Başlat   (yeşil) — start aksiyonu tetikler
+  const isRunning = localMode === 'running';
+  const toggleAction: 'start' | 'pause' = isRunning ? 'pause' : 'start';
+  const toggleIcon  = isRunning ? '⏸' : '▶';
+  const toggleLabel = isRunning
+    ? 'Duraklat'
+    : localMode === 'paused'
+      ? 'Devam Et'
+      : 'Başlat';
+  const toggleTone  = isRunning ? 'pause' : 'play';
+  const toggleSub =
     localMode === 'running' && liveUptime != null
       ? formatUptime(liveUptime)
-      : null;
-  const pauseSub =
-    localMode === 'paused' && bot?.uptime_sec != null
-      ? formatUptime(bot.uptime_sec)
-      : null;
-  const stopSub = localMode === 'stopped' ? 'Bekliyor' : null;
+      : localMode === 'paused' && bot?.uptime_sec != null
+        ? formatUptime(bot.uptime_sec)
+        : localMode === 'stopped'
+          ? 'Hazır'
+          : null;
 
   return (
     <div className="dsp-sb-bot">
       <div className="dsp-sb-bot-actions">
         <button
-          className={`dsp-sb-bot-btn play${localMode === 'running' ? ' active' : ''}`}
+          className={`dsp-sb-bot-btn ${toggleTone} active`}
           type="button"
-          disabled={startDisabled}
-          onClick={() => onAction('start')}
+          onClick={() => onAction(toggleAction)}
         >
-          <span className="dsp-sb-bot-btn-icon">▶</span>
-          <span className="dsp-sb-bot-btn-label">{playLabel}</span>
-          {playSub && <span className="dsp-sb-bot-btn-sub">{playSub}</span>}
+          <span className="dsp-sb-bot-btn-icon">{toggleIcon}</span>
+          <span className="dsp-sb-bot-btn-label">{toggleLabel}</span>
+          {toggleSub && <span className="dsp-sb-bot-btn-sub">{toggleSub}</span>}
         </button>
         <button
-          className={`dsp-sb-bot-btn pause${localMode === 'paused' ? ' active' : ''}`}
-          type="button"
-          disabled={pauseDisabled}
-          onClick={() => onAction('pause')}
-        >
-          <span className="dsp-sb-bot-btn-icon">⏸</span>
-          <span className="dsp-sb-bot-btn-label">{pauseLabel}</span>
-          {pauseSub && <span className="dsp-sb-bot-btn-sub">{pauseSub}</span>}
-        </button>
-        <button
-          className={`dsp-sb-bot-btn stop${localMode === 'stopped' ? ' active' : ''}`}
+          className={`dsp-sb-bot-btn stop${localMode === 'stopped' ? ' disabled-stopped' : ' active'}`}
           type="button"
           disabled={stopDisabled}
           onClick={() => onAction('stop')}
         >
           <span className="dsp-sb-bot-btn-icon">⏹</span>
-          <span className="dsp-sb-bot-btn-label">{stopLabel}</span>
-          {stopSub && <span className="dsp-sb-bot-btn-sub">{stopSub}</span>}
+          <span className="dsp-sb-bot-btn-label">
+            {localMode === 'stopped' ? 'Durdu' : 'Durdur'}
+          </span>
+          {localMode === 'stopped' && <span className="dsp-sb-bot-btn-sub">Kapalı</span>}
         </button>
       </div>
     </div>
