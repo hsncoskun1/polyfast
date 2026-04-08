@@ -22,6 +22,7 @@ import Sidebar, { type BotLocalMode } from './Sidebar';
 import TopBar from './TopBar';
 import EventTile from './EventTile';
 import OpenRail from './OpenRail';
+import SearchRail from './SearchRail';
 import { MOCK_DATA } from './mockData';
 import type {
   PositionSummary,
@@ -671,14 +672,7 @@ export default function DashboardSidebarPreview({
                   statusText={statusText}
                 />
               ) : (
-                search.map((s) => (
-                  <EventTile
-                    key={s.tile_id}
-                    variant="search"
-                    search={s}
-                    coins={data.coins}
-                  />
-                ))
+                <SearchRail tiles={search.slice(0, 6)} />
               )}
             </Section>
           )}
