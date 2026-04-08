@@ -12,7 +12,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v5',
+  'searchrail-v6',
   `
 .dsp-srail-list {
   display: grid;
@@ -208,12 +208,13 @@ ensureStyles(
 .dsp-scard-rule {
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
-  border-radius: 7px;
-  padding: 7px 10px;
+  border-radius: 6px;
+  padding: 5px 10px;
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 3px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   min-width: 0;
   font-family: ${FONT.sans};
 }
@@ -224,15 +225,16 @@ ensureStyles(
   color: ${COLOR.textMuted};
   letter-spacing: 0.06em;
   line-height: 1.1;
-  text-align: left;
+  flex-shrink: 0;
 }
 .dsp-scard-rule-expr {
   display: flex;
   align-items: baseline;
-  justify-content: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: 5px;
   font-family: ${FONT.mono};
   line-height: 1.1;
+  min-width: 0;
 }
 .dsp-scard-rule-min, .dsp-scard-rule-max {
   font-size: 11px;
