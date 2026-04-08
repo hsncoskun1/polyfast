@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v36',
+  'composition-v37',
   `
 .dsp-root {
   display: flex;
@@ -190,28 +190,29 @@ ensureStyles(
   left: -2px;
   right: -2px;
   display: flex;
-  gap: 6px;
+  gap: 4px;
   padding: 0;
   height: 36px;
   z-index: 5;
+  overflow: visible;
 }
 .dsp-main-tab {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
+  gap: 8px;
   height: 36px;
-  padding: 0 22px;
+  padding: 0 14px;
   border: 2px solid transparent;
   border-bottom: none;
   border-radius: 12px 12px 0 0;
   background: rgba(255,255,255,0.04);
   color: ${COLOR.textMuted};
   font-family: ${FONT.sans};
-  font-size: 13px;
+  font-size: 12px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
   opacity: 0.75;

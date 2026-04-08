@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v15',
+  'topbar-v16',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -29,18 +29,20 @@ ensureStyles(
   border-bottom: 1px solid ${COLOR.border};
   display: flex;
   align-items: center;
-  padding: 0 18px;
+  padding: 0 10px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
   gap: 14px;
-  overflow-x: auto;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .dsp-tb-group {
   display: flex;
   align-items: center;
-  gap: 7px;
-  flex-shrink: 0;
+  gap: 4px;
+  flex-shrink: 1;
+  min-width: 0;
 }
 .dsp-tb-divider {
   width: 1px;
@@ -57,27 +59,27 @@ ensureStyles(
   align-items: center;
   justify-content: center;
   gap: 1px;
-  padding: 6px 14px;
+  padding: 4px 9px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radius}px;
-  min-width: 86px;
+  min-width: 64px;
   white-space: nowrap;
   flex-shrink: 0;
   position: relative;
   text-align: center;
 }
 .dsp-tb-chip-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.05em;
   line-height: 1.1;
 }
 .dsp-tb-chip-value {
   font-family: ${FONT.mono};
-  font-size: 18px;
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   line-height: 1.1;
@@ -92,11 +94,11 @@ ensureStyles(
 
 /* PNL chip ozel — 2 satir, tone bg, daha buyuk vurgu */
 .dsp-tb-chip.pnl {
-  min-width: 138px;
-  padding: 5px 14px 6px;
+  min-width: 100px;
+  padding: 3px 11px 4px;
 }
 .dsp-tb-chip.pnl .dsp-tb-chip-value {
-  font-size: 19px;
+  font-size: 15px;
 }
 .dsp-tb-chip.pnl.profit { background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
 .dsp-tb-chip.pnl.profit .dsp-tb-chip-value, .dsp-tb-chip.pnl.profit .dsp-tb-chip-sub { color: ${COLOR.green}; }
