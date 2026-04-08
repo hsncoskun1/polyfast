@@ -23,6 +23,7 @@ import TopBar from './TopBar';
 import SectionFilterStrip, { type SectionFilter } from './SectionFilterStrip';
 import EventTile from './EventTile';
 import NotifRail from './NotifRail';
+import OpenRail from './OpenRail';
 import { MOCK_DATA } from './mockData';
 import type {
   PositionSummary,
@@ -35,7 +36,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v11',
+  'composition-v12',
   `
 .dsp-root {
   display: flex;
@@ -491,7 +492,6 @@ export default function DashboardSidebarPreview({
     idle: idle.length,
   };
 
-  const showOpen = filter === 'all' || filter === 'open';
   const showSearch = filter === 'all' || filter === 'search';
   const showIdle = filter === 'all' || filter === 'idle';
 
@@ -551,31 +551,6 @@ export default function DashboardSidebarPreview({
         )}
 
         <div className="dsp-content">
-          {showOpen && (
-            <Section sectionKey="open" count={positions.length}>
-              {positions.length === 0 ? (
-                <EmptyState
-                  sectionKey="open"
-                  icon="◯"
-                  title="Henüz açık işlem yok"
-                  description="Bot yeni 5M event arıyor — sinyal oluştuğunda burada görünür"
-                  online={online}
-                  statusText={statusText}
-                />
-              ) : (
-                sortedPositions.map((p) => (
-                  <EventTile
-                    key={p.position_id}
-                    variant={p.variant === 'claim' ? 'claim' : 'open'}
-                    position={p}
-                    coins={data.coins}
-                    claims={data.claims}
-                  />
-                ))
-              )}
-            </Section>
-          )}
-
           {showSearch && (
             <Section sectionKey="search" count={search.length}>
               {search.length === 0 ? (
@@ -625,6 +600,7 @@ export default function DashboardSidebarPreview({
           )}
         </div>
       </div>
+      <OpenRail positions={sortedPositions} />
       <NotifRail />
       {stopModalOpen && (
         <StopConfirmModal
