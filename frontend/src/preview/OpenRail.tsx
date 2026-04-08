@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v27',
+  'openrail-v28',
   `
 .dsp-orail {
   width: 100%;
@@ -99,21 +99,33 @@ ensureStyles(
 /* Row 1 col 2: ticker + side row */
 .dsp-ocard-id {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+}
+.dsp-ocard-id-row {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
 }
-.dsp-ocard-id-bottom {
-  grid-column: 2;
-  grid-row: 2;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-family: ${FONT.mono};
-  font-size: 12px;
+.dsp-ocard-id-lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: ${FONT.weight.bold};
+  letter-spacing: 0.06em;
   color: ${COLOR.textMuted};
+  line-height: 1.1;
+}
+.dsp-ocard-id-val {
+  font-family: ${FONT.mono};
+  font-size: 15px;
+  font-weight: ${FONT.weight.bold};
+  color: ${COLOR.cyan};
+  line-height: 1.15;
 }
 .dsp-ocard-sell-slot {
   grid-column: 3;
@@ -418,23 +430,22 @@ function OpenCard({ position }: { position: PositionSummary }) {
       </div>
 
       <div className="dsp-ocard-id">
-        <a
-          className="dsp-ocard-ticker"
-          href={position.event_url ?? '#'}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`${position.asset} Polymarket event'i aç`}
-        >
-          <span>{position.asset}</span>
-          <span className="dsp-ocard-ticker-ico">↗</span>
-        </a>
-        <button type="button" className="dsp-ocard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
-        <button type="button" className="dsp-ocard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
-      </div>
-
-      <div className="dsp-ocard-id-bottom">
-        <span>Tutar</span>
-        <strong>{cost}</strong>
+        <div className="dsp-ocard-id-row">
+          <a
+            className="dsp-ocard-ticker"
+            href={position.event_url ?? '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`${position.asset} Polymarket event'i aç`}
+          >
+            <span>{position.asset}</span>
+            <span className="dsp-ocard-ticker-ico">↗</span>
+          </a>
+          <button type="button" className="dsp-ocard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
+          <button type="button" className="dsp-ocard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
+        </div>
+        <div className="dsp-ocard-id-lbl">Tutar</div>
+        <div className="dsp-ocard-id-val">{cost}</div>
       </div>
 
       <div className="dsp-ocard-sell-slot">
