@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v43',
+  'composition-v44',
   `
 .dsp-root {
   display: flex;
@@ -102,19 +102,6 @@ ensureStyles(
   box-sizing: border-box;
   margin: 0;
   white-space: nowrap;
-}
-/* Sağ alt concave — tab body ile birleşik görünsün, ters yuvarlatma
- * Teknik: 12x12 kutu, body bg rengi + üstte yuvarlak boşluk (radial transparent) */
-.dsp-orail-wrap > .dsp-orail-title::after {
-  content: '';
-  position: absolute;
-  right: -12px;
-  bottom: -2px;
-  width: 12px;
-  height: 14px;
-  background: ${COLOR.green};
-  -webkit-mask: radial-gradient(circle 12px at top right, transparent 12px, #000 12.5px);
-          mask: radial-gradient(circle 12px at top right, transparent 12px, #000 12.5px);
 }
 .dsp-orail-wrap > .dsp-orail {
   width: 100%;
@@ -228,18 +215,6 @@ ensureStyles(
 .dsp-main-tab-label { overflow: visible; }
 .dsp-main-tab:hover { opacity: 0.9; }
 .dsp-main-tab.active { opacity: 1; color: #ffffff; }
-/* Aktif tab'ın alt sağ concave kulak — body border'a chrome geçiş */
-.dsp-main-tab.active::after {
-  content: '';
-  position: absolute;
-  right: -12px;
-  bottom: -2px;
-  width: 12px;
-  height: 14px;
-  background: currentColor;
-  -webkit-mask: radial-gradient(circle 12px at top right, transparent 12px, #000 12.5px);
-          mask: radial-gradient(circle 12px at top right, transparent 12px, #000 12.5px);
-}
 .dsp-main-tab.tone-search.active   { background: linear-gradient(180deg, rgba(6,182,212,0.82), rgba(6,182,212,0.42)); border-color: ${COLOR.cyan}; color: #fff; }
 .dsp-main-tab.tone-search.active::after { color: ${COLOR.cyan}; }
 .dsp-main-tab.tone-idle.active     { background: linear-gradient(180deg, rgba(234,179,8,0.82), rgba(234,179,8,0.42)); border-color: ${COLOR.yellow}; color: #fff; }
