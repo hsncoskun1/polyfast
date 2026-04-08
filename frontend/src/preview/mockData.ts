@@ -137,12 +137,11 @@ export const MOCK_POSITIONS: PositionSummary[] = [
   // ─── OPEN LIFECYCLE 1: yeni fill ───
   // 1) BTC — yeni fill (pozisyon yeni acildi)
   {
-    ...baseOpen('mock-pos-1', 'MATIC', 'UP'),
-    requested_amount_usd: 1000.0,
+    ...baseOpen('mock-pos-1', 'BTC', 'UP'),
     fill_price: 0.68,
-    pnl_big: '-100.0%',
-    pnl_amount: '-1000.00$',
-    pnl_tone: 'loss',
+    pnl_big: '0.0%',
+    pnl_amount: '0.00$',
+    pnl_tone: 'neutral',
     live: { side: 'UP', entry: '68', live: '68', delta_text: '0' },
     exits: { tp: '74', sl: '62', fs: '5:00', fs_pnl: '-5%' },
     activity: { text: 'Emir doldu | UP 68, pozisyon açıldı', severity: 'success' },
@@ -201,8 +200,8 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     activity: { text: 'SL tetiklendi | -0.24$ satış emri gönderildi', severity: 'error' },
   },
 
-  // ─── OPEN LIFECYCLE 6: FS countdown ───
-  // 6) LINK — FS countdown (zorunlu kapatma 8s)
+  // ─── OPEN LIFECYCLE 6: FS (zaman) sebep — countdown ───
+  // 6) LINK — FS countdown (zaman tetikleyici)
   {
     ...baseOpen('mock-pos-6', 'LINK', 'DOWN'),
     fill_price: 0.62,
@@ -211,20 +210,59 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'DOWN', entry: '62', live: '64', delta_text: '+2' },
     exits: { tp: '67', sl: '58', fs: '0:08', fs_pnl: '-5%' },
-    activity: { text: 'Force sell | FS eşik -5% aşıldı, 8 saniye zorunlu kapatma', severity: 'pending' },
+    activity: { text: 'FS countdown | süre 8s, zorunlu kapatma yaklaşıyor', severity: 'pending' },
   },
 
-  // ─── OPEN LIFECYCLE 7: FS closed ───
-  // 7) BNB — Force sell ile kapandi
+  // ─── OPEN LIFECYCLE 7: FSP (eşik) sebep — FS başladı ───
+  // 7) BNB — FSP tetik (PnL eşiği aşıldı, force sell başladı)
   {
     ...baseOpen('mock-pos-7', 'BNB', 'UP'),
     fill_price: 0.56,
-    pnl_big: '-3.0%',
-    pnl_amount: '-0.06$',
+    pnl_big: '-5.1%',
+    pnl_amount: '-0.10$',
     pnl_tone: 'loss',
     live: { side: 'UP', entry: '56', live: '50', delta_text: '-6' },
-    exits: { tp: '61', sl: '51', fs: '0:00', fs_pnl: '-5%' },
-    activity: { text: 'FS @ 50 | -0.06$ Force sell ile kapandı', severity: 'warning' },
+    exits: { tp: '61', sl: '51', fs: '1:05', fs_pnl: '-5%' },
+    activity: { text: 'FS eşik aşıldı | -5.1% force sell tetiklendi', severity: 'error' },
+  },
+
+  // ─── OPEN LIFECYCLE 8: FS kapandı ───
+  // 8) XRP — Force sell ile kapandı
+  {
+    ...baseOpen('mock-pos-fs-closed', 'XRP', 'DOWN'),
+    fill_price: 0.44,
+    pnl_big: '-4.8%',
+    pnl_amount: '-0.09$',
+    pnl_tone: 'loss',
+    live: { side: 'DOWN', entry: '44', live: '50', delta_text: '+6' },
+    exits: { tp: '39', sl: '48', fs: '0:00', fs_pnl: '-5%' },
+    activity: { text: 'FS @ 50 | -0.09$ Force sell ile kapandı', severity: 'warning' },
+  },
+
+  // ─── OPEN LIFECYCLE 9: Sakin kar ───
+  // 9) ADA — normal akış, kar bölgesi, hiçbir tetik yakın değil
+  {
+    ...baseOpen('mock-pos-calm-profit', 'ADA', 'UP'),
+    fill_price: 0.72,
+    pnl_big: '+4.2%',
+    pnl_amount: '+0.42$',
+    pnl_tone: 'profit',
+    live: { side: 'UP', entry: '72', live: '75', delta_text: '+3' },
+    exits: { tp: '80', sl: '67', fs: '3:22', fs_pnl: '-5%' },
+    activity: { text: 'Pozisyon açık | hedefe doğru', severity: 'info' },
+  },
+
+  // ─── OPEN LIFECYCLE 10: Sakin zarar ───
+  // 10) DOT — normal akış, hafif zarar, tetikler uzak
+  {
+    ...baseOpen('mock-pos-calm-loss', 'DOT', 'DOWN'),
+    fill_price: 0.58,
+    pnl_big: '-2.1%',
+    pnl_amount: '-0.21$',
+    pnl_tone: 'loss',
+    live: { side: 'DOWN', entry: '58', live: '56', delta_text: '-2' },
+    exits: { tp: '63', sl: '54', fs: '2:45', fs_pnl: '-5%' },
+    activity: { text: 'Pozisyon açık | dalgalanıyor', severity: 'info' },
   },
 
   // ─── CLAIM LIFECYCLE 1: pending RETRY ───

@@ -416,7 +416,7 @@ function OpenCard({ position }: { position: PositionSummary }) {
   const actives = deriveActiveExits(position.activity?.text);
   const actText = position.activity?.text ?? '';
   // Popover tek yerde render — öncelik sırasına göre ilk active hücre
-  const primary: ExitKey | null = (['tp','sl','fs','fsp'] as ExitKey[]).find((k) => actives.has(k)) ?? null;
+  const primary: ExitKey | null = (['tp','sl','fsp','fs'] as ExitKey[]).find((k) => actives.has(k)) ?? null;
   const side = live?.side ?? position.side ?? 'UP';
   const sideColor = side === 'UP' ? COLOR.green : COLOR.red;
   const coinTone = coin?.tone;
