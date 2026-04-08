@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v31',
+  'composition-v32',
   `
 .dsp-root {
   display: flex;
@@ -73,16 +73,50 @@ ensureStyles(
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
-  margin: 6px 0 6px 10px;
-  padding: 6px 10px 10px;
+  overflow: visible;
+  margin: 42px 0 6px 10px;
+  padding: 10px;
   background: linear-gradient(180deg,
     rgba(34, 197, 94, 0.22) 0px,
     rgba(34, 197, 94, 0.08) 150px,
     rgba(34, 197, 94, 0.03) 100%
   );
   border: 2px solid ${COLOR.green};
-  border-radius: 12px;
+  border-radius: 0 12px 12px 12px;
+  position: relative;
+}
+/* Chrome-tab: wrap'in sol üstüne "yapışık" tab */
+.dsp-orail-wrap > .dsp-orail-title {
+  position: absolute;
+  top: -36px;
+  left: -2px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 22px;
+  background: linear-gradient(180deg, rgba(34,197,94,0.82), rgba(34,197,94,0.42));
+  border: 2px solid ${COLOR.green};
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  min-width: 220px;
+  box-sizing: border-box;
+  margin: 0;
+}
+/* Sağ alt concave — body border'a chrome-tab gibi bağlanır */
+.dsp-orail-wrap > .dsp-orail-title::after {
+  content: '';
+  position: absolute;
+  right: -12px;
+  bottom: -2px;
+  width: 12px;
+  height: 12px;
+  background: radial-gradient(circle at bottom right,
+    transparent 0,
+    transparent 11px,
+    ${COLOR.green} 11px,
+    ${COLOR.green} 13px,
+    transparent 13px);
 }
 .dsp-orail-wrap > .dsp-orail {
   width: 100%;
@@ -108,21 +142,6 @@ ensureStyles(
 .dsp-main.tab-search   { --dsp-main-tone: ${COLOR.cyan}; }
 .dsp-main.tab-idle     { --dsp-main-tone: ${COLOR.yellow}; }
 .dsp-main.tab-settings { --dsp-main-tone: ${COLOR.red}; }
-.dsp-orail-title {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 0 18px 0 14px;
-  border-radius: 10px 10px 0 0;
-  background: linear-gradient(180deg, rgba(34,197,94,0.82), rgba(34,197,94,0.42));
-  flex-shrink: 0;
-  margin: 0 0 8px 0;
-  height: 36px;
-  box-sizing: border-box;
-  min-width: 200px;
-}
 .dsp-orail-title-dot {
   width: 11px; height: 11px; border-radius: 50%;
   flex-shrink: 0;
