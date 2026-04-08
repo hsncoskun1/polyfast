@@ -157,8 +157,11 @@ ensureStyles(
   padding: 9px 14px;
   border-radius: 10px 10px 0 0;
   border-bottom: 1px solid;
-  position: relative;
-  background: linear-gradient(180deg, rgba(6,182,212,0.72), rgba(6,182,212,0.28));
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  backdrop-filter: blur(6px);
+  background: linear-gradient(180deg, rgba(6,182,212,0.85), rgba(6,182,212,0.55));
   margin: 6px 10px 0;
   height: 36px;
   box-sizing: border-box;
