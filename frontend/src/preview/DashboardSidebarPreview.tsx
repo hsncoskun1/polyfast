@@ -74,14 +74,15 @@ ensureStyles(
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  border-left: 1px solid ${COLOR.border};
-  /* Chrome-tab yayılma: üstte yoğun yeşil → alta doğru fade */
+  margin: 6px 0 6px 10px;
+  border: 2px solid ${COLOR.green};
+  border-radius: 12px;
   background: linear-gradient(180deg,
-    rgba(34, 197, 94, 0.32) 0px,
-    rgba(34, 197, 94, 0.12) 60px,
-    rgba(34, 197, 94, 0.04) 180px,
-    transparent 100%
+    rgba(34, 197, 94, 0.22) 0px,
+    rgba(34, 197, 94, 0.08) 120px,
+    rgba(34, 197, 94, 0.03) 100%
   );
+  box-shadow: 0 0 0 1px rgba(34,197,94,0.25) inset;
 }
 .dsp-orail-wrap > .dsp-orail {
   width: 100%;
@@ -90,14 +91,17 @@ ensureStyles(
   border-left: none;
   background: transparent;
 }
-/* Main (İşlem Aranan) — chrome-tab cyan yayılma */
+/* Main (İşlem Aranan) — cyan çerçeveli kutu */
 .dsp-main {
+  margin: 6px 10px 6px 6px;
+  border: 2px solid ${COLOR.cyan};
+  border-radius: 12px;
   background: linear-gradient(180deg,
-    rgba(6, 182, 212, 0.32) 0px,
-    rgba(6, 182, 212, 0.12) 60px,
-    rgba(6, 182, 212, 0.04) 180px,
-    transparent 100%
+    rgba(6, 182, 212, 0.22) 0px,
+    rgba(6, 182, 212, 0.08) 120px,
+    rgba(6, 182, 212, 0.03) 100%
   );
+  box-shadow: 0 0 0 1px rgba(6,182,212,0.25) inset;
 }
 .dsp-orail-title {
   display: flex;
@@ -128,6 +132,10 @@ ensureStyles(
   font-size: 14px;
   font-weight: ${FONT.weight.bold};
   line-height: 1;
+  padding: 3px 9px;
+  border: 1.5px solid #ffffff;
+  border-radius: 6px;
+  color: #ffffff;
 }
 .dsp-content {
   flex: 1;
@@ -197,6 +205,10 @@ ensureStyles(
 }
 .dsp-section-hdr-title-row .dsp-orail-title-count {
   font-size: 14px;
+  padding: 3px 9px;
+  border: 1.5px solid #ffffff;
+  border-radius: 6px;
+  color: #ffffff !important;
 }
 .dsp-section-hdr-spacer {
   flex: 1;
