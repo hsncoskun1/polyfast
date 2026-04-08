@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v4',
+  'sidebar-v5',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -67,10 +67,11 @@ ensureStyles(
   gap: 10px;
 }
 .dsp-sb-brand-logo {
-  width: 56px;
-  height: 56px;
+  width: 200px;
+  height: auto;
+  max-width: 100%;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 12px rgba(34,211,238,0.45));
+  filter: drop-shadow(0 0 14px rgba(34,211,238,0.4));
 }
 .dsp-sb-brand-title {
   font-size: 20px;
@@ -250,29 +251,57 @@ function BrandBlock() {
       <div className="dsp-sb-brand-row">
         <svg
           className="dsp-sb-brand-logo"
-          viewBox="0 0 64 64"
+          viewBox="0 0 360 140"
           xmlns="http://www.w3.org/2000/svg"
           aria-label="Polyfast"
+          fill="none"
         >
-          <defs>
-            <linearGradient id="dsp-pg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stopColor="#06b6d4" />
-              <stop offset="1" stopColor="#22d3ee" />
-            </linearGradient>
-          </defs>
+          {/* Wordmark "polyfast" — cyan ince çift çizgi (outline) */}
+          <g
+            stroke="#22d3ee"
+            strokeWidth="11"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            fontFamily="system-ui, sans-serif"
+          >
+            <text
+              x="6"
+              y="92"
+              fontSize="92"
+              fontWeight="800"
+              letterSpacing="-2"
+              fill="#22d3ee"
+              stroke="#0f172a"
+              strokeWidth="6"
+              paintOrder="stroke"
+            >
+              polyfast
+            </text>
+          </g>
+          {/* Üst sağ çift lightning bolt */}
           <path
-            d="M14 8 L14 56 M14 8 L40 8 Q52 8 52 22 Q52 36 40 36 L14 36"
-            stroke="url(#dsp-pg)"
-            strokeWidth="8"
-            fill="none"
-            strokeLinecap="square"
+            d="M260 6 L246 56 L262 56 L252 90 L298 30 L278 30 L292 6 Z"
+            fill="#22d3ee"
+            stroke="#0f172a"
+            strokeWidth="3"
             strokeLinejoin="round"
           />
-          <line x1="44" y1="44" x2="58" y2="44" stroke="#22d3ee" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="40" y1="50" x2="58" y2="50" stroke="#22d3ee" strokeWidth="2.5" strokeLinecap="round" opacity="0.7" />
-          <line x1="44" y1="56" x2="58" y2="56" stroke="#22d3ee" strokeWidth="2.5" strokeLinecap="round" opacity="0.45" />
+          <path
+            d="M296 4 L286 44 L298 44 L290 72 L320 28 L306 28 L316 4 Z"
+            fill="#22d3ee"
+            stroke="#0f172a"
+            strokeWidth="3"
+            strokeLinejoin="round"
+          />
+          {/* Alt zigzag waveform underline */}
+          <path
+            d="M150 116 L172 102 L194 122 L216 100 L238 124 L260 102 L282 122 L304 102 L326 122 L350 110"
+            stroke="#22d3ee"
+            strokeWidth="6"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
         </svg>
-        <div className="dsp-sb-brand-title">POLYFAST</div>
       </div>
     </div>
   );

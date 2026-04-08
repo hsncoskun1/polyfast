@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 140" fill="none">
+  <text x="6" y="92" font-size="92" font-weight="800" letter-spacing="-2"
+        font-family="system-ui, sans-serif"
+        fill="#22d3ee" stroke="#0f172a" stroke-width="6" paint-order="stroke">polyfast</text>
+  <path d="M260 6 L246 56 L262 56 L252 90 L298 30 L278 30 L292 6 Z"
+        fill="#22d3ee" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M296 4 L286 44 L298 44 L290 72 L320 28 L306 28 L316 4 Z"
+        fill="#22d3ee" stroke="#0f172a" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M150 116 L172 102 L194 122 L216 100 L238 124 L260 102 L282 122 L304 102 L326 122 L350 110"
+        stroke="#22d3ee" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>
