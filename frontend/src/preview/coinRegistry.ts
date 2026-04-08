@@ -39,8 +39,8 @@ export const COIN_TONE: Record<string, string> = {
   LINK:  '#2a5ada', // chainlink blue
 };
 
-/** Bilinmeyen coin fallback tone — brand mor. */
-export const DEFAULT_COIN_TONE = '#8b5cf6';
+/** Bilinmeyen coin fallback tone — brand cyan. */
+export const DEFAULT_COIN_TONE = '#06b6d4';
 
 /**
  * Logo CDN — atomiclabs/cryptocurrency-icons (jsdelivr).

@@ -34,9 +34,9 @@ export const COLOR = {
   divider: 'rgba(139, 92, 246, 0.12)',
 
   // Brand
-  brand: '#8b5cf6', // mor marka aksanI
-  brandSoft: 'rgba(139, 92, 246, 0.18)',
-  brandGlow: 'rgba(139, 92, 246, 0.42)',
+  brand: '#06b6d4', // cyan marka aksanı
+  brandSoft: 'rgba(6, 182, 212, 0.18)',
+  brandGlow: 'rgba(6, 182, 212, 0.42)',
 
   // Semantik renkler
   green: '#22c55e', // aktif / kar / pass
