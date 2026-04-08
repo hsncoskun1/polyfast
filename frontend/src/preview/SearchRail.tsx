@@ -7,7 +7,7 @@
  *   [    4-col rules (Zaman / Fiyat / Delta / Spread)]
  */
 
-import { COLOR, FONT, SIZE, ensureStyles } from './styles';
+import { COLOR, FONT, SIZE, ACTIVITY_TONE, ensureStyles } from './styles';
 import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
@@ -348,11 +348,10 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
       {tile.activity?.text && (
         <div
           className="dsp-scard-act"
-          style={{
-            color: pnlFg,
-            borderColor: `${pnlFg}44`,
-            background: `${pnlFg}14`,
-          }}
+          style={(() => {
+            const t = ACTIVITY_TONE[tile.activity.severity ?? 'info'];
+            return { color: t.fg, borderColor: `${t.fg}44`, background: `${t.fg}14` };
+          })()}
         >
           {tile.activity.text}
         </div>
