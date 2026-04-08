@@ -377,7 +377,7 @@ function deriveSellState(t: string | null | undefined): SellState {
   return 'active';
 }
 function sellLabel(_s: SellState): string {
-  return 'MANUEL SAT';
+  return 'SAT';
 }
 
 function OpenCard({ position }: { position: PositionSummary }) {
