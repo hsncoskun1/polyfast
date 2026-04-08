@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v18',
+  'openrail-v19',
   `
 .dsp-orail {
   width: 100%;
@@ -187,10 +187,14 @@ ensureStyles(
   grid-column: 1 / -1;
   grid-row: 3;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-auto-rows: auto;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
   gap: 6px;
 }
+.dsp-ocard-cells > .dsp-ocard-cell:nth-child(1) { grid-column: 1; grid-row: 1; }
+.dsp-ocard-cells > .dsp-ocard-cell:nth-child(2) { grid-column: 2; grid-row: 1; }
+.dsp-ocard-cells > .dsp-ocard-cell:nth-child(3) { grid-column: 1; grid-row: 2; }
+.dsp-ocard-cells > .dsp-ocard-cell:nth-child(4) { grid-column: 2; grid-row: 2; }
 
 /* Row 3 (span 3): exits + sell */
 .dsp-ocard-act {
@@ -257,15 +261,7 @@ ensureStyles(
 .dsp-ocard.tone-off    { border-left-color: ${COLOR.divider}; }
 .dsp-ocard.tone-pending { border-left-color: ${COLOR.yellow}; }
 
-/* Row 1: logo + ticker + side + big pnl + status badge */
 .dsp-ocard-logo img { width: 124%; height: 124%; object-fit: contain; }
-
-/* Row 2: 3 mini cells — Tutar / USD / Delta */
-.dsp-ocard-cells {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
-}
 .dsp-ocard-cell {
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
@@ -297,13 +293,6 @@ ensureStyles(
   max-width: 100%;
   text-align: right;
   line-height: 1.2;
-}
-
-/* Row 3: exits TP/SL/FS/FS-P inline */
-.dsp-ocard-exits {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: 6px;
 }
 .dsp-ocard-exit {
   background: ${COLOR.bg};
