@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v32',
+  'composition-v33',
   `
 .dsp-root {
   display: flex;
@@ -128,16 +128,16 @@ ensureStyles(
 }
 /* Main panel — aktif sekme tonuna göre renkli çerçeve + gradient */
 .dsp-main {
-  margin: 6px 10px 6px 6px;
+  margin: 42px 10px 6px 6px;
   border: 2px solid var(--dsp-main-tone, ${COLOR.cyan});
-  border-radius: 12px;
+  border-radius: 0 12px 12px 12px;
   background: linear-gradient(180deg,
     color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 26%, transparent) 0px,
     color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 10%, transparent) 150px,
     color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 4%, transparent) 100%
   );
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 30%, transparent) inset;
   transition: border-color 0.2s, background 0.2s;
+  position: relative;
 }
 .dsp-main.tab-search   { --dsp-main-tone: ${COLOR.cyan}; }
 .dsp-main.tab-idle     { --dsp-main-tone: ${COLOR.yellow}; }
@@ -183,24 +183,29 @@ ensureStyles(
   flex-direction: column;
   gap: 4px;
 }
-/* Main tab bar — İşlem Arananlar / İşlem Aranmayanlar / Ayar Gerekli */
+/* Main tab bar — chrome tab stili, main kutusunun üst kenarında */
 .dsp-main-tabs {
+  position: absolute;
+  top: -36px;
+  left: -2px;
+  right: -2px;
   display: flex;
-  gap: 4px;
-  padding: 6px 10px 0;
-  flex-shrink: 0;
+  gap: 6px;
+  padding: 0;
+  height: 36px;
+  z-index: 5;
 }
 .dsp-main-tab {
-  flex: 1 1 0;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
   height: 36px;
-  padding: 0 14px;
-  border: 1.5px solid transparent;
+  padding: 0 22px;
+  border: 2px solid transparent;
   border-bottom: none;
-  border-radius: 10px 10px 0 0;
+  border-radius: 12px 12px 0 0;
   background: rgba(255,255,255,0.04);
   color: ${COLOR.textMuted};
   font-family: ${FONT.sans};
@@ -211,12 +216,32 @@ ensureStyles(
   cursor: pointer;
   opacity: 0.65;
   transition: opacity 0.15s, background 0.15s;
+  min-width: 200px;
+  box-sizing: border-box;
 }
 .dsp-main-tab:hover { opacity: 0.9; }
 .dsp-main-tab.active { opacity: 1; color: #ffffff; }
-.dsp-main-tab.tone-search.active   { background: linear-gradient(180deg, rgba(6,182,212,0.72), rgba(6,182,212,0.28)); border-color: ${COLOR.cyan}; }
-.dsp-main-tab.tone-idle.active     { background: linear-gradient(180deg, rgba(234,179,8,0.72), rgba(234,179,8,0.28)); border-color: ${COLOR.yellow}; }
-.dsp-main-tab.tone-settings.active { background: linear-gradient(180deg, rgba(239,68,68,0.72), rgba(239,68,68,0.28)); border-color: ${COLOR.red}; }
+/* Aktif tab'ın alt sağ concave kulak — body border'a chrome geçiş */
+.dsp-main-tab.active::after {
+  content: '';
+  position: absolute;
+  right: -12px;
+  bottom: -2px;
+  width: 12px;
+  height: 12px;
+  background: radial-gradient(circle at bottom right,
+    transparent 0,
+    transparent 11px,
+    currentColor 11px,
+    currentColor 13px,
+    transparent 13px);
+}
+.dsp-main-tab.tone-search.active   { background: linear-gradient(180deg, rgba(6,182,212,0.82), rgba(6,182,212,0.42)); border-color: ${COLOR.cyan}; color: #fff; }
+.dsp-main-tab.tone-search.active::after { color: ${COLOR.cyan}; }
+.dsp-main-tab.tone-idle.active     { background: linear-gradient(180deg, rgba(234,179,8,0.82), rgba(234,179,8,0.42)); border-color: ${COLOR.yellow}; color: #fff; }
+.dsp-main-tab.tone-idle.active::after { color: ${COLOR.yellow}; }
+.dsp-main-tab.tone-settings.active { background: linear-gradient(180deg, rgba(239,68,68,0.82), rgba(239,68,68,0.42)); border-color: ${COLOR.red}; color: #fff; }
+.dsp-main-tab.tone-settings.active::after { color: ${COLOR.red}; }
 .dsp-main-tab-count {
   font-family: ${FONT.mono};
   font-size: 14px;
