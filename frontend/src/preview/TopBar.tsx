@@ -12,7 +12,7 @@
  * Animasyon: YOK
  */
 
-import { COLOR, FONT, SIZE, PNL_TONE, ensureStyles } from './styles';
+import { COLOR, FONT, SIZE, ensureStyles } from './styles';
 import type { DashboardOverview, PnlTone } from '../api/dashboard';
 
 // ╔══════════════════════════════════════════════════════════════╗
@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v14',
+  'topbar-v15',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -42,13 +42,6 @@ ensureStyles(
   gap: 7px;
   flex-shrink: 0;
 }
-/* Grup bazlı chip rengi: solid tone bg + beyaz yazı */
-.dsp-tb-group.g-money    .dsp-tb-chip { background: ${COLOR.green};  border-color: ${COLOR.green};  color: #fff; }
-.dsp-tb-group.g-activity .dsp-tb-chip { background: ${COLOR.cyan};   border-color: ${COLOR.cyan};   color: #fff; }
-.dsp-tb-group.g-outcome  .dsp-tb-chip { background: ${COLOR.yellow}; border-color: ${COLOR.yellow}; color: #1a1505; }
-.dsp-tb-group .dsp-tb-chip .dsp-tb-chip-label,
-.dsp-tb-group .dsp-tb-chip .dsp-tb-chip-value,
-.dsp-tb-group .dsp-tb-chip .dsp-tb-chip-sub { color: inherit !important; }
 .dsp-tb-divider {
   width: 1px;
   height: 44px;
@@ -109,7 +102,10 @@ ensureStyles(
 .dsp-tb-chip.pnl.profit .dsp-tb-chip-value, .dsp-tb-chip.pnl.profit .dsp-tb-chip-sub { color: ${COLOR.green}; }
 .dsp-tb-chip.pnl.loss { background: ${COLOR.redSoft}; border-color: ${COLOR.redSoft}; }
 .dsp-tb-chip.pnl.loss .dsp-tb-chip-value, .dsp-tb-chip.pnl.loss .dsp-tb-chip-sub { color: ${COLOR.red}; }
-.dsp-tb-chip.pnl.neutral .dsp-tb-chip-value { color: ${COLOR.text}; }
+.dsp-tb-chip.pnl.pending { background: ${COLOR.yellowSoft}; border-color: ${COLOR.yellowSoft}; }
+.dsp-tb-chip.pnl.pending .dsp-tb-chip-value, .dsp-tb-chip.pnl.pending .dsp-tb-chip-sub { color: ${COLOR.yellow}; }
+.dsp-tb-chip.pnl.neutral { background: ${COLOR.cyanSoft}; border-color: ${COLOR.cyanSoft}; }
+.dsp-tb-chip.pnl.neutral .dsp-tb-chip-value { color: ${COLOR.cyan}; }
 .dsp-tb-chip.pnl.off .dsp-tb-chip-value { color: ${COLOR.textDim}; }
 
 /* Tonelu chip — boxed bg + colored value (oturum pnl gibi) */
@@ -182,37 +178,15 @@ ensureStyles(
 // ║  Local renderers                                             ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-type ChipTone = 'green' | 'red' | 'yellow' | 'brand' | 'cyan';
-interface KpiCellProps {
-  label: string;
-  value: string;
-  tone?: PnlTone;
-  color?: string;
-  chipTone?: ChipTone;
-}
-
-function KpiCell({ label, value, tone, color: colorProp, chipTone }: KpiCellProps) {
-  const color = colorProp ?? (tone ? PNL_TONE[tone].fg : COLOR.text);
-  const cls = `dsp-tb-chip${chipTone ? ` tone-${chipTone}` : ''}`;
-  return (
-    <div className={cls}>
-      <div className="dsp-tb-chip-label">{label}</div>
-      <div className="dsp-tb-chip-value" style={chipTone ? undefined : { color }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-/** Winrate -> chipTone (>=50 green, >0 yellow, =0 red). */
-function winrateChipTone(raw: string | null | undefined): ChipTone {
-  if (!raw) return 'brand';
+/** Winrate -> PnlTone (profit/loss/pending). */
+function winrateToneFull(raw: string | null | undefined): PnlTone {
+  if (!raw) return 'neutral';
   const m = raw.match(/(-?\d+(?:\.\d+)?)/);
-  if (!m) return 'brand';
+  if (!m) return 'neutral';
   const pct = parseFloat(m[1]);
-  if (pct >= 50) return 'green';
-  if (pct > 0) return 'yellow';
-  return 'red';
+  if (pct >= 50) return 'profit';
+  if (pct > 0) return 'pending';
+  return 'loss';
 }
 
 /** PnL chip — 2 satir (deger + yuzde), tone bg */
@@ -270,13 +244,19 @@ export default function TopBar({ overview }: TopBarProps) {
   const pnlValue = overview?.session_pnl;
   return (
     <div className="dsp-topbar">
-      {/* Group 1 — MONEY — mor yasak, sadece cyan/green/red/yellow */}
+      {/* Group 1 — MONEY — Oturum PnL tarzı soft bg */}
       <div className="dsp-tb-group g-money">
-        <KpiCell label="Bakiye" value={fmtMoney(overview?.bakiye_text)} chipTone="cyan" />
-        <KpiCell
+        <PnlCell
+          label="Bakiye"
+          value={fmtMoney(overview?.bakiye_text)}
+          pct={null}
+          tone="neutral"
+        />
+        <PnlCell
           label="Kullanılabilir"
           value={fmtMoney(overview?.kullanilabilir_text)}
-          chipTone="green"
+          pct={null}
+          tone="profit"
         />
         <PnlCell
           label="Oturum PnL"
@@ -290,22 +270,23 @@ export default function TopBar({ overview }: TopBarProps) {
 
       {/* Group 2 — ACTIVITY */}
       <div className="dsp-tb-group g-activity">
-        <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} chipTone="cyan" />
-        <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} chipTone="cyan" />
-        <KpiCell label="A/G Rate" value={overview?.ag_rate ?? '—'} chipTone="yellow" />
+        <PnlCell label="Açılan" value={fmtNum(overview?.acilan)} pct={null} tone="neutral" />
+        <PnlCell label="Görülen" value={fmtNum(overview?.gorulen)} pct={null} tone="neutral" />
+        <PnlCell label="A/G Rate" value={overview?.ag_rate ?? '—'} pct={null} tone="pending" />
       </div>
 
       <div className="dsp-tb-divider" />
 
       {/* Group 3 — OUTCOME */}
       <div className="dsp-tb-group g-outcome">
-        <KpiCell label="Kazanan" value={fmtNum(overview?.win)} chipTone="green" />
-        <KpiCell label="Kaybeden" value={fmtNum(overview?.lost)} chipTone="red" />
-        <KpiCell label="Bekleyen" value={fmtNum(overview?.pending_claims)} chipTone="yellow" />
-        <KpiCell
+        <PnlCell label="Kazanan" value={fmtNum(overview?.win)} pct={null} tone="profit" />
+        <PnlCell label="Kaybeden" value={fmtNum(overview?.lost)} pct={null} tone="loss" />
+        <PnlCell label="Bekleyen" value={fmtNum(overview?.pending_claims)} pct={null} tone="pending" />
+        <PnlCell
           label="Winrate"
           value={overview?.winrate ?? '—'}
-          chipTone={winrateChipTone(overview?.winrate)}
+          pct={null}
+          tone={winrateToneFull(overview?.winrate)}
         />
       </div>
 
