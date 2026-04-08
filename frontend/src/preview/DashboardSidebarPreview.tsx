@@ -108,7 +108,7 @@ ensureStyles(
   background: linear-gradient(180deg, rgba(34,197,94,0.72), rgba(34,197,94,0.28));
   border-bottom: 1px solid;
   flex-shrink: 0;
-  margin: 6px 8px 0;
+  margin: 12px 10px 0;
   height: 36px;
   box-sizing: border-box;
 }
@@ -159,7 +159,7 @@ ensureStyles(
   border-bottom: 1px solid;
   position: relative;
   background: linear-gradient(180deg, rgba(6,182,212,0.72), rgba(6,182,212,0.28));
-  margin: 6px 8px 0;
+  margin: 6px 10px 0;
   height: 36px;
   box-sizing: border-box;
 }
