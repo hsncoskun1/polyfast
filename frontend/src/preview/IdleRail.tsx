@@ -12,7 +12,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v2',
+  'idlerail-v3',
   `
 .dsp-irail-list {
   display: grid;
@@ -44,10 +44,15 @@ ensureStyles(
   min-width: 0;
   overflow: hidden;
 }
-.dsp-icard:hover {
+.dsp-icard.tone-idle:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(234, 179, 8, 0.18);
   border-color: ${COLOR.yellow};
+}
+.dsp-icard.tone-settings:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.18);
+  border-color: ${COLOR.red};
 }
 
 /* Row 1 — id (logo + ticker + butonlar) */
@@ -97,6 +102,9 @@ ensureStyles(
   font-family: ${FONT.sans};
 }
 .dsp-icard-icbtn.dollar { background: ${COLOR.greenSoft}; color: ${COLOR.green}; }
+.dsp-icard-icbtn:hover { filter: brightness(1.25); }
+.dsp-icard-icbtn:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
+.dsp-icard-ticker:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; border-radius: 3px; }
 
 /* Row 1 col 2 — kind hero */
 .dsp-icard-kind {
@@ -168,14 +176,14 @@ const KIND_LABEL: Record<string, string> = {
   error: 'HATA',
 };
 
-function IdleCard({ tile }: { tile: IdleTileContract }) {
+function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'settings' }) {
   const coin = tile.coin ? COIN_FALLBACK[tile.coin] : undefined;
   const coinTone = coin?.tone;
   const bgStyle = coinTone
     ? { background: `linear-gradient(135deg, ${coinTone}1f 0%, ${COLOR.surface} 55%)` }
     : undefined;
   return (
-    <div className="dsp-icard" style={bgStyle}>
+    <div className={`dsp-icard tone-${tone}`} style={bgStyle}>
       <div className="dsp-icard-id">
         <div className="dsp-icard-logo">
           {coin?.logo_url ? <img src={coin.logo_url} alt={tile.coin ?? ''} /> : null}
@@ -217,11 +225,17 @@ function IdleCard({ tile }: { tile: IdleTileContract }) {
   );
 }
 
-export default function IdleRail({ tiles }: { tiles: IdleTileContract[] }) {
+export default function IdleRail({
+  tiles,
+  tone = 'idle',
+}: {
+  tiles: IdleTileContract[];
+  tone?: 'idle' | 'settings';
+}) {
   return (
     <div className="dsp-irail-list">
       {tiles.map((t) => (
-        <IdleCard key={t.tile_id} tile={t} />
+        <IdleCard key={t.tile_id} tile={t} tone={tone} />
       ))}
     </div>
   );

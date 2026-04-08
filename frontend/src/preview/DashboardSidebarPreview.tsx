@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v46',
+  'composition-v47',
   `
 .dsp-root {
   display: flex;
@@ -214,6 +214,8 @@ ensureStyles(
 }
 .dsp-main-tab-label { overflow: visible; }
 .dsp-main-tab:hover { opacity: 0.9; }
+.dsp-main-tab:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
+.dsp-modal-btn:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
 .dsp-main-tab.active { opacity: 1; color: #ffffff; }
 .dsp-main-tab.tone-search.active   { background: linear-gradient(180deg, rgba(6,182,212,0.82), rgba(6,182,212,0.42)); border-color: ${COLOR.cyan}; color: #fff; }
 .dsp-main-tab.tone-search.active::after { color: ${COLOR.cyan}; }
@@ -629,8 +631,10 @@ export default function DashboardSidebarPreview({
 
   const sortedPositions = useMemo(() => sortPositions(positions), [positions]);
 
-  const idleSettings = idle.filter((i) => i.idle_kind === 'bot_stopped' || i.idle_kind === 'error');
-  const idleOnly = idle.filter((i) => i.idle_kind !== 'bot_stopped' && i.idle_kind !== 'error');
+  // 'İşlem Aranmayan' = pasif coin (manuel kapatılmış, bot_stopped)
+  // 'Ayar Gerekli'     = müdahale gerektiren (waiting_rules: ayar yok, error: hata)
+  const idleOnly = idle.filter((i) => i.idle_kind === 'bot_stopped');
+  const idleSettings = idle.filter((i) => i.idle_kind === 'waiting_rules' || i.idle_kind === 'error');
   const mainCounts = { search: search.length, idle: idleOnly.length, settings: idleSettings.length };
 
   // Status chip: hep gosterilir (Q3 = a)
@@ -739,7 +743,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <IdleRail tiles={idleOnly} />
+            <IdleRail tiles={idleOnly} tone="idle" />
           ))}
           {mainTab === 'settings' && (idleSettings.length === 0 ? (
             <EmptyState
@@ -751,7 +755,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <IdleRail tiles={idleSettings} />
+            <IdleRail tiles={idleSettings} tone="settings" />
           ))}
         </div>
       </div>

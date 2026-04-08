@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v12',
+  'searchrail-v13',
   `
 .dsp-srail-list {
   display: grid;
@@ -110,6 +110,8 @@ ensureStyles(
 }
 .dsp-scard-icbtn.dollar { background: ${COLOR.greenSoft}; color: ${COLOR.green}; }
 .dsp-scard-icbtn:hover { filter: brightness(1.25); }
+.dsp-scard-icbtn:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
+.dsp-scard-ticker:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; border-radius: 3px; }
 
 /* Row 1 col 2 — pnl hero (Rule pass 6/6) + status label */
 .dsp-scard-pnl {
