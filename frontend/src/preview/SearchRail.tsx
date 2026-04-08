@@ -12,7 +12,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v1',
+  'searchrail-v2',
   `
 .dsp-srail-list {
   display: grid;
@@ -31,7 +31,7 @@ ensureStyles(
   padding: 10px 12px;
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto auto auto;
   column-gap: 10px;
   row-gap: 2px;
   min-width: 0;
@@ -47,16 +47,15 @@ ensureStyles(
   grid-row: 1;
   display: grid;
   grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto;
   column-gap: 10px;
   row-gap: 3px;
   min-width: 0;
   align-content: start;
 }
-.dsp-scard-id > .dsp-scard-logo { grid-column: 1; grid-row: 1 / span 3; align-self: center; }
+.dsp-scard-id > .dsp-scard-logo { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
 .dsp-scard-id-row { grid-column: 2; grid-row: 1; line-height: 1.1; display: flex; align-items: center; gap: 10px; }
-.dsp-scard-id-lbl { grid-column: 2; grid-row: 2; line-height: 1.1; margin-top: 1px; font-size: 11px; text-transform: uppercase; font-weight: ${FONT.weight.bold}; letter-spacing: 0.06em; color: ${COLOR.textMuted}; }
-.dsp-scard-id-val { grid-column: 2; grid-row: 3; line-height: 1.1; font-family: ${FONT.mono}; font-size: 17px; font-weight: ${FONT.weight.bold}; color: ${COLOR.cyan}; }
+.dsp-scard-id-val { grid-column: 2; grid-row: 2; line-height: 1.1; font-family: ${FONT.mono}; font-size: 15px; font-weight: ${FONT.weight.bold}; }
 
 .dsp-scard-logo {
   width: 32px; height: 32px;
@@ -171,30 +170,49 @@ ensureStyles(
   line-height: 1.2;
 }
 
-/* Row 3 — rules (Zaman/Fiyat/Delta/Spread) */
-.dsp-scard-rules {
+/* Activity notification — tam satır, row 3 */
+.dsp-scard-act {
   grid-column: 1 / -1;
   grid-row: 3;
+  margin-top: 4px;
+  padding: 8px 12px;
+  background: ${COLOR.bgRaised};
+  border: 1px solid;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: ${FONT.weight.semibold};
+  line-height: 1.3;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Row 4 — rules 3x2 (6 rule) */
+.dsp-scard-rules {
+  grid-column: 1 / -1;
+  grid-row: 4;
   margin-top: 6px;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
   gap: 4px;
 }
 .dsp-scard-rule {
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
-  border-radius: 7px;
-  padding: 11px 12px;
+  border-radius: 6px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
   font-family: ${FONT.mono};
-  font-size: 17px;
+  font-size: 14px;
 }
 .dsp-scard-rule-lbl {
-  font-size: 12px;
+  font-size: 10px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
@@ -209,7 +227,7 @@ ensureStyles(
 `
 );
 
-const PICK_RULES = ['Zaman', 'Fiyat', 'Delta', 'Spread'];
+const PICK_RULES = ['Zaman', 'Fiyat', 'Delta', 'Spread', 'EvMax', 'BotMax'];
 
 function pickRule(rules: RuleSpecContract[], label: string): RuleSpecContract | undefined {
   return rules.find((r) => r.label.toLowerCase() === label.toLowerCase());
@@ -251,10 +269,6 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
           <button type="button" className="dsp-scard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
           <button type="button" className="dsp-scard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
         </div>
-        <div className="dsp-scard-id-lbl">Durum</div>
-        <div className="dsp-scard-id-val" style={{ color: pnlFg }}>
-          {tile.pnl_amount ?? '—'}
-        </div>
       </div>
 
       <div className="dsp-scard-pnl">
@@ -277,6 +291,19 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
           <span className="dsp-scard-cell-val">{tile.delta}</span>
         </div>
       </div>
+
+      {tile.activity?.text && (
+        <div
+          className="dsp-scard-act"
+          style={{
+            color: pnlFg,
+            borderColor: `${pnlFg}44`,
+            background: `${pnlFg}14`,
+          }}
+        >
+          {tile.activity.text}
+        </div>
+      )}
 
       <div className="dsp-scard-rules">
         {PICK_RULES.map((lbl) => {
