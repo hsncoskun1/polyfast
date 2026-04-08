@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v5',
+  'sidebar-v6',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -123,9 +123,9 @@ ensureStyles(
   font-weight: ${FONT.weight.medium};
 }
 .dsp-sb-nav-item.active {
-  background: ${COLOR.brandSoft};
+  background: ${COLOR.cyanSoft};
   color: ${COLOR.text};
-  border-color: ${COLOR.borderStrong};
+  border-color: ${COLOR.cyan};
 }
 .dsp-sb-nav-item.disabled {
   opacity: 0.42;
