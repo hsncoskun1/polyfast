@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v24',
+  'openrail-v25',
   `
 .dsp-orail {
   width: 100%;
@@ -295,17 +295,15 @@ ensureStyles(
 .dsp-ocard-exit.active.sl  { background: ${COLOR.redSoft};    border-color: ${COLOR.red}; }
 .dsp-ocard-exit.active.fs  { background: ${COLOR.yellowSoft}; border-color: ${COLOR.yellow}; }
 
-/* Popover — aktif exit'in üzerinden yukarı açılan bildirim */
+/* Popover — aktif exit'in üzerinden yukarı açılan bildirim (cells row genişliğinde) */
 .dsp-ocard-exit-pop {
   position: absolute;
-  left: -2px;
-  right: -2px;
   bottom: calc(100% + 4px);
   padding: 6px 10px;
   border: 1px solid;
   border-radius: 7px 7px 0 0;
   font-family: ${FONT.sans};
-  font-size: 11px;
+  font-size: 12px;
   font-weight: ${FONT.weight.bold};
   line-height: 1.25;
   text-align: center;
@@ -314,9 +312,20 @@ ensureStyles(
   text-overflow: ellipsis;
   z-index: 3;
   transform-origin: bottom center;
-  animation: dsp-ocard-pop 2.6s cubic-bezier(0.2, 0.8, 0.25, 1) infinite;
+  animation: dsp-ocard-pop 0.55s cubic-bezier(0.2, 0.8, 0.25, 1) both;
   box-shadow: 0 -3px 14px rgba(0,0,0,0.35);
 }
+/* TP cell 1. slot → 4 col span - cell's own slot = 3 slot sağa. Margin-based full-width. */
+.dsp-ocard-bottom .dsp-ocard-exit.active .dsp-ocard-exit-pop {
+  left: 0;
+  right: 0;
+}
+/* TP (col 1): sağa 3 col genişle */
+.dsp-ocard-exit.tp.active .dsp-ocard-exit-pop { right: calc(-300% - 18px); }
+/* SL (col 2): 1 col sola + 2 col sağa */
+.dsp-ocard-exit.sl.active .dsp-ocard-exit-pop { left: calc(-100% - 6px); right: calc(-200% - 12px); }
+/* FS (col 3): 2 col sola + 1 col sağa */
+.dsp-ocard-exit.fs.active .dsp-ocard-exit-pop { left: calc(-200% - 12px); right: calc(-100% - 6px); }
 .dsp-ocard-exit.active.tp  .dsp-ocard-exit-pop { background: ${COLOR.green};  border-color: ${COLOR.green};  color: #0b1e10; }
 .dsp-ocard-exit.active.sl  .dsp-ocard-exit-pop { background: ${COLOR.red};    border-color: ${COLOR.red};    color: #fff; }
 .dsp-ocard-exit.active.fs  .dsp-ocard-exit-pop { background: ${COLOR.yellow}; border-color: ${COLOR.yellow}; color: #1a1505; }
@@ -334,11 +343,9 @@ ensureStyles(
   border-top-color: inherit;
 }
 @keyframes dsp-ocard-pop {
-  0%   { transform: translateY(6px) scaleY(0); opacity: 0; }
-  18%  { transform: translateY(-1px) scaleY(1.05); opacity: 1; }
-  26%  { transform: translateY(0) scaleY(1); opacity: 1; }
-  82%  { transform: translateY(0) scaleY(1); opacity: 1; }
-  100% { transform: translateY(6px) scaleY(0); opacity: 0; }
+  0%   { transform: translateY(8px) scaleY(0); opacity: 0; }
+  70%  { transform: translateY(-2px) scaleY(1.06); opacity: 1; }
+  100% { transform: translateY(0) scaleY(1); opacity: 1; }
 }
 .dsp-ocard-exit-lbl {
   font-size: 10px;
