@@ -7,12 +7,12 @@
  *   [    4-col rules (Zaman / Fiyat / Delta / Spread)]
  */
 
-import { COLOR, FONT, SIZE, PNL_TONE, RULE_TONE, ensureStyles } from './styles';
+import { COLOR, FONT, SIZE, PNL_TONE, ensureStyles } from './styles';
 import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v2',
+  'searchrail-v3',
   `
 .dsp-srail-list {
   display: grid;
@@ -202,14 +202,13 @@ ensureStyles(
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 5px 8px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 5px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
   min-width: 0;
-  font-family: ${FONT.mono};
-  font-size: 14px;
+  font-family: ${FONT.sans};
 }
 .dsp-scard-rule-lbl {
   font-size: 10px;
@@ -217,8 +216,30 @@ ensureStyles(
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
   letter-spacing: 0.05em;
+  line-height: 1.1;
+  text-align: left;
 }
-.dsp-scard-rule-val { font-weight: ${FONT.weight.bold}; }
+.dsp-scard-rule-expr {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  font-family: ${FONT.mono};
+  line-height: 1.1;
+}
+.dsp-scard-rule-min, .dsp-scard-rule-max {
+  font-size: 9px;
+  color: ${COLOR.textMuted};
+  font-weight: ${FONT.weight.semibold};
+}
+.dsp-scard-rule-cmp {
+  font-size: 11px;
+  color: ${COLOR.textMuted};
+}
+.dsp-scard-rule-val {
+  font-size: 14px;
+  font-weight: ${FONT.weight.bold};
+}
 .dsp-scard-rule.pass { background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
 .dsp-scard-rule.pass .dsp-scard-rule-val, .dsp-scard-rule.pass .dsp-scard-rule-lbl { color: ${COLOR.green}; }
 .dsp-scard-rule.fail { background: ${COLOR.redSoft}; border-color: ${COLOR.redSoft}; }
@@ -227,10 +248,34 @@ ensureStyles(
 `
 );
 
-const PICK_RULES = ['Zaman', 'Fiyat', 'Delta', 'Spread', 'EvMax', 'BotMax'];
+const PICK_RULES: { label: string; display: string }[] = [
+  { label: 'Zaman',  display: 'Zaman' },
+  { label: 'Fiyat',  display: 'Fiyat' },
+  { label: 'Delta',  display: 'Delta' },
+  { label: 'Spread', display: 'Spread' },
+  { label: 'EvMax',  display: 'Event Max' },
+  { label: 'BotMax', display: 'Bot Max' },
+];
+
+/** threshold_text parse → { min, max, cmp }
+ *  "30-270s"  → { min: '30s', max: '270s' }
+ *  "≥ 80"     → { cmp: '≥', max: '80' }
+ *  "≤ 3%"     → { cmp: '≤', max: '3%' }
+ *  "1", "3"   → { max: '1' } */
+function parseThreshold(raw: string | null | undefined): { min?: string; max?: string; cmp?: string } {
+  if (!raw) return {};
+  const s = raw.trim();
+  // range
+  const r = s.match(/^(\S+?)[-–](\S+)$/);
+  if (r) return { min: r[1], max: r[2] };
+  // ≥ / ≤ / >= / <= / > / <
+  const c = s.match(/^\s*([≥≤><]=?)\s*(.+)$/);
+  if (c) return { cmp: c[1].replace('>=', '≥').replace('<=', '≤'), max: c[2] };
+  return { max: s };
+}
 
 function pickRule(rules: RuleSpecContract[], label: string): RuleSpecContract | undefined {
-  return rules.find((r) => r.label.toLowerCase() === label.toLowerCase());
+  return rules.find((r) => r.label.toLowerCase() === label.toLowerCase().replace(' ', ''));
 }
 
 function SearchCard({ tile }: { tile: SearchTileContract }) {
@@ -306,16 +351,30 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
       )}
 
       <div className="dsp-scard-rules">
-        {PICK_RULES.map((lbl) => {
-          const rule = pickRule(tile.rules, lbl);
-          if (!rule) return <div key={lbl} className="dsp-scard-rule disabled"><span className="dsp-scard-rule-lbl">{lbl}</span><span className="dsp-scard-rule-val">—</span></div>;
-          const tt = RULE_TONE[rule.state];
-          void tt;
+        {PICK_RULES.map(({ label, display }) => {
+          const rule = pickRule(tile.rules, label);
+          if (!rule) {
+            return (
+              <div key={label} className="dsp-scard-rule disabled">
+                <span className="dsp-scard-rule-lbl">{display}</span>
+                <div className="dsp-scard-rule-expr"><span className="dsp-scard-rule-val">—</span></div>
+              </div>
+            );
+          }
+          const { min, max, cmp } = parseThreshold(rule.threshold_text);
           const stateKlass = rule.state === 'pass' ? 'pass' : rule.state === 'fail' ? 'fail' : 'disabled';
           return (
-            <div key={lbl} className={`dsp-scard-rule ${stateKlass}`}>
-              <span className="dsp-scard-rule-lbl">{lbl.slice(0, 3).toUpperCase()}</span>
-              <span className="dsp-scard-rule-val">{rule.live_value}</span>
+            <div key={label} className={`dsp-scard-rule ${stateKlass}`}>
+              <span className="dsp-scard-rule-lbl">{display}</span>
+              <div className="dsp-scard-rule-expr">
+                {min && <span className="dsp-scard-rule-min">{min}</span>}
+                {min && <span className="dsp-scard-rule-cmp">{'<'}</span>}
+                {!min && cmp && <span className="dsp-scard-rule-cmp">{cmp}</span>}
+                <span className="dsp-scard-rule-val">{rule.live_value}</span>
+                {min && <span className="dsp-scard-rule-cmp">{'<'}</span>}
+                {(min || (!cmp && max && !min)) && <span className="dsp-scard-rule-max">{max}</span>}
+                {!min && cmp && <span className="dsp-scard-rule-max">{max}</span>}
+              </div>
             </div>
           );
         })}
