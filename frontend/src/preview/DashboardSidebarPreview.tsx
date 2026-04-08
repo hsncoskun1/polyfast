@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v27',
+  'composition-v28',
   `
 .dsp-root {
   display: flex;
@@ -91,18 +91,22 @@ ensureStyles(
   border-left: none;
   background: transparent;
 }
-/* Main (İşlem Aranan) — cyan çerçeveli kutu */
+/* Main panel — aktif sekme tonuna göre renkli çerçeve + gradient */
 .dsp-main {
   margin: 6px 10px 6px 6px;
-  border: 2px solid ${COLOR.cyan};
+  border: 2px solid var(--dsp-main-tone, ${COLOR.cyan});
   border-radius: 12px;
   background: linear-gradient(180deg,
-    rgba(6, 182, 212, 0.22) 0px,
-    rgba(6, 182, 212, 0.08) 120px,
-    rgba(6, 182, 212, 0.03) 100%
+    color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 26%, transparent) 0px,
+    color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 10%, transparent) 150px,
+    color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 4%, transparent) 100%
   );
-  box-shadow: 0 0 0 1px rgba(6,182,212,0.25) inset;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 30%, transparent) inset;
+  transition: border-color 0.2s, background 0.2s;
 }
+.dsp-main.tab-search   { --dsp-main-tone: ${COLOR.cyan}; }
+.dsp-main.tab-idle     { --dsp-main-tone: ${COLOR.yellow}; }
+.dsp-main.tab-settings { --dsp-main-tone: ${COLOR.red}; }
 .dsp-orail-title {
   display: flex;
   align-items: center;
@@ -653,7 +657,7 @@ export default function DashboardSidebarPreview({
         </div>
         <OpenRail positions={sortedPositions} />
       </div>
-      <div className="dsp-main">
+      <div className={`dsp-main tab-${mainTab}`}>
 
         {data.loading && (
           <div className="dsp-loading-banner">Veri yükleniyor…</div>
