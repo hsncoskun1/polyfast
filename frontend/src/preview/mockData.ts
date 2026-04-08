@@ -138,10 +138,11 @@ export const MOCK_POSITIONS: PositionSummary[] = [
   // 1) BTC — yeni fill (pozisyon yeni acildi)
   {
     ...baseOpen('mock-pos-1', 'MATIC', 'UP'),
+    requested_amount_usd: 1000.0,
     fill_price: 0.68,
-    pnl_big: '+0.0%',
-    pnl_amount: '+0.00$',
-    pnl_tone: 'neutral',
+    pnl_big: '-100.0%',
+    pnl_amount: '-1000.00$',
+    pnl_tone: 'loss',
     live: { side: 'UP', entry: '68', live: '68.0', delta_text: '0.0' },
     exits: { tp: '74', sl: '62', fs: '5:00', fs_pnl: '-5%' },
     activity: { text: 'Emir doldu | UP 68, pozisyon açıldı', severity: 'success' },
