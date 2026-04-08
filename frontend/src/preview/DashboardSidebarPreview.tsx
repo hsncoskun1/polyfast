@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v22',
+  'composition-v23',
   `
 .dsp-root {
   display: flex;
@@ -148,7 +148,7 @@ ensureStyles(
 }
 .dsp-section-hdr {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 10px;
   padding: 8px 18px;
   border-radius: 14px 14px 0 0;
@@ -156,7 +156,9 @@ ensureStyles(
   position: relative;
   background: linear-gradient(180deg, rgba(6,182,212,0.55), rgba(6,182,212,0.2));
   margin: 6px 8px 0;
+  min-height: 38px;
 }
+.dsp-orail-title { min-height: 38px; }
 .dsp-section-hdr-bar {
   width: 3px;
   border-radius: 2px;
