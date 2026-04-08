@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v28',
+  'composition-v29',
   `
 .dsp-root {
   display: flex;
@@ -75,21 +75,22 @@ ensureStyles(
   min-height: 0;
   overflow: hidden;
   margin: 6px 0 6px 10px;
-  border: 2px solid ${COLOR.green};
-  border-radius: 12px;
+  padding: 6px 10px 0;
   background: linear-gradient(180deg,
     rgba(34, 197, 94, 0.22) 0px,
-    rgba(34, 197, 94, 0.08) 120px,
+    rgba(34, 197, 94, 0.08) 150px,
     rgba(34, 197, 94, 0.03) 100%
   );
-  box-shadow: 0 0 0 1px rgba(34,197,94,0.25) inset;
+  border-radius: 12px;
 }
 .dsp-orail-wrap > .dsp-orail {
   width: 100%;
   flex: 1;
   min-height: 0;
-  border-left: none;
+  border: 1.5px solid ${COLOR.green};
+  border-radius: 0 12px 12px 12px;
   background: transparent;
+  padding: 8px;
 }
 /* Main panel — aktif sekme tonuna göre renkli çerçeve + gradient */
 .dsp-main {
@@ -108,18 +109,21 @@ ensureStyles(
 .dsp-main.tab-idle     { --dsp-main-tone: ${COLOR.yellow}; }
 .dsp-main.tab-settings { --dsp-main-tone: ${COLOR.red}; }
 .dsp-orail-title {
-  display: flex;
+  display: inline-flex;
+  align-self: flex-start;
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding: 9px 14px;
+  padding: 0 14px;
   border-radius: 10px 10px 0 0;
   background: linear-gradient(180deg, rgba(34,197,94,0.72), rgba(34,197,94,0.28));
-  border-bottom: 1px solid;
+  border: 1.5px solid ${COLOR.green};
+  border-bottom: none;
   flex-shrink: 0;
-  margin: 12px 10px 0;
+  margin: 0 0 -1px 0;
   height: 36px;
   box-sizing: border-box;
+  min-width: 200px;
 }
 .dsp-orail-title-dot {
   width: 11px; height: 11px; border-radius: 50%;
