@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v28',
+  'openrail-v29',
   `
 .dsp-orail {
   width: 100%;
@@ -77,7 +77,7 @@ ensureStyles(
   border-radius: ${SIZE.radius}px;
   padding: 10px 12px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   grid-template-rows: auto auto auto auto;
   column-gap: 10px;
   row-gap: 2px;
@@ -86,26 +86,28 @@ ensureStyles(
 }
 
 .dsp-ocard-logo {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  align-self: center;
-  width: 44px; height: 44px;
+  width: 32px; height: 32px;
   border-radius: 50%;
   background: ${COLOR.bg};
   display: flex; align-items: center; justify-content: center;
   overflow: hidden;
   flex-shrink: 0;
 }
-/* Row 1 col 2: ticker + side row */
 .dsp-ocard-id {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 1 / span 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
   min-width: 0;
+  align-items: center;
 }
+.dsp-ocard-id > .dsp-ocard-logo { grid-column: 1; grid-row: 1 / span 3; align-self: center; }
+.dsp-ocard-id-row { grid-column: 2; grid-row: 1; }
+.dsp-ocard-id-lbl { grid-column: 2; grid-row: 2; }
+.dsp-ocard-id-val { grid-column: 2; grid-row: 3; }
 .dsp-ocard-id-row {
   display: flex;
   align-items: center;
@@ -128,7 +130,7 @@ ensureStyles(
   line-height: 1.15;
 }
 .dsp-ocard-sell-slot {
-  grid-column: 3;
+  grid-column: 2;
   grid-row: 2;
   display: flex;
   justify-content: flex-end;
@@ -163,25 +165,29 @@ ensureStyles(
 }
 
 .dsp-ocard-pnl {
-  grid-column: 3;
-  grid-row: 1;
+  grid-column: 2;
+  grid-row: 1 / span 2;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
   align-items: flex-end;
   gap: 2px;
   min-width: 0;
 }
 .dsp-ocard-pct {
   font-family: ${FONT.mono};
-  font-size: 26px;
+  font-size: 22px;
   font-weight: ${FONT.weight.bold};
-  line-height: 1;
+  line-height: 1.1;
   letter-spacing: -0.02em;
 }
 .dsp-ocard-usd {
   font-family: ${FONT.mono};
-  font-size: 12px;
+  font-size: 11px;
   font-weight: ${FONT.weight.bold};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
 }
 
 /* Row 2 (span 3): info cells — Tutar / Giriş / Canlı / Delta */
@@ -425,11 +431,10 @@ function OpenCard({ position }: { position: PositionSummary }) {
 
   return (
     <div className={`dsp-ocard tone-${tone}`} style={bgStyle}>
-      <div className="dsp-ocard-logo">
-        {coin?.logo_url ? <img src={coin.logo_url} alt={position.asset ?? ''} /> : null}
-      </div>
-
       <div className="dsp-ocard-id">
+        <div className="dsp-ocard-logo">
+          {coin?.logo_url ? <img src={coin.logo_url} alt={position.asset ?? ''} /> : null}
+        </div>
         <div className="dsp-ocard-id-row">
           <a
             className="dsp-ocard-ticker"
@@ -448,16 +453,6 @@ function OpenCard({ position }: { position: PositionSummary }) {
         <div className="dsp-ocard-id-val">{cost}</div>
       </div>
 
-      <div className="dsp-ocard-sell-slot">
-        <button
-          type="button"
-          className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
-          disabled={sellDisabled}
-        >
-          {sellLabel(sellState)}
-        </button>
-      </div>
-
       <div className="dsp-ocard-pnl">
         <span className="dsp-ocard-pct" style={{ color: pnlFg }}>
           {position.pnl_big ?? '—'}
@@ -465,6 +460,13 @@ function OpenCard({ position }: { position: PositionSummary }) {
         <span className="dsp-ocard-usd" style={{ color: pnlFg }}>
           {position.pnl_amount ?? ''}
         </span>
+        <button
+          type="button"
+          className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
+          disabled={sellDisabled}
+        >
+          {sellLabel(sellState)}
+        </button>
       </div>
 
 
