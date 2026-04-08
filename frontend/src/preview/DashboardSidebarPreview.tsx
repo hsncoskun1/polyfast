@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v23',
+  'composition-v24',
   `
 .dsp-root {
   display: flex;
@@ -101,27 +101,28 @@ ensureStyles(
 .dsp-orail-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 18px;
-  border-radius: 14px 14px 0 0;
-  background: linear-gradient(180deg, rgba(34,197,94,0.55), rgba(34,197,94,0.2));
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 24px;
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(180deg, rgba(34,197,94,0.72), rgba(34,197,94,0.28));
   border-bottom: 1px solid;
   flex-shrink: 0;
   margin: 6px 8px 0;
 }
 .dsp-orail-title-dot {
-  width: 9px; height: 9px; border-radius: 50%;
+  width: 11px; height: 11px; border-radius: 50%;
   flex-shrink: 0;
 }
 .dsp-orail-title-text {
-  font-size: 12px;
+  font-size: 18px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 .dsp-orail-title-count {
   font-family: ${FONT.mono};
-  font-size: 14px;
+  font-size: 20px;
   font-weight: ${FONT.weight.bold};
   line-height: 1;
 }
@@ -149,16 +150,28 @@ ensureStyles(
 .dsp-section-hdr {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 18px;
-  border-radius: 14px 14px 0 0;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 24px;
+  border-radius: 16px 16px 0 0;
   border-bottom: 1px solid;
   position: relative;
-  background: linear-gradient(180deg, rgba(6,182,212,0.55), rgba(6,182,212,0.2));
+  background: linear-gradient(180deg, rgba(6,182,212,0.72), rgba(6,182,212,0.28));
   margin: 6px 8px 0;
-  min-height: 38px;
+  min-height: 52px;
 }
-.dsp-orail-title { min-height: 38px; }
+.dsp-orail-title { min-height: 52px; }
+.dsp-section-hdr-bar { display: none; }
+.dsp-section-hdr-text { flex: 0 0 auto; }
+.dsp-section-hdr-spacer { display: none; }
+.dsp-section-hdr-title {
+  font-size: 18px !important;
+  letter-spacing: 0.12em !important;
+}
+.dsp-section-hdr-dot {
+  width: 11px !important;
+  height: 11px !important;
+}
 .dsp-section-hdr-bar {
   width: 3px;
   border-radius: 2px;
@@ -174,7 +187,10 @@ ensureStyles(
 .dsp-section-hdr-title-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+}
+.dsp-section-hdr-title-row .dsp-orail-title-count {
+  font-size: 20px;
 }
 .dsp-section-hdr-spacer {
   flex: 1;
