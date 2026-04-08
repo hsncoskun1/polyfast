@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v12',
+  'composition-v13',
   `
 .dsp-root {
   display: flex;
@@ -57,7 +57,7 @@ ensureStyles(
 .dsp-content {
   flex: 1;
   overflow-y: auto;
-  padding: 6px 16px 8px;
+  padding: 6px 10px 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
