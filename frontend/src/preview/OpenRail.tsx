@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v19',
+  'openrail-v20',
   `
 .dsp-orail {
   width: 100%;
@@ -77,7 +77,7 @@ ensureStyles(
   border-radius: ${SIZE.radius}px;
   padding: 14px 16px;
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto;
   grid-template-rows: auto auto auto auto auto;
   column-gap: 12px;
   row-gap: 8px;
@@ -101,9 +101,29 @@ ensureStyles(
   grid-column: 2;
   grid-row: 1;
   display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+.dsp-ocard-id-top {
+  display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+.dsp-ocard-id-bottom {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: ${FONT.mono};
+  font-size: 12px;
+  color: ${COLOR.textMuted};
+}
+.dsp-ocard-id-bottom strong {
+  color: ${COLOR.cyan};
+  font-weight: ${FONT.weight.bold};
+  font-size: 13px;
 }
 .dsp-ocard-ticker {
   display: inline-flex;
@@ -152,16 +172,9 @@ ensureStyles(
 .dsp-ocard-status.s-claim   { color: ${COLOR.yellow};background: ${COLOR.yellowSoft};border-color: ${COLOR.yellowSoft}; }
 .dsp-ocard-status.s-none    { color: ${COLOR.textMuted}; background: ${COLOR.bg}; border-color: ${COLOR.divider}; }
 
-/* Row 1 col 3: sell button (pct solu) */
-.dsp-ocard-sell-slot {
-  grid-column: 3;
-  grid-row: 1;
-  display: flex;
-  align-items: center;
-}
-/* Row 1 col 4: PNL% hero + USD */
+/* Row 1 col 3: PNL% hero + USD */
 .dsp-ocard-pnl {
-  grid-column: 4;
+  grid-column: 3;
   grid-row: 1;
   display: flex;
   flex-direction: column;
@@ -188,13 +201,8 @@ ensureStyles(
   grid-row: 3;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
   gap: 6px;
 }
-.dsp-ocard-cells > .dsp-ocard-cell:nth-child(1) { grid-column: 1; grid-row: 2; }
-.dsp-ocard-cells > .dsp-ocard-cell:nth-child(2) { grid-column: 1; grid-row: 1; }
-.dsp-ocard-cells > .dsp-ocard-cell:nth-child(3) { grid-column: 2; grid-row: 1; }
-.dsp-ocard-cells > .dsp-ocard-cell:nth-child(4) { grid-column: 3; grid-row: 1; }
 
 /* Row 3 (span 3): exits + sell */
 .dsp-ocard-act {
@@ -322,16 +330,17 @@ ensureStyles(
 
 /* Row 4: activity + sell button */
 .dsp-ocard-sell {
+  margin-left: auto;
   background: ${COLOR.redSoft};
   border: 1px solid ${COLOR.redSoft};
   color: ${COLOR.red};
   font-family: ${FONT.sans};
-  font-size: 17px;
+  font-size: 12px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 8px 22px;
-  border-radius: 8px;
+  padding: 5px 12px;
+  border-radius: 7px;
   cursor: pointer;
   line-height: 1.1;
   flex-shrink: 0;
@@ -368,7 +377,7 @@ function deriveSellState(t: string | null | undefined): SellState {
   return 'active';
 }
 function sellLabel(_s: SellState): string {
-  return 'SAT';
+  return 'MANUEL SAT';
 }
 
 function OpenCard({ position }: { position: PositionSummary }) {
@@ -395,28 +404,31 @@ function OpenCard({ position }: { position: PositionSummary }) {
       </div>
 
       <div className="dsp-ocard-id">
-        <a
-          className="dsp-ocard-ticker"
-          href={position.event_url ?? '#'}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`${position.asset} Polymarket event'i aç`}
-        >
-          <span>{position.asset}</span>
-          <span className="dsp-ocard-ticker-ico">↗</span>
-        </a>
-        <button type="button" className="dsp-ocard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
-        <button type="button" className="dsp-ocard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
-      </div>
-
-      <div className="dsp-ocard-sell-slot">
-        <button
-          type="button"
-          className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
-          disabled={sellDisabled}
-        >
-          {sellLabel(sellState)}
-        </button>
+        <div className="dsp-ocard-id-top">
+          <a
+            className="dsp-ocard-ticker"
+            href={position.event_url ?? '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`${position.asset} Polymarket event'i aç`}
+          >
+            <span>{position.asset}</span>
+            <span className="dsp-ocard-ticker-ico">↗</span>
+          </a>
+          <button type="button" className="dsp-ocard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
+          <button type="button" className="dsp-ocard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
+        </div>
+        <div className="dsp-ocard-id-bottom">
+          <span>Tutar</span>
+          <strong>{cost}</strong>
+          <button
+            type="button"
+            className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
+            disabled={sellDisabled}
+          >
+            {sellLabel(sellState)}
+          </button>
+        </div>
       </div>
 
       <div className="dsp-ocard-pnl">
@@ -431,10 +443,6 @@ function OpenCard({ position }: { position: PositionSummary }) {
       <div className={`dsp-ocard-status ${statusKlass}`}>{statusLabel}</div>
 
       <div className="dsp-ocard-cells">
-        <div className="dsp-ocard-cell">
-          <span className="dsp-ocard-cell-lbl">Tutar</span>
-          <span className="dsp-ocard-cell-val" style={{ color: COLOR.cyan }}>{cost}</span>
-        </div>
         <div className="dsp-ocard-cell">
           <span className="dsp-ocard-cell-lbl">Giriş</span>
           <span className="dsp-ocard-cell-val" style={{ color: sideColor }}>
