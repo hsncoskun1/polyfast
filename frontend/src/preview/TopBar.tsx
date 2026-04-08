@@ -20,23 +20,21 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v11',
+  'topbar-v12',
   `
 .dsp-topbar {
-  height: 56px;
+  height: ${SIZE.topBarHeight}px;
   flex-shrink: 0;
   background: ${COLOR.bg};
   border-bottom: 1px solid ${COLOR.border};
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 18px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  gap: 8px;
-  overflow: hidden;
-  min-width: 0;
+  gap: 14px;
+  overflow-x: auto;
 }
-.dsp-tb-group { flex: 1 1 0; min-width: 0; justify-content: center; }
 
 .dsp-tb-group {
   display: flex;
@@ -46,7 +44,7 @@ ensureStyles(
 }
 .dsp-tb-divider {
   width: 1px;
-  height: 32px;
+  height: 44px;
   background: ${COLOR.borderStrong};
   flex-shrink: 0;
   opacity: 0.55;
@@ -58,28 +56,28 @@ ensureStyles(
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  padding: 3px 8px 4px;
+  gap: 1px;
+  padding: 6px 14px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radius}px;
-  min-width: 56px;
+  min-width: 86px;
   white-space: nowrap;
   flex-shrink: 0;
   position: relative;
   text-align: center;
 }
 .dsp-tb-chip-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   line-height: 1.1;
 }
 .dsp-tb-chip-value {
   font-family: ${FONT.mono};
-  font-size: 14px;
+  font-size: 18px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   line-height: 1.1;
@@ -94,11 +92,11 @@ ensureStyles(
 
 /* PNL chip ozel — 2 satir, tone bg, daha buyuk vurgu */
 .dsp-tb-chip.pnl {
-  min-width: 92px;
-  padding: 3px 10px 4px;
+  min-width: 138px;
+  padding: 5px 14px 6px;
 }
 .dsp-tb-chip.pnl .dsp-tb-chip-value {
-  font-size: 14px;
+  font-size: 19px;
 }
 .dsp-tb-chip.pnl.profit { background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
 .dsp-tb-chip.pnl.profit .dsp-tb-chip-value, .dsp-tb-chip.pnl.profit .dsp-tb-chip-sub { color: ${COLOR.green}; }
