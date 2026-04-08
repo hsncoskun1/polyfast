@@ -57,8 +57,8 @@ export const COLOR = {
 
   // Metinler
   text: '#e2e2eb',
-  textMuted: '#e6e6f0',
-  textDim: '#b4b4c6',
+  textMuted: '#a8a8b8',
+  textDim: '#6e6e80',
   textOff: '#3a3a4a',
 } as const;
 
