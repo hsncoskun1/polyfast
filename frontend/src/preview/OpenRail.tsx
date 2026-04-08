@@ -4,12 +4,12 @@
  * giriş + canlı + kısa durum.
  */
 
-import { COLOR, FONT, SIZE, PNL_TONE, ACTIVITY_TONE, ensureStyles } from './styles';
+import { COLOR, FONT, SIZE, PNL_TONE, ensureStyles } from './styles';
 import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v23',
+  'openrail-v24',
   `
 .dsp-orail {
   width: 100%;
@@ -80,7 +80,7 @@ ensureStyles(
   grid-template-columns: auto 1fr auto;
   grid-template-rows: auto auto auto auto auto auto;
   column-gap: 10px;
-  row-gap: 5px;
+  row-gap: 2px;
   min-width: 0;
   overflow: hidden;
 }
@@ -163,43 +163,6 @@ ensureStyles(
   text-align: center;
   line-height: 1.15;
 }
-/* Activity bar — status'tan yukarı açılıyor hissi animasyon */
-.dsp-ocard-act {
-  grid-column: 1 / -1;
-  grid-row: 5;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  background: ${COLOR.bg};
-  border: 1px solid ${COLOR.divider};
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: ${FONT.weight.semibold};
-  color: ${COLOR.textMuted};
-  line-height: 1.3;
-  overflow: hidden;
-  min-width: 0;
-  transform-origin: top center;
-  animation: dsp-ocard-act-loop 3s cubic-bezier(0.2, 0.8, 0.25, 1) infinite;
-}
-@keyframes dsp-ocard-act-loop {
-  0%   { transform: translateY(-8px) scaleY(0); opacity: 0; }
-  20%  { transform: translateY(-2px) scaleY(1.06); opacity: 0.9; }
-  30%  { transform: translateY(0) scaleY(1); opacity: 1; }
-  80%  { transform: translateY(0) scaleY(1); opacity: 1; }
-  100% { transform: translateY(-8px) scaleY(0); opacity: 0; }
-}
-.dsp-ocard-act-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  flex-shrink: 0;
-}
-.dsp-ocard-act-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
 /* status tone variants */
 .dsp-ocard-status.s-new     { color: ${COLOR.cyan};  background: ${COLOR.cyanSoft};  border-color: ${COLOR.cyanSoft}; }
 .dsp-ocard-status.s-tpykn   { color: ${COLOR.green}; background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
@@ -252,9 +215,9 @@ ensureStyles(
   align-items: center;
 }
 .dsp-ocard-icbtn {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   border: none;
   background: ${COLOR.yellowSoft};
   color: ${COLOR.yellow};
@@ -314,6 +277,7 @@ ensureStyles(
   line-height: 1.2;
 }
 .dsp-ocard-exit {
+  position: relative;
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
   border-radius: 7px;
@@ -325,6 +289,56 @@ ensureStyles(
   min-width: 0;
   font-family: ${FONT.mono};
   font-size: 13px;
+}
+/* Aktif (tetiklenen) exit hücresi — kendi toneunda bg */
+.dsp-ocard-exit.active.tp  { background: ${COLOR.greenSoft};  border-color: ${COLOR.green}; }
+.dsp-ocard-exit.active.sl  { background: ${COLOR.redSoft};    border-color: ${COLOR.red}; }
+.dsp-ocard-exit.active.fs  { background: ${COLOR.yellowSoft}; border-color: ${COLOR.yellow}; }
+
+/* Popover — aktif exit'in üzerinden yukarı açılan bildirim */
+.dsp-ocard-exit-pop {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  bottom: calc(100% + 4px);
+  padding: 6px 10px;
+  border: 1px solid;
+  border-radius: 7px 7px 0 0;
+  font-family: ${FONT.sans};
+  font-size: 11px;
+  font-weight: ${FONT.weight.bold};
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 3;
+  transform-origin: bottom center;
+  animation: dsp-ocard-pop 2.6s cubic-bezier(0.2, 0.8, 0.25, 1) infinite;
+  box-shadow: 0 -3px 14px rgba(0,0,0,0.35);
+}
+.dsp-ocard-exit.active.tp  .dsp-ocard-exit-pop { background: ${COLOR.green};  border-color: ${COLOR.green};  color: #0b1e10; }
+.dsp-ocard-exit.active.sl  .dsp-ocard-exit-pop { background: ${COLOR.red};    border-color: ${COLOR.red};    color: #fff; }
+.dsp-ocard-exit.active.fs  .dsp-ocard-exit-pop { background: ${COLOR.yellow}; border-color: ${COLOR.yellow}; color: #1a1505; }
+.dsp-ocard-exit-pop::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid;
+  border-top-color: inherit;
+}
+@keyframes dsp-ocard-pop {
+  0%   { transform: translateY(6px) scaleY(0); opacity: 0; }
+  18%  { transform: translateY(-1px) scaleY(1.05); opacity: 1; }
+  26%  { transform: translateY(0) scaleY(1); opacity: 1; }
+  82%  { transform: translateY(0) scaleY(1); opacity: 1; }
+  100% { transform: translateY(6px) scaleY(0); opacity: 0; }
 }
 .dsp-ocard-exit-lbl {
   font-size: 10px;
@@ -365,6 +379,14 @@ ensureStyles(
 `
 );
 
+type ActiveExit = 'tp' | 'sl' | 'fs' | null;
+function deriveActiveExit(text: string | null | undefined): ActiveExit {
+  const t = text ?? '';
+  if (/TP @|TP tetik|kapatma emri|TP yakla/i.test(t)) return 'tp';
+  if (/SL tetik|SL yakla|SL @/i.test(t)) return 'sl';
+  if (/Force sell|FS @|FS countdown/i.test(t)) return 'fs';
+  return null;
+}
 function deriveStatus(text: string | null | undefined): { label: string; klass: string } {
   const t = text ?? '';
   if (/Emir doldu/i.test(t)) return { label: 'YENİ İŞLEM', klass: 's-new' };
@@ -396,6 +418,8 @@ function OpenCard({ position }: { position: PositionSummary }) {
   const pnlFg = PNL_TONE[tone]?.fg ?? COLOR.text;
   const live = position.live;
   const { label: statusLabel, klass: statusKlass } = deriveStatus(position.activity?.text);
+  const activeExit = deriveActiveExit(position.activity?.text);
+  const actText = position.activity?.text ?? '';
   const side = live?.side ?? position.side ?? 'UP';
   const sideColor = side === 'UP' ? COLOR.green : COLOR.red;
   const coinTone = coin?.tone;
@@ -473,36 +497,23 @@ function OpenCard({ position }: { position: PositionSummary }) {
         </div>
       </div>
 
-      {position.activity?.text && (
-        <div className="dsp-ocard-act">
-          <span
-            className="dsp-ocard-act-dot"
-            style={{ background: ACTIVITY_TONE[position.activity.severity ?? 'info'].dot }}
-          />
-          <span
-            className="dsp-ocard-act-text"
-            style={{ color: ACTIVITY_TONE[position.activity.severity ?? 'info'].fg }}
-            title={position.activity.text}
-          >
-            {position.activity.text}
-          </span>
-        </div>
-      )}
-
       <div className="dsp-ocard-bottom">
         {exits && (
           <>
-            <div className="dsp-ocard-exit tp">
+            <div className={`dsp-ocard-exit tp${activeExit === 'tp' ? ' active' : ''}`}>
               <span className="dsp-ocard-exit-lbl">TP</span>
               <span className="dsp-ocard-exit-val">{exits.tp}</span>
+              {activeExit === 'tp' && <div className="dsp-ocard-exit-pop">{actText}</div>}
             </div>
-            <div className="dsp-ocard-exit sl">
+            <div className={`dsp-ocard-exit sl${activeExit === 'sl' ? ' active' : ''}`}>
               <span className="dsp-ocard-exit-lbl">SL</span>
               <span className="dsp-ocard-exit-val">{exits.sl}</span>
+              {activeExit === 'sl' && <div className="dsp-ocard-exit-pop">{actText}</div>}
             </div>
-            <div className="dsp-ocard-exit fs">
+            <div className={`dsp-ocard-exit fs${activeExit === 'fs' ? ' active' : ''}`}>
               <span className="dsp-ocard-exit-lbl">FS</span>
               <span className="dsp-ocard-exit-val">{exits.fs}</span>
+              {activeExit === 'fs' && <div className="dsp-ocard-exit-pop">{actText}</div>}
             </div>
             <div className="dsp-ocard-exit fsp">
               <span className="dsp-ocard-exit-lbl">F/P</span>
