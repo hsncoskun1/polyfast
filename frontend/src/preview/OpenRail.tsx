@@ -341,9 +341,6 @@ function OpenCard({ position }: { position: PositionSummary }) {
       <div className="dsp-ocard-id">
         <div className="dsp-ocard-id-row">
           <span className="dsp-ocard-ticker">{position.asset}</span>
-          <span className="dsp-ocard-side" style={{ color: sideColor }}>
-            {side === 'UP' ? '▲' : '▼'} {live?.entry ?? '—'}
-          </span>
         </div>
         <span className="dsp-ocard-status">{status}</span>
       </div>
