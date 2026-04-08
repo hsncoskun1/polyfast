@@ -4,12 +4,12 @@
  * giriş + canlı + kısa durum.
  */
 
-import { COLOR, FONT, SIZE, PNL_TONE, ensureStyles } from './styles';
+import { COLOR, FONT, SIZE, PNL_TONE, ACTIVITY_TONE, ensureStyles } from './styles';
 import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v13',
+  'openrail-v14',
   `
 .dsp-orail {
   width: 100%;
@@ -78,7 +78,7 @@ ensureStyles(
   padding: 14px 16px;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto auto auto auto;
   column-gap: 14px;
   row-gap: 8px;
   min-width: 0;
@@ -179,9 +179,36 @@ ensureStyles(
 }
 
 /* Row 3 (span 3): exits + sell */
-.dsp-ocard-bottom {
+.dsp-ocard-act {
   grid-column: 1 / -1;
   grid-row: 4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: ${COLOR.bg};
+  border: 1px solid ${COLOR.divider};
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: ${FONT.weight.semibold};
+  color: ${COLOR.textMuted};
+  line-height: 1.3;
+  overflow: hidden;
+  min-width: 0;
+}
+.dsp-ocard-act-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.dsp-ocard-act-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.dsp-ocard-bottom {
+  grid-column: 1 / -1;
+  grid-row: 5;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr auto;
   gap: 6px;
@@ -386,6 +413,22 @@ function OpenCard({ position }: { position: PositionSummary }) {
           </span>
         </div>
       </div>
+
+      {position.activity?.text && (
+        <div className="dsp-ocard-act">
+          <span
+            className="dsp-ocard-act-dot"
+            style={{ background: ACTIVITY_TONE[position.activity.severity ?? 'info'].dot }}
+          />
+          <span
+            className="dsp-ocard-act-text"
+            style={{ color: ACTIVITY_TONE[position.activity.severity ?? 'info'].fg }}
+            title={position.activity.text}
+          >
+            {position.activity.text}
+          </span>
+        </div>
+      )}
 
       <div className="dsp-ocard-bottom">
         {exits && (
