@@ -68,10 +68,19 @@ ensureStyles(
   overflow: hidden;
 }
 .dsp-orail-wrap {
+  width: 340px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  flex-shrink: 0;
+  overflow: hidden;
+  border-left: 1px solid ${COLOR.border};
+}
+.dsp-orail-wrap > .dsp-orail {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  border-left: none;
 }
 .dsp-content {
   flex: 1;
