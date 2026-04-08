@@ -258,7 +258,7 @@ ensureStyles(
 }
 .dsp-ocard-cell-val {
   font-family: ${FONT.mono};
-  font-size: 13px;
+  font-size: 17px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   overflow: hidden;
