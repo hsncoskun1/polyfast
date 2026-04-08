@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v17',
+  'openrail-v18',
   `
 .dsp-orail {
   width: 100%;
