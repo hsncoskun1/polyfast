@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v11',
+  'sidebar-v12',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -145,7 +145,94 @@ ensureStyles(
   background: ${COLOR.bg};
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 8px;
+}
+
+/* Status line — üstte bot'un mevcut durumu */
+.dsp-sb-bot-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: ${COLOR.surface};
+  border: 1px solid ${COLOR.border};
+  border-radius: ${SIZE.radius}px;
+}
+.dsp-sb-bot-status-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.dsp-sb-bot-status-label {
+  font-size: 12px;
+  font-weight: ${FONT.weight.bold};
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex: 1;
+}
+.dsp-sb-bot-status-time {
+  font-family: ${FONT.mono};
+  font-size: 12px;
+  font-weight: ${FONT.weight.bold};
+  color: ${COLOR.textMuted};
+  letter-spacing: 0.03em;
+}
+
+/* Segmented control — 3 aksiyon buton tek border içinde */
+.dsp-sb-bot-seg {
+  display: flex;
+  background: ${COLOR.surface};
+  border: 1px solid ${COLOR.border};
+  border-radius: ${SIZE.radius}px;
+  overflow: hidden;
+  padding: 3px;
+  gap: 3px;
+}
+.dsp-sb-bot-seg-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: ${COLOR.textMuted};
+  font-family: ${FONT.sans};
+  font-weight: ${FONT.weight.bold};
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.dsp-sb-bot-seg-btn[disabled] { opacity: 0.35; cursor: default; }
+.dsp-sb-bot-seg-btn:not([disabled]):hover { background: ${COLOR.surfaceHover}; color: ${COLOR.text}; }
+.dsp-sb-bot-seg-btn:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
+.dsp-sb-bot-seg-btn-ico {
+  font-size: 15px;
+  line-height: 1;
+}
+.dsp-sb-bot-seg-btn-lbl {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Aktif segment (mode == this segment) */
+.dsp-sb-bot-seg-btn.active.play  {
+  background: ${COLOR.greenSoft};
+  border-color: ${COLOR.green};
+  color: ${COLOR.green};
+}
+.dsp-sb-bot-seg-btn.active.pause {
+  background: ${COLOR.yellowSoft};
+  border-color: ${COLOR.yellow};
+  color: ${COLOR.yellow};
+}
+.dsp-sb-bot-seg-btn.active.stop  {
+  background: ${COLOR.redSoft};
+  border-color: ${COLOR.red};
+  color: ${COLOR.red};
 }
 
 /* Hero (status) */
@@ -531,54 +618,68 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
   const pauseDisabled = localMode !== 'running';
   const stopDisabled = localMode === 'stopped';
 
-  void mode;
-  void startDisabled;
-  void pauseDisabled;
-
-  // Toggle: running ise ⏸ Duraklat (sarı) — pause aksiyonu tetikler
-  //         paused  ise ▶ Devam Et (yeşil) — start aksiyonu tetikler
-  //         stopped ise ▶ Başlat   (yeşil) — start aksiyonu tetikler
-  const isRunning = localMode === 'running';
-  const toggleAction: 'start' | 'pause' = isRunning ? 'pause' : 'start';
-  const toggleIcon  = isRunning ? '⏸' : '▶';
-  const toggleLabel = isRunning
-    ? 'Duraklat'
-    : localMode === 'paused'
-      ? 'Devam Et'
-      : 'Başlat';
-  const toggleTone  = isRunning ? 'pause' : 'play';
-  const toggleSub =
+  // Status line renkleri
+  const statusColor =
+    localMode === 'running' ? COLOR.green :
+    localMode === 'paused'  ? COLOR.yellow :
+    COLOR.red;
+  const statusLabel =
+    localMode === 'running' ? 'Çalışıyor' :
+    localMode === 'paused'  ? 'Durakladı' :
+    'Durdu';
+  const statusTime =
     localMode === 'running' && liveUptime != null
       ? formatUptime(liveUptime)
       : localMode === 'paused' && bot?.uptime_sec != null
         ? formatUptime(bot.uptime_sec)
-        : localMode === 'stopped'
-          ? 'Hazır'
-          : null;
+        : '—';
+  void mode;
 
   return (
     <div className="dsp-sb-bot">
-      <div className="dsp-sb-bot-actions">
+      {/* Status line — bot'un mevcut durumu */}
+      <div className="dsp-sb-bot-status" style={{ borderColor: `${statusColor}55` }}>
+        <span
+          className="dsp-sb-bot-status-dot"
+          style={{ background: statusColor, boxShadow: `0 0 8px ${statusColor}aa` }}
+        />
+        <span className="dsp-sb-bot-status-label" style={{ color: statusColor }}>
+          {statusLabel}
+        </span>
+        <span className="dsp-sb-bot-status-time">{statusTime}</span>
+      </div>
+
+      {/* Segmented control — 3 aksiyon */}
+      <div className="dsp-sb-bot-seg">
         <button
-          className={`dsp-sb-bot-btn ${toggleTone} active`}
           type="button"
-          onClick={() => onAction(toggleAction)}
+          className={`dsp-sb-bot-seg-btn play${localMode === 'running' ? ' active' : ''}`}
+          disabled={startDisabled}
+          onClick={() => onAction('start')}
+          title="Başlat"
         >
-          <span className="dsp-sb-bot-btn-icon">{toggleIcon}</span>
-          <span className="dsp-sb-bot-btn-label">{toggleLabel}</span>
-          {toggleSub && <span className="dsp-sb-bot-btn-sub">{toggleSub}</span>}
+          <span className="dsp-sb-bot-seg-btn-ico">▶</span>
+          <span className="dsp-sb-bot-seg-btn-lbl">Başlat</span>
         </button>
         <button
-          className={`dsp-sb-bot-btn stop${localMode === 'stopped' ? ' disabled-stopped' : ' active'}`}
           type="button"
+          className={`dsp-sb-bot-seg-btn pause${localMode === 'paused' ? ' active' : ''}`}
+          disabled={pauseDisabled}
+          onClick={() => onAction('pause')}
+          title="Duraklat"
+        >
+          <span className="dsp-sb-bot-seg-btn-ico">⏸</span>
+          <span className="dsp-sb-bot-seg-btn-lbl">Duraklat</span>
+        </button>
+        <button
+          type="button"
+          className={`dsp-sb-bot-seg-btn stop${localMode === 'stopped' ? ' active' : ''}`}
           disabled={stopDisabled}
           onClick={() => onAction('stop')}
+          title="Durdur"
         >
-          <span className="dsp-sb-bot-btn-icon">⏹</span>
-          <span className="dsp-sb-bot-btn-label">
-            {localMode === 'stopped' ? 'Durdu' : 'Durdur'}
-          </span>
-          {localMode === 'stopped' && <span className="dsp-sb-bot-btn-sub">Kapalı</span>}
+          <span className="dsp-sb-bot-seg-btn-ico">⏹</span>
+          <span className="dsp-sb-bot-seg-btn-lbl">Durdur</span>
         </button>
       </div>
     </div>
