@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v5',
+  'openrail-v6',
   `
 .dsp-orail {
   width: 340px;
@@ -346,10 +346,6 @@ export default function OpenRail({ positions }: { positions: PositionSummary[] }
   const openOnly = positions.filter((p) => p.variant !== 'claim').slice(0, 4);
   return (
     <aside className="dsp-orail">
-      <div className="dsp-orail-hdr">
-        <span className="dsp-orail-hdr-title">Açık İşlemler</span>
-        <span className="dsp-orail-hdr-badge">{openOnly.length}</span>
-      </div>
       <div className="dsp-orail-list">
         {openOnly.map((p) => (
           <OpenCard key={p.position_id} position={p} />
