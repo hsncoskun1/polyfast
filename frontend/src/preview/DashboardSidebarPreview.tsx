@@ -20,7 +20,6 @@ import { useDashboardData } from '../hooks/useDashboardData';
 import { COLOR, FONT, SIZE, SECTION_TONE, ensureStyles, type SectionKey } from './styles';
 import Sidebar, { type BotLocalMode } from './Sidebar';
 import TopBar from './TopBar';
-import SectionFilterStrip, { type SectionFilter } from './SectionFilterStrip';
 import EventTile from './EventTile';
 import OpenRail from './OpenRail';
 import { MOCK_DATA } from './mockData';
@@ -499,7 +498,6 @@ export default function DashboardSidebarPreview({
   });
   const data = mockMode ? MOCK_DATA : liveData;
 
-  const [filter, setFilter] = useState<SectionFilter>('all');
   // Madde 1.3: bot lifecycle lokal state (frontend-only, backend wiring sonra)
   const [botLocalMode, setBotLocalMode] = useState<BotLocalMode>('running');
   // Madde 1.4: stop confirmation modal
@@ -512,15 +510,8 @@ export default function DashboardSidebarPreview({
 
   const sortedPositions = useMemo(() => sortPositions(positions), [positions]);
 
-  const counts = {
-    all: positions.length + search.length + idle.length,
-    open: positions.length,
-    search: search.length,
-    idle: idle.length,
-  };
-
-  const showSearch = filter === 'all' || filter === 'search';
-  const showIdle = filter === 'all' || filter === 'idle';
+  const showSearch = true;
+  const showIdle = true;
 
   // Status chip: hep gosterilir (Q3 = a)
   const online = data.errorStreak < 3;
@@ -564,21 +555,11 @@ export default function DashboardSidebarPreview({
         <TopBar overview={data.overview} />
         <div className="dsp-body">
       <div className="dsp-orail-wrap">
-        <SectionFilterStrip
-          filter={filter}
-          onFilterChange={setFilter}
-          counts={counts}
-          only={['open']}
-        />
-        <OpenRail positions={sortedPositions} />
+        <Section sectionKey="open" count={positions.filter((p) => p.variant !== 'claim').length}>
+          <OpenRail positions={sortedPositions} />
+        </Section>
       </div>
       <div className="dsp-main">
-        <SectionFilterStrip
-          filter={filter}
-          onFilterChange={setFilter}
-          counts={counts}
-          only={['search', 'idle', 'all']}
-        />
 
         {data.loading && (
           <div className="dsp-loading-banner">Veri yükleniyor…</div>
