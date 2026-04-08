@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v38',
+  'composition-v39',
   `
 .dsp-root {
   display: flex;
@@ -219,7 +219,13 @@ ensureStyles(
   transition: opacity 0.15s, background 0.15s;
   white-space: nowrap;
   box-sizing: border-box;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dsp-main-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .dsp-main-tab-label { overflow: visible; }
 .dsp-main-tab:hover { opacity: 0.9; }
