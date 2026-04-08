@@ -114,10 +114,10 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { key: 'all', label: 'Tüm Marketler' },
   { key: 'open', label: 'Açık İşlemler', dot: COLOR.green },
-  { key: 'search', label: 'Aranan', dot: COLOR.brand },
-  { key: 'idle', label: 'Aranmayan', dot: COLOR.cyan },
+  { key: 'search', label: 'İşlem Aranan', dot: COLOR.brand },
+  { key: 'idle', label: 'İşlem Aranmayan', dot: COLOR.cyan },
+  { key: 'all', label: 'Tüm Marketler' },
 ];
 
 export default function SectionFilterStrip({
