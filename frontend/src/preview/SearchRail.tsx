@@ -12,7 +12,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v10',
+  'searchrail-v11',
   `
 .dsp-srail-list {
   display: grid;
@@ -373,7 +373,8 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
               </div>
             );
           }
-          const { min, max, cmp } = parseThreshold(rule.threshold_text);
+          const noThreshold = label === 'EvMax' || label === 'BotMax';
+          const { min, max, cmp } = noThreshold ? { min: undefined, max: undefined, cmp: undefined } : parseThreshold(rule.threshold_text);
           const stateKlass = rule.state === 'pass' ? 'pass' : rule.state === 'fail' ? 'fail' : 'disabled';
           return (
             <div key={label} className={`dsp-scard-rule ${stateKlass}`}>
