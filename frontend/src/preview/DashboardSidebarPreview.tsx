@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v40',
+  'composition-v41',
   `
 .dsp-root {
   display: flex;
@@ -204,10 +204,10 @@ ensureStyles(
   gap: 10px;
   height: 36px;
   padding: 0 22px;
-  border: 2px solid transparent;
+  border: 2px solid color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 35%, transparent);
   border-bottom: none;
   border-radius: 12px 12px 0 0;
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 15%, transparent);
   color: ${COLOR.textMuted};
   font-family: ${FONT.sans};
   font-size: 13px;
