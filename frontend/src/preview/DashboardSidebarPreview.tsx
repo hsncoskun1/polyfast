@@ -15,7 +15,7 @@
  * Mock fallback: YOK (durust empty state)
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { COLOR, FONT, SIZE, SECTION_TONE, ensureStyles, type SectionKey } from './styles';
 import Sidebar, { type BotLocalMode } from './Sidebar';
@@ -554,12 +554,25 @@ function StopConfirmModal({
   onCancel,
   onConfirm,
 }: StopConfirmModalProps) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
   return (
-    <div className="dsp-modal-overlay" onClick={onCancel}>
-      <div className="dsp-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="dsp-modal-overlay" role="presentation">
+      <div
+        className="dsp-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dsp-stop-title"
+      >
         <div className="dsp-modal-header">
           <div className="dsp-modal-icon">⚠</div>
-          <div className="dsp-modal-title">Botu durdurmak istediğinize emin misiniz?</div>
+          <div className="dsp-modal-title" id="dsp-stop-title">Botu durdurmak istediğinize emin misiniz?</div>
         </div>
         <div className="dsp-modal-body">
           Şu an <strong>{openPositionCount} açık pozisyon</strong> var.
