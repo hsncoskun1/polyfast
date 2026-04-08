@@ -369,11 +369,12 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
               <div className="dsp-scard-rule-expr">
                 {min && <span className="dsp-scard-rule-min">{min}</span>}
                 {min && <span className="dsp-scard-rule-cmp">{'<'}</span>}
-                {!min && cmp && <span className="dsp-scard-rule-cmp">{cmp}</span>}
                 <span className="dsp-scard-rule-val">{rule.live_value}</span>
                 {min && <span className="dsp-scard-rule-cmp">{'<'}</span>}
-                {(min || (!cmp && max && !min)) && <span className="dsp-scard-rule-max">{max}</span>}
-                {!min && cmp && <span className="dsp-scard-rule-max">{max}</span>}
+                {min && max && <span className="dsp-scard-rule-max">{max}</span>}
+                {!min && cmp && <span className="dsp-scard-rule-cmp">{cmp}</span>}
+                {!min && cmp && max && <span className="dsp-scard-rule-max">{max}</span>}
+                {!min && !cmp && max && <span className="dsp-scard-rule-max">{max}</span>}
               </div>
             </div>
           );
