@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v16',
+  'topbar-v17',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -197,10 +197,11 @@ interface PnlCellProps {
   value: string;
   pct: string | null;
   tone: PnlTone;
+  title?: string;
 }
-function PnlCell({ label, value, pct, tone }: PnlCellProps) {
+function PnlCell({ label, value, pct, tone, title }: PnlCellProps) {
   return (
-    <div className={`dsp-tb-chip pnl ${tone}`}>
+    <div className={`dsp-tb-chip pnl ${tone}`} title={title}>
       <div className="dsp-tb-chip-label">{label}</div>
       <div className="dsp-tb-chip-value">{value}</div>
       {pct && <div className="dsp-tb-chip-sub">{pct}</div>}
@@ -253,18 +254,21 @@ export default function TopBar({ overview }: TopBarProps) {
           value={fmtMoney(overview?.bakiye_text)}
           pct={null}
           tone="neutral"
+          title="Polymarket wallet USDC toplam bakiyesi"
         />
         <PnlCell
           label="Kullanılabilir"
           value={fmtMoney(overview?.kullanilabilir_text)}
           pct={null}
           tone="profit"
+          title="Yeni işlem için ayrılabilir tutar (bakiye - açık emir kilitli)"
         />
         <PnlCell
           label="Oturum PnL"
           value={fmtPnlValue(pnlValue)}
           pct={fmtPnlPct(overview?.session_pnl_pct)}
           tone={pnlTone(pnlValue)}
+          title="Bu oturumda kapanan pozisyonlardan toplam net kar/zarar"
         />
       </div>
 
@@ -272,23 +276,60 @@ export default function TopBar({ overview }: TopBarProps) {
 
       {/* Group 2 — ACTIVITY */}
       <div className="dsp-tb-group g-activity">
-        <PnlCell label="Açılan" value={fmtNum(overview?.acilan)} pct={null} tone="neutral" />
-        <PnlCell label="Görülen" value={fmtNum(overview?.gorulen)} pct={null} tone="neutral" />
-        <PnlCell label="A/G Rate" value={overview?.ag_rate ?? '—'} pct={null} tone="pending" />
+        <PnlCell
+          label="Açılan"
+          value={fmtNum(overview?.acilan)}
+          pct={null}
+          tone="neutral"
+          title="Bu oturumda emir dolumu ile açılan pozisyon sayısı"
+        />
+        <PnlCell
+          label="Görülen"
+          value={fmtNum(overview?.gorulen)}
+          pct={null}
+          tone="neutral"
+          title="Bu oturumda tespit edilen uygun 5M event sayısı"
+        />
+        <PnlCell
+          label="A/G Rate"
+          value={overview?.ag_rate ?? '—'}
+          pct={null}
+          tone="pending"
+          title="Açılan / Görülen oranı — sinyal dönüşüm hızı"
+        />
       </div>
 
       <div className="dsp-tb-divider" />
 
       {/* Group 3 — OUTCOME */}
       <div className="dsp-tb-group g-outcome">
-        <PnlCell label="Kazanan" value={fmtNum(overview?.win)} pct={null} tone="profit" />
-        <PnlCell label="Kaybeden" value={fmtNum(overview?.lost)} pct={null} tone="loss" />
-        <PnlCell label="Bekleyen" value={fmtNum(overview?.pending_claims)} pct={null} tone="pending" />
+        <PnlCell
+          label="Kazanan"
+          value={fmtNum(overview?.win)}
+          pct={null}
+          tone="profit"
+          title="Bu oturumda karlı kapanmış pozisyon sayısı"
+        />
+        <PnlCell
+          label="Kaybeden"
+          value={fmtNum(overview?.lost)}
+          pct={null}
+          tone="loss"
+          title="Bu oturumda zararlı kapanmış pozisyon sayısı"
+        />
+        <PnlCell
+          label="Bekleyen"
+          value={fmtNum(overview?.pending_claims)}
+          pct={null}
+          tone="pending"
+          title="Claim sırasında bekleyen (henüz tahsil edilmemiş) pozisyon sayısı"
+        />
         <PnlCell
           label="Winrate"
           value={overview?.winrate ?? '—'}
           pct={null}
           tone={winrateToneFull(overview?.winrate)}
+          title="Kazanan / (Kazanan + Kaybeden) yüzdesi"
         />
       </div>
 

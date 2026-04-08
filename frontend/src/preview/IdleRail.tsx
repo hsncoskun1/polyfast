@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v4',
+  'idlerail-v5',
   `
 .dsp-irail-list {
   display: grid;
@@ -147,6 +147,12 @@ ensureStyles(
   text-transform: uppercase;
   color: ${COLOR.yellow};
 }
+.dsp-icard.kind-error .dsp-icard-kind { color: ${COLOR.red}; }
+.dsp-icard.kind-error .dsp-icard-inline-btn.gear {
+  background: ${COLOR.redSoft};
+  color: ${COLOR.red};
+  border-color: ${COLOR.red};
+}
 
 /* Row 2 — activity tam genişlik (scard ile aynı stil) */
 .dsp-icard-act {
@@ -197,7 +203,7 @@ ensureStyles(
 
 const KIND_LABEL: Record<string, string> = {
   no_events: 'EVENT YOK',
-  waiting_rules: 'KURAL BEKLİYOR',
+  waiting_rules: 'İŞLEM AÇMAK İÇİN AYARLARI YAPIN',
   bot_stopped: 'BOT DURDURULDU',
   cooldown: 'COOLDOWN',
   error: 'HATA',
@@ -232,7 +238,7 @@ function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'sett
     ? { background: `linear-gradient(135deg, ${coinTone}1f 0%, ${COLOR.surface} 55%)` }
     : undefined;
   return (
-    <div className={`dsp-icard tone-${tone}`} style={bgStyle}>
+    <div className={`dsp-icard tone-${tone} kind-${tile.idle_kind}`} style={bgStyle}>
       <div className="dsp-icard-id">
         <div className="dsp-icard-logo">
           {coin?.logo_url ? <img src={coin.logo_url} alt={tile.coin ?? ''} /> : null}
