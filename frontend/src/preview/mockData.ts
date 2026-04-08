@@ -211,7 +211,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'DOWN', entry: '62', live: '64', delta_text: '+2' },
     exits: { tp: '67', sl: '58', fs: '0:08', fs_pnl: '-5%' },
-    activity: { text: 'Force sell | 8 saniye sonra zorunlu kapatma', severity: 'pending' },
+    activity: { text: 'Force sell | FS eşik -5% aşıldı, 8 saniye zorunlu kapatma', severity: 'pending' },
   },
 
   // ─── OPEN LIFECYCLE 7: FS closed ───

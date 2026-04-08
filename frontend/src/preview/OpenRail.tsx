@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v25',
+  'openrail-v26',
   `
 .dsp-orail {
   width: 100%;
@@ -294,6 +294,7 @@ ensureStyles(
 .dsp-ocard-exit.active.tp  { background: ${COLOR.greenSoft};  border-color: ${COLOR.green}; }
 .dsp-ocard-exit.active.sl  { background: ${COLOR.redSoft};    border-color: ${COLOR.red}; }
 .dsp-ocard-exit.active.fs  { background: ${COLOR.yellowSoft}; border-color: ${COLOR.yellow}; }
+.dsp-ocard-exit.active.fsp { background: ${COLOR.redSoft};    border-color: ${COLOR.red}; }
 
 /* Popover — aktif exit'in üzerinden yukarı açılan bildirim (cells row genişliğinde) */
 .dsp-ocard-exit-pop {
@@ -321,14 +322,17 @@ ensureStyles(
   right: 0;
 }
 /* TP (col 1): sağa 3 col genişle */
-.dsp-ocard-exit.tp.active .dsp-ocard-exit-pop { right: calc(-300% - 18px); }
+.dsp-ocard-exit.tp.active .dsp-ocard-exit-pop { right: calc(-300% - 12px); }
 /* SL (col 2): 1 col sola + 2 col sağa */
-.dsp-ocard-exit.sl.active .dsp-ocard-exit-pop { left: calc(-100% - 6px); right: calc(-200% - 12px); }
+.dsp-ocard-exit.sl.active .dsp-ocard-exit-pop { left: calc(-100% - 4px); right: calc(-200% - 8px); }
 /* FS (col 3): 2 col sola + 1 col sağa */
-.dsp-ocard-exit.fs.active .dsp-ocard-exit-pop { left: calc(-200% - 12px); right: calc(-100% - 6px); }
+.dsp-ocard-exit.fs.active .dsp-ocard-exit-pop { left: calc(-200% - 8px); right: calc(-100% - 4px); }
+/* FSP (col 4): 3 col sola */
+.dsp-ocard-exit.fsp.active .dsp-ocard-exit-pop { left: calc(-300% - 12px); right: 0; }
 .dsp-ocard-exit.active.tp  .dsp-ocard-exit-pop { background: ${COLOR.green};  border-color: ${COLOR.green};  color: #0b1e10; }
 .dsp-ocard-exit.active.sl  .dsp-ocard-exit-pop { background: ${COLOR.red};    border-color: ${COLOR.red};    color: #fff; }
 .dsp-ocard-exit.active.fs  .dsp-ocard-exit-pop { background: ${COLOR.yellow}; border-color: ${COLOR.yellow}; color: #1a1505; }
+.dsp-ocard-exit.active.fsp .dsp-ocard-exit-pop { background: ${COLOR.red};    border-color: ${COLOR.red};    color: #fff; }
 .dsp-ocard-exit-pop::after {
   content: '';
   position: absolute;
@@ -388,13 +392,15 @@ ensureStyles(
 `
 );
 
-type ActiveExit = 'tp' | 'sl' | 'fs' | null;
-function deriveActiveExit(text: string | null | undefined): ActiveExit {
+type ExitKey = 'tp' | 'sl' | 'fs' | 'fsp';
+function deriveActiveExits(text: string | null | undefined): Set<ExitKey> {
   const t = text ?? '';
-  if (/TP @|TP tetik|kapatma emri|TP yakla/i.test(t)) return 'tp';
-  if (/SL tetik|SL yakla|SL @/i.test(t)) return 'sl';
-  if (/Force sell|FS @|FS countdown/i.test(t)) return 'fs';
-  return null;
+  const s = new Set<ExitKey>();
+  if (/TP @|TP tetik|kapatma emri|TP yakla/i.test(t)) s.add('tp');
+  if (/SL tetik|SL yakla|SL @/i.test(t)) s.add('sl');
+  if (/Force sell|FS @|FS countdown|Force sell ile/i.test(t)) s.add('fs');
+  if (/FS eşik|F\/P tetik|FS p&l|FS pnl/i.test(t)) s.add('fsp');
+  return s;
 }
 function deriveStatus(text: string | null | undefined): { label: string; klass: string } {
   const t = text ?? '';
@@ -427,8 +433,10 @@ function OpenCard({ position }: { position: PositionSummary }) {
   const pnlFg = PNL_TONE[tone]?.fg ?? COLOR.text;
   const live = position.live;
   const { label: statusLabel, klass: statusKlass } = deriveStatus(position.activity?.text);
-  const activeExit = deriveActiveExit(position.activity?.text);
+  const actives = deriveActiveExits(position.activity?.text);
   const actText = position.activity?.text ?? '';
+  // Popover tek yerde render — öncelik sırasına göre ilk active hücre
+  const primary: ExitKey | null = (['tp','sl','fs','fsp'] as ExitKey[]).find((k) => actives.has(k)) ?? null;
   const side = live?.side ?? position.side ?? 'UP';
   const sideColor = side === 'UP' ? COLOR.green : COLOR.red;
   const coinTone = coin?.tone;
@@ -509,24 +517,25 @@ function OpenCard({ position }: { position: PositionSummary }) {
       <div className="dsp-ocard-bottom">
         {exits && (
           <>
-            <div className={`dsp-ocard-exit tp${activeExit === 'tp' ? ' active' : ''}`}>
+            <div className={`dsp-ocard-exit tp${actives.has('tp') ? ' active' : ''}`}>
               <span className="dsp-ocard-exit-lbl">TP</span>
               <span className="dsp-ocard-exit-val">{exits.tp}</span>
-              {activeExit === 'tp' && <div className="dsp-ocard-exit-pop">{actText}</div>}
+              {primary === 'tp' && <div className="dsp-ocard-exit-pop">{actText}</div>}
             </div>
-            <div className={`dsp-ocard-exit sl${activeExit === 'sl' ? ' active' : ''}`}>
+            <div className={`dsp-ocard-exit sl${actives.has('sl') ? ' active' : ''}`}>
               <span className="dsp-ocard-exit-lbl">SL</span>
               <span className="dsp-ocard-exit-val">{exits.sl}</span>
-              {activeExit === 'sl' && <div className="dsp-ocard-exit-pop">{actText}</div>}
+              {primary === 'sl' && <div className="dsp-ocard-exit-pop">{actText}</div>}
             </div>
-            <div className={`dsp-ocard-exit fs${activeExit === 'fs' ? ' active' : ''}`}>
+            <div className={`dsp-ocard-exit fs${actives.has('fs') ? ' active' : ''}`}>
               <span className="dsp-ocard-exit-lbl">FS</span>
               <span className="dsp-ocard-exit-val">{exits.fs}</span>
-              {activeExit === 'fs' && <div className="dsp-ocard-exit-pop">{actText}</div>}
+              {primary === 'fs' && <div className="dsp-ocard-exit-pop">{actText}</div>}
             </div>
-            <div className="dsp-ocard-exit fsp">
+            <div className={`dsp-ocard-exit fsp${actives.has('fsp') ? ' active' : ''}`}>
               <span className="dsp-ocard-exit-lbl">F/P</span>
               <span className="dsp-ocard-exit-val">{exits.fs_pnl ?? '—'}</span>
+              {primary === 'fsp' && <div className="dsp-ocard-exit-pop">{actText}</div>}
             </div>
           </>
         )}
