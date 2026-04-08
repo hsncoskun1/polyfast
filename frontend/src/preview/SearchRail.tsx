@@ -201,21 +201,21 @@ ensureStyles(
 .dsp-scard-rule {
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
-  border-radius: 6px;
-  padding: 5px 8px;
+  border-radius: 7px;
+  padding: 7px 10px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
   font-family: ${FONT.sans};
 }
 .dsp-scard-rule-lbl {
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   line-height: 1.1;
   text-align: left;
 }
@@ -223,21 +223,22 @@ ensureStyles(
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   font-family: ${FONT.mono};
   line-height: 1.1;
 }
 .dsp-scard-rule-min, .dsp-scard-rule-max {
-  font-size: 9px;
+  font-size: 11px;
   color: ${COLOR.textMuted};
   font-weight: ${FONT.weight.semibold};
 }
 .dsp-scard-rule-cmp {
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
 }
 .dsp-scard-rule-val {
-  font-size: 14px;
+  font-size: 17px;
   font-weight: ${FONT.weight.bold};
 }
 .dsp-scard-rule.pass { background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
