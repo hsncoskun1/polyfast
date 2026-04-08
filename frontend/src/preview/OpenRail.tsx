@@ -294,7 +294,7 @@ ensureStyles(
 .dsp-ocard-exit.active.tp  { background: ${COLOR.greenSoft};  border-color: ${COLOR.green}; }
 .dsp-ocard-exit.active.sl  { background: ${COLOR.redSoft};    border-color: ${COLOR.red}; }
 .dsp-ocard-exit.active.fs  { background: ${COLOR.yellowSoft}; border-color: ${COLOR.yellow}; }
-.dsp-ocard-exit.active.fsp { background: ${COLOR.redSoft};    border-color: ${COLOR.red}; }
+.dsp-ocard-exit.active.fsp { background: ${COLOR.yellowSoft}; border-color: ${COLOR.yellow}; }
 
 /* Popover — aktif exit'in üzerinden yukarı açılan bildirim (cells row genişliğinde) */
 .dsp-ocard-exit-pop {
@@ -332,7 +332,7 @@ ensureStyles(
 .dsp-ocard-exit.active.tp  .dsp-ocard-exit-pop { background: ${COLOR.green};  border-color: ${COLOR.green};  color: #0b1e10; }
 .dsp-ocard-exit.active.sl  .dsp-ocard-exit-pop { background: ${COLOR.red};    border-color: ${COLOR.red};    color: #fff; }
 .dsp-ocard-exit.active.fs  .dsp-ocard-exit-pop { background: ${COLOR.yellow}; border-color: ${COLOR.yellow}; color: #1a1505; }
-.dsp-ocard-exit.active.fsp .dsp-ocard-exit-pop { background: ${COLOR.red};    border-color: ${COLOR.red};    color: #fff; }
+.dsp-ocard-exit.active.fsp .dsp-ocard-exit-pop { background: ${COLOR.yellow}; border-color: ${COLOR.yellow}; color: #1a1505; }
 .dsp-ocard-exit-pop::after {
   content: '';
   position: absolute;
@@ -364,7 +364,7 @@ ensureStyles(
 .dsp-ocard-exit.tp   .dsp-ocard-exit-val { color: ${COLOR.green}; }
 .dsp-ocard-exit.sl   .dsp-ocard-exit-val { color: ${COLOR.red}; }
 .dsp-ocard-exit.fs   .dsp-ocard-exit-val { color: ${COLOR.yellow}; }
-.dsp-ocard-exit.fsp  .dsp-ocard-exit-val { color: ${COLOR.red}; }
+.dsp-ocard-exit.fsp  .dsp-ocard-exit-val { color: ${COLOR.yellow}; }
 
 /* Row 4: activity + sell button */
 .dsp-ocard-sell {
