@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v33',
+  'composition-v34',
   `
 .dsp-root {
   display: flex;
@@ -199,26 +199,29 @@ ensureStyles(
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
+  justify-content: center;
+  gap: 8px;
   height: 36px;
-  padding: 0 22px;
+  padding: 0 16px;
   border: 2px solid transparent;
   border-bottom: none;
   border-radius: 12px 12px 0 0;
   background: rgba(255,255,255,0.04);
   color: ${COLOR.textMuted};
   font-family: ${FONT.sans};
-  font-size: 13px;
+  font-size: 12px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
   opacity: 0.65;
   transition: opacity 0.15s, background 0.15s;
-  min-width: 200px;
+  white-space: nowrap;
   box-sizing: border-box;
+  flex: 1 1 0;
+  min-width: 0;
 }
+.dsp-main-tab-label { overflow: hidden; text-overflow: ellipsis; }
 .dsp-main-tab:hover { opacity: 0.9; }
 .dsp-main-tab.active { opacity: 1; color: #ffffff; }
 /* Aktif tab'ın alt sağ concave kulak — body border'a chrome geçiş */
