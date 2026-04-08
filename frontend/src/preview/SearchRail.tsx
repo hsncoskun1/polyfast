@@ -7,6 +7,7 @@
  *   [    4-col rules (Zaman / Fiyat / Delta / Spread)]
  */
 
+import { useMemo } from 'react';
 import { COLOR, FONT, SIZE, ACTIVITY_TONE, ensureStyles } from './styles';
 import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
@@ -402,14 +403,18 @@ function passCount(t: SearchTileContract): number {
   return t.rules.filter((r) => r.state === 'pass').length;
 }
 export default function SearchRail({ tiles }: { tiles: SearchTileContract[] }) {
-  const sorted = tiles
-    .map((t, i) => ({ t, i }))
-    .sort((a, b) => {
-      const diff = passCount(b.t) - passCount(a.t);
-      if (diff !== 0) return diff;
-      return b.i - a.i; // tie: sonra gelen (dizide daha sonra) üstte
-    })
-    .map((x) => x.t);
+  const sorted = useMemo(
+    () =>
+      tiles
+        .map((t, i) => ({ t, i }))
+        .sort((a, b) => {
+          const diff = passCount(b.t) - passCount(a.t);
+          if (diff !== 0) return diff;
+          return b.i - a.i; // tie: sonra gelen (dizide daha sonra) üstte
+        })
+        .map((x) => x.t),
+    [tiles]
+  );
   return (
     <div className="dsp-srail-list">
       {sorted.map((t) => (
