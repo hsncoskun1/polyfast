@@ -12,7 +12,7 @@ ensureStyles(
   'openrail-v8',
   `
 .dsp-orail {
-  width: 420px;
+  width: 100%;
   flex-shrink: 0;
   background: ${COLOR.bg};
   border-left: 1px solid ${COLOR.border};
