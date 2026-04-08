@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v11',
+  'searchrail-v12',
   `
 .dsp-srail-list {
   display: grid;
@@ -35,6 +35,7 @@ ensureStyles(
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
   padding: 7px 9px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   display: grid;
   grid-template-columns: 1fr auto;
   grid-template-rows: auto auto auto auto;
@@ -42,6 +43,11 @@ ensureStyles(
   row-gap: 2px;
   min-width: 0;
   overflow: hidden;
+}
+.dsp-scard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(6, 182, 212, 0.18);
+  border-color: ${COLOR.cyan};
 }
 
 /* Row 1 — id (logo + ticker + Tutar/Değer) */

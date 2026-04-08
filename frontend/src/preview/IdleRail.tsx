@@ -12,7 +12,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v1',
+  'idlerail-v2',
   `
 .dsp-irail-list {
   display: grid;
@@ -34,6 +34,7 @@ ensureStyles(
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-radius: ${SIZE.radius}px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   padding: 7px 9px;
   display: grid;
   grid-template-columns: 1fr auto;
@@ -42,6 +43,11 @@ ensureStyles(
   row-gap: 3px;
   min-width: 0;
   overflow: hidden;
+}
+.dsp-icard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(234, 179, 8, 0.18);
+  border-color: ${COLOR.yellow};
 }
 
 /* Row 1 — id (logo + ticker + butonlar) */
