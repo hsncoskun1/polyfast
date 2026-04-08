@@ -131,10 +131,10 @@ export const SECTION_TONE: Record<
     subtitle: 'Açık pozisyonlar ve claim bekleyenler',
   },
   search: {
-    fg: COLOR.brand,
-    bg: COLOR.brandSoft,
-    border: COLOR.borderStrong,
-    glow: COLOR.brandGlow,
+    fg: COLOR.cyan,
+    bg: COLOR.cyanSoft,
+    border: COLOR.cyanSoft,
+    glow: COLOR.cyanGlow,
     title: 'İŞLEM ARANANLAR',
     subtitle: 'Sinyal bekleyen coinler',
   },
@@ -193,7 +193,7 @@ export const ACTIVITY_TONE: Record<ActivitySeverity, { fg: string; dot: string }
   success: { fg: COLOR.green, dot: COLOR.green },
   warning: { fg: COLOR.yellow, dot: COLOR.yellow },
   error: { fg: COLOR.red, dot: COLOR.red },
-  info: { fg: COLOR.brand, dot: COLOR.brand },
+  info: { fg: COLOR.cyan, dot: COLOR.cyan },
   pending: { fg: COLOR.yellow, dot: COLOR.yellow },
   off: { fg: COLOR.textDim, dot: COLOR.textDim },
 };

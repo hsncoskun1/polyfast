@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v20',
+  'composition-v21',
   `
 .dsp-root {
   display: flex;
@@ -74,18 +74,24 @@ ensureStyles(
   min-height: 0;
   overflow: hidden;
   border-left: 1px solid ${COLOR.border};
+  background: ${COLOR.greenSoft};
 }
 .dsp-orail-wrap > .dsp-orail {
   width: 100%;
   flex: 1;
   min-height: 0;
   border-left: none;
+  background: transparent;
+}
+/* Main (İşlem Aranan) — cyan tint background */
+.dsp-main {
+  background: rgba(6, 182, 212, 0.08);
 }
 .dsp-orail-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 14px 4px;
+  padding: 6px 14px;
   border-bottom: 1px solid;
   flex-shrink: 0;
 }
@@ -94,23 +100,16 @@ ensureStyles(
   flex-shrink: 0;
 }
 .dsp-orail-title-text {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: ${COLOR.textMuted};
 }
-.dsp-orail-title-badge {
-  margin-left: auto;
+.dsp-orail-title-count {
   font-family: ${FONT.mono};
-  font-size: 11px;
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
-  padding: 1px 8px;
-  border-radius: 9px;
-  border: 1px solid;
-  min-width: 24px;
-  text-align: center;
-  line-height: 1.4;
+  line-height: 1;
 }
 .dsp-content {
   flex: 1;
@@ -394,12 +393,8 @@ function Section({ sectionKey, count, children }: SectionProps) {
               {tone.title}
             </span>
             <span
-              className="dsp-section-hdr-badge"
-              style={{
-                background: tone.bg,
-                color: tone.fg,
-                borderColor: tone.border,
-              }}
+              className="dsp-orail-title-count"
+              style={{ color: tone.fg }}
             >
               {count}
             </span>
@@ -597,15 +592,10 @@ export default function DashboardSidebarPreview({
               boxShadow: `0 0 6px ${SECTION_TONE.open.fg}99`,
             }}
           />
-          <span className="dsp-orail-title-text">AÇIK İŞLEMLER</span>
-          <span
-            className="dsp-orail-title-badge"
-            style={{
-              color: SECTION_TONE.open.fg,
-              borderColor: `${SECTION_TONE.open.fg}44`,
-              background: `${SECTION_TONE.open.fg}11`,
-            }}
-          >
+          <span className="dsp-orail-title-text" style={{ color: SECTION_TONE.open.fg }}>
+            AÇIK İŞLEMLER
+          </span>
+          <span className="dsp-orail-title-count" style={{ color: SECTION_TONE.open.fg }}>
             {positions.filter((p) => p.variant !== 'claim').length}
           </span>
         </div>
