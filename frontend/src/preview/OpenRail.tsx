@@ -100,14 +100,14 @@ ensureStyles(
   grid-template-columns: auto 1fr;
   grid-template-rows: auto auto auto;
   column-gap: 10px;
-  row-gap: 2px;
+  row-gap: 0;
   min-width: 0;
-  align-items: center;
+  align-content: center;
 }
 .dsp-ocard-id > .dsp-ocard-logo { grid-column: 1; grid-row: 1 / span 3; align-self: center; }
-.dsp-ocard-id-row { grid-column: 2; grid-row: 1; }
-.dsp-ocard-id-lbl { grid-column: 2; grid-row: 2; }
-.dsp-ocard-id-val { grid-column: 2; grid-row: 3; }
+.dsp-ocard-id-row { grid-column: 2; grid-row: 1; line-height: 1.1; }
+.dsp-ocard-id-lbl { grid-column: 2; grid-row: 2; line-height: 1.1; margin-top: 1px; }
+.dsp-ocard-id-val { grid-column: 2; grid-row: 3; line-height: 1.1; }
 .dsp-ocard-id-row {
   display: flex;
   align-items: center;
@@ -115,19 +115,17 @@ ensureStyles(
   min-width: 0;
 }
 .dsp-ocard-id-lbl {
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   letter-spacing: 0.06em;
   color: ${COLOR.textMuted};
-  line-height: 1.1;
 }
 .dsp-ocard-id-val {
   font-family: ${FONT.mono};
-  font-size: 15px;
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.cyan};
-  line-height: 1.15;
 }
 .dsp-ocard-sell-slot {
   grid-column: 2;
