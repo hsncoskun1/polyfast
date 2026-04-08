@@ -383,10 +383,22 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
   );
 }
 
+/** Sort: önce kural pass sayısı desc, eşitlikte dizideki sonraki (yeni) üste. */
+function passCount(t: SearchTileContract): number {
+  return t.rules.filter((r) => r.state === 'pass').length;
+}
 export default function SearchRail({ tiles }: { tiles: SearchTileContract[] }) {
+  const sorted = tiles
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => {
+      const diff = passCount(b.t) - passCount(a.t);
+      if (diff !== 0) return diff;
+      return b.i - a.i; // tie: sonra gelen (dizide daha sonra) üstte
+    })
+    .map((x) => x.t);
   return (
     <div className="dsp-srail-list">
-      {tiles.map((t) => (
+      {sorted.map((t) => (
         <SearchCard key={t.tile_id} tile={t} />
       ))}
     </div>
