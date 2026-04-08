@@ -559,12 +559,11 @@ function useLiveUptime(serverUptime: number | null | undefined): number | null {
     setTick((t) => t + 1); // ilk render tetikle
   }, [serverUptime]);
 
-  // Her saniye tick — re-render yapip Date.now()'dan delta hesapla
+  // Tek sefer mount'ta interval kur — component lifecycle boyunca yasar
   useEffect(() => {
-    if (serverUptime == null) return;
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [serverUptime]);
+  }, []);
 
   if (baseRef.current == null) return null;
   // tick state'ini kullan — re-render trigger (lint memnun olsun)
