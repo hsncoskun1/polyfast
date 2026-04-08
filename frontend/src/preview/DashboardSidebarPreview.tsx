@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v39',
+  'composition-v40',
   `
 .dsp-root {
   display: flex;
@@ -53,19 +53,19 @@ ensureStyles(
   display: flex;
   flex-direction: column;
   min-width: 0;
-  overflow: hidden;
 }
 .dsp-body {
   flex: 1;
   display: flex;
   min-height: 0;
+  overflow: visible;
 }
 .dsp-main {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .dsp-orail-wrap {
   flex: 1 1 0;
