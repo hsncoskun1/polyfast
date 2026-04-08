@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v12',
+  'topbar-v13',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -41,7 +41,13 @@ ensureStyles(
   align-items: center;
   gap: 7px;
   flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
 }
+.dsp-tb-group.g-money    { border-color: ${COLOR.green};  background: rgba(34,197,94,0.08); }
+.dsp-tb-group.g-activity { border-color: ${COLOR.cyan};   background: rgba(6,182,212,0.08); }
+.dsp-tb-group.g-outcome  { border-color: ${COLOR.yellow}; background: rgba(234,179,8,0.08); }
 .dsp-tb-divider {
   width: 1px;
   height: 44px;
@@ -264,7 +270,7 @@ export default function TopBar({ overview }: TopBarProps) {
   return (
     <div className="dsp-topbar">
       {/* Group 1 — MONEY — mor yasak, sadece cyan/green/red/yellow */}
-      <div className="dsp-tb-group">
+      <div className="dsp-tb-group g-money">
         <KpiCell label="Bakiye" value={fmtMoney(overview?.bakiye_text)} chipTone="cyan" />
         <KpiCell
           label="Kullanılabilir"
@@ -282,7 +288,7 @@ export default function TopBar({ overview }: TopBarProps) {
       <div className="dsp-tb-divider" />
 
       {/* Group 2 — ACTIVITY */}
-      <div className="dsp-tb-group">
+      <div className="dsp-tb-group g-activity">
         <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} chipTone="cyan" />
         <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} chipTone="cyan" />
         <KpiCell label="A/G Rate" value={overview?.ag_rate ?? '—'} chipTone="yellow" />
@@ -291,7 +297,7 @@ export default function TopBar({ overview }: TopBarProps) {
       <div className="dsp-tb-divider" />
 
       {/* Group 3 — OUTCOME */}
-      <div className="dsp-tb-group">
+      <div className="dsp-tb-group g-outcome">
         <KpiCell label="Kazanan" value={fmtNum(overview?.win)} chipTone="green" />
         <KpiCell label="Kaybeden" value={fmtNum(overview?.lost)} chipTone="red" />
         <KpiCell label="Bekleyen" value={fmtNum(overview?.pending_claims)} chipTone="yellow" />
