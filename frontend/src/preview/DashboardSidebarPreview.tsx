@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v34',
+  'composition-v35',
   `
 .dsp-root {
   display: flex;
@@ -183,7 +183,7 @@ ensureStyles(
   flex-direction: column;
   gap: 4px;
 }
-/* Main tab bar — chrome tab stili, main kutusunun üst kenarında */
+/* Main tab bar — chrome tab stili, 3 inline sekme sola yaslı */
 .dsp-main-tabs {
   position: absolute;
   top: -36px;
@@ -197,31 +197,30 @@ ensureStyles(
 }
 .dsp-main-tab {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 10px;
   height: 36px;
-  padding: 0 16px;
+  padding: 0 22px;
   border: 2px solid transparent;
   border-bottom: none;
   border-radius: 12px 12px 0 0;
   background: rgba(255,255,255,0.04);
   color: ${COLOR.textMuted};
   font-family: ${FONT.sans};
-  font-size: 12px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
-  opacity: 0.65;
+  opacity: 0.75;
   transition: opacity 0.15s, background 0.15s;
   white-space: nowrap;
   box-sizing: border-box;
-  flex: 1 1 0;
-  min-width: 0;
+  flex-shrink: 0;
 }
-.dsp-main-tab-label { overflow: hidden; text-overflow: ellipsis; }
+.dsp-main-tab-label { overflow: visible; }
 .dsp-main-tab:hover { opacity: 0.9; }
 .dsp-main-tab.active { opacity: 1; color: #ffffff; }
 /* Aktif tab'ın alt sağ concave kulak — body border'a chrome geçiş */
