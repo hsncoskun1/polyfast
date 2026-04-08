@@ -223,7 +223,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'UP', entry: '56', live: '50', delta_text: '-6' },
     exits: { tp: '61', sl: '51', fs: '1:05', fs_pnl: '-5%' },
-    activity: { text: 'FS eşik aşıldı | -5.1% force sell tetiklendi', severity: 'error' },
+    activity: { text: 'FS eşik aşıldı | -5.1% zorunlu kapatma başladı', severity: 'error' },
   },
 
   // ─── OPEN LIFECYCLE 8: FS kapandı ───
