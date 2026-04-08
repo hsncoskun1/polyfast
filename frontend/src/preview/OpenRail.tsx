@@ -191,10 +191,10 @@ ensureStyles(
   grid-template-rows: 1fr 1fr;
   gap: 6px;
 }
-.dsp-ocard-cells > .dsp-ocard-cell:nth-child(1) { grid-column: 1; grid-row: 1; }
-.dsp-ocard-cells > .dsp-ocard-cell:nth-child(2) { grid-column: 2; grid-row: 1; }
-.dsp-ocard-cells > .dsp-ocard-cell:nth-child(3) { grid-column: 1; grid-row: 2; }
-.dsp-ocard-cells > .dsp-ocard-cell:nth-child(4) { grid-column: 2; grid-row: 2; }
+.dsp-ocard-cells > .dsp-ocard-cell:nth-child(1) { grid-column: 1; grid-row: 2; }
+.dsp-ocard-cells > .dsp-ocard-cell:nth-child(2) { grid-column: 1; grid-row: 1; }
+.dsp-ocard-cells > .dsp-ocard-cell:nth-child(3) { grid-column: 2; grid-row: 1; }
+.dsp-ocard-cells > .dsp-ocard-cell:nth-child(4) { grid-column: 3; grid-row: 1; }
 
 /* Row 3 (span 3): exits + sell */
 .dsp-ocard-act {
