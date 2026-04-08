@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v37',
+  'composition-v38',
   `
 .dsp-root {
   display: flex;
@@ -201,18 +201,18 @@ ensureStyles(
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 10px;
   height: 36px;
-  padding: 0 14px;
+  padding: 0 22px;
   border: 2px solid transparent;
   border-bottom: none;
   border-radius: 12px 12px 0 0;
   background: rgba(255,255,255,0.04);
   color: ${COLOR.textMuted};
   font-family: ${FONT.sans};
-  font-size: 12px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
   opacity: 0.75;
