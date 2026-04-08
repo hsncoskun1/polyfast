@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v48',
+  'composition-v49',
   `
 .dsp-root {
   display: flex;
@@ -43,7 +43,10 @@ ensureStyles(
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background: ${COLOR.bg};
+  background:
+    radial-gradient(circle at 0% 0%, rgba(6, 182, 212, 0.10) 0%, transparent 45%),
+    radial-gradient(circle at 100% 100%, rgba(0, 0, 0, 0.6) 0%, transparent 60%),
+    ${COLOR.bg};
   font-family: ${FONT.sans};
   color: ${COLOR.text};
   line-height: 1.3;
