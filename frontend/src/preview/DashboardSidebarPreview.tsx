@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v26',
+  'composition-v27',
   `
 .dsp-root {
   display: flex;
@@ -190,8 +190,8 @@ ensureStyles(
 .dsp-main-tab:hover { opacity: 0.9; }
 .dsp-main-tab.active { opacity: 1; color: #ffffff; }
 .dsp-main-tab.tone-search.active   { background: linear-gradient(180deg, rgba(6,182,212,0.72), rgba(6,182,212,0.28)); border-color: ${COLOR.cyan}; }
-.dsp-main-tab.tone-idle.active     { background: linear-gradient(180deg, rgba(148,163,184,0.72), rgba(148,163,184,0.28)); border-color: #94a3b8; }
-.dsp-main-tab.tone-settings.active { background: linear-gradient(180deg, rgba(234,179,8,0.72), rgba(234,179,8,0.28)); border-color: ${COLOR.yellow}; }
+.dsp-main-tab.tone-idle.active     { background: linear-gradient(180deg, rgba(234,179,8,0.72), rgba(234,179,8,0.28)); border-color: ${COLOR.yellow}; }
+.dsp-main-tab.tone-settings.active { background: linear-gradient(180deg, rgba(239,68,68,0.72), rgba(239,68,68,0.28)); border-color: ${COLOR.red}; }
 .dsp-main-tab-count {
   font-family: ${FONT.mono};
   font-size: 14px;
@@ -457,53 +457,6 @@ ensureStyles(
 // ║  Local helpers                                               ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-interface SectionProps {
-  sectionKey: SectionKey;
-  count: number;
-  children: React.ReactNode;
-}
-function Section({ sectionKey, count, children }: SectionProps) {
-  const tone = SECTION_TONE[sectionKey];
-  return (
-    <section className="dsp-section">
-      <div
-        className="dsp-section-hdr"
-        style={{ borderBottomColor: `${tone.fg}22` }}
-      >
-        <div
-          className="dsp-section-hdr-bar"
-          style={{ background: tone.fg }}
-        />
-        <div className="dsp-section-hdr-text">
-          <div className="dsp-section-hdr-title-row">
-            <span
-              className="dsp-section-hdr-dot"
-              style={{
-                background: tone.fg,
-                boxShadow: `0 0 6px ${tone.fg}99`,
-              }}
-            />
-            <span
-              className="dsp-section-hdr-title"
-              style={{ color: tone.fg }}
-            >
-              {tone.title}
-            </span>
-            <span
-              className="dsp-orail-title-count"
-              style={{ color: tone.fg }}
-            >
-              {count}
-            </span>
-          </div>
-          <div className="dsp-section-hdr-subtitle">{tone.subtitle}</div>
-        </div>
-        <div className="dsp-section-hdr-spacer" />
-      </div>
-      <div className="dsp-section-rows">{children}</div>
-    </section>
-  );
-}
 
 interface EmptyStateProps {
   sectionKey: SectionKey;
