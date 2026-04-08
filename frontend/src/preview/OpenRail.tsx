@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v32',
+  'openrail-v33',
   `
 .dsp-orail {
   width: 100%;
@@ -386,11 +386,11 @@ ensureStyles(
   flex-shrink: 0;
 }
 .dsp-ocard-sell.disabled {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.08);
-  color: rgba(239, 68, 68, 0.45);
+  background: rgba(126, 126, 146, 0.08);
+  border-color: ${COLOR.divider};
+  color: ${COLOR.textDim};
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.4;
 }
 `
 );
@@ -416,6 +416,12 @@ function deriveSellState(t: string | null | undefined): SellState {
 }
 function sellLabel(_s: SellState): string {
   return 'SAT';
+}
+function sellTitle(s: SellState): string {
+  if (s === 'closed')  return 'Pozisyon zaten kapandı';
+  if (s === 'closing') return 'Kapanış emri yolda — manuel satış mümkün değil';
+  if (s === 'pending') return 'Dolum bekleniyor — henüz açık pozisyon yok';
+  return 'Pozisyonu manuel olarak sat (Market FOK)';
 }
 
 function OpenCard({ position }: { position: PositionSummary }) {
@@ -473,6 +479,7 @@ function OpenCard({ position }: { position: PositionSummary }) {
           type="button"
           className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
           disabled={sellDisabled}
+          title={sellTitle(sellState)}
         >
           {sellLabel(sellState)}
         </button>
