@@ -24,7 +24,7 @@ export interface NotifItem {
 
 // ─── CSS ───
 ensureStyles(
-  'notifrail-v5',
+  'notifrail-v6',
   `
 .dsp-nrail {
   width: 280px;
@@ -36,7 +36,9 @@ ensureStyles(
   overflow: hidden;
 }
 .dsp-nrail-hdr {
-  padding: 12px 14px 10px;
+  height: 56px;
+  flex-shrink: 0;
+  padding: 0 14px;
   border-bottom: 1px solid ${COLOR.border};
   display: flex;
   align-items: center;
@@ -191,7 +193,6 @@ export default function NotifRail({
     <aside className="dsp-nrail">
       <div className="dsp-nrail-hdr">
         <span className="dsp-nrail-hdr-title">Bildirimler</span>
-        <span className="dsp-nrail-hdr-badge">{picked.length}</span>
       </div>
       <div className="dsp-nrail-list">
         {picked.map((n) => (

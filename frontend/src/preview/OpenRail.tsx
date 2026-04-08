@@ -9,10 +9,10 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v3',
+  'openrail-v4',
   `
 .dsp-orail {
-  width: 280px;
+  width: 340px;
   flex-shrink: 0;
   background: ${COLOR.bg};
   border-left: 1px solid ${COLOR.border};
@@ -21,7 +21,9 @@ ensureStyles(
   overflow: hidden;
 }
 .dsp-orail-hdr {
-  padding: 12px 14px 10px;
+  height: 56px;
+  flex-shrink: 0;
+  padding: 0 14px;
   border-bottom: 1px solid ${COLOR.border};
   display: flex;
   align-items: center;
@@ -61,11 +63,10 @@ ensureStyles(
   border: 1px solid ${COLOR.divider};
   border-left-width: 3px;
   border-radius: ${SIZE.radius}px;
-  padding: 10px 12px;
+  padding: 7px 9px 8px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
   overflow: hidden;
 }
@@ -75,14 +76,15 @@ ensureStyles(
 .dsp-ocard.tone-off    { border-left-color: ${COLOR.divider}; }
 .dsp-ocard.tone-pending { border-left-color: ${COLOR.yellow}; }
 
-.dsp-ocard-row {
+/* Row 1: logo + ticker + side + big pnl + status badge */
+.dsp-ocard-hdr {
   display: flex;
   align-items: center;
   gap: 7px;
   min-width: 0;
 }
 .dsp-ocard-logo {
-  width: 20px; height: 20px;
+  width: 22px; height: 22px;
   border-radius: 50%;
   background: ${COLOR.bg};
   flex-shrink: 0;
@@ -91,57 +93,139 @@ ensureStyles(
 }
 .dsp-ocard-logo img { width: 124%; height: 124%; object-fit: contain; }
 .dsp-ocard-ticker {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
-  letter-spacing: 0.03em;
 }
 .dsp-ocard-side {
   font-family: ${FONT.mono};
   font-size: 11px;
   font-weight: ${FONT.weight.bold};
 }
-.dsp-ocard-status {
+.dsp-ocard-pct {
   margin-left: auto;
   font-family: ${FONT.mono};
+  font-size: 14px;
+  font-weight: ${FONT.weight.bold};
+}
+.dsp-ocard-status {
+  font-family: ${FONT.mono};
+  font-size: 8px;
+  font-weight: ${FONT.weight.bold};
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 7px;
+  border: 1px solid ${COLOR.divider};
+  color: ${COLOR.textMuted};
+  flex-shrink: 0;
+}
+
+/* Row 2: 3 mini cells — Tutar / USD / Delta */
+.dsp-ocard-cells {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+.dsp-ocard-cell {
+  background: ${COLOR.bg};
+  border: 1px solid ${COLOR.divider};
+  border-radius: 6px;
+  padding: 3px 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+  min-width: 0;
+}
+.dsp-ocard-cell-lbl {
+  font-size: 8px;
+  text-transform: uppercase;
+  font-weight: ${FONT.weight.bold};
+  color: ${COLOR.textMuted};
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.dsp-ocard-cell-val {
+  font-family: ${FONT.mono};
+  font-size: 10px;
+  font-weight: ${FONT.weight.bold};
+  color: ${COLOR.text};
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Row 3: exits TP/SL/FS/FS-P inline */
+.dsp-ocard-exits {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 4px;
+}
+.dsp-ocard-exit {
+  background: ${COLOR.bg};
+  border: 1px solid ${COLOR.divider};
+  border-radius: 6px;
+  padding: 3px 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+  min-width: 0;
+  font-family: ${FONT.mono};
+  font-size: 10px;
+}
+.dsp-ocard-exit-lbl {
+  font-size: 8px;
+  text-transform: uppercase;
+  font-weight: ${FONT.weight.bold};
+  color: ${COLOR.textMuted};
+  letter-spacing: 0.04em;
+}
+.dsp-ocard-exit-val { font-weight: ${FONT.weight.bold}; }
+.dsp-ocard-exit.tp   .dsp-ocard-exit-val { color: ${COLOR.green}; }
+.dsp-ocard-exit.sl   .dsp-ocard-exit-val { color: ${COLOR.red}; }
+.dsp-ocard-exit.fs   .dsp-ocard-exit-val { color: ${COLOR.yellow}; }
+.dsp-ocard-exit.fsp  .dsp-ocard-exit-val { color: ${COLOR.red}; }
+
+/* Row 4: activity + sell button */
+.dsp-ocard-footer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+.dsp-ocard-act {
+  font-size: 10px;
+  font-weight: ${FONT.weight.semibold};
+  color: ${COLOR.textMuted};
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.dsp-ocard-sell {
+  background: ${COLOR.redSoft};
+  border: 1px solid ${COLOR.redSoft};
+  color: ${COLOR.red};
+  font-family: ${FONT.sans};
   font-size: 9px;
   font-weight: ${FONT.weight.bold};
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 8px;
-  border: 1px solid ${COLOR.divider};
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.1;
+  flex-shrink: 0;
+}
+.dsp-ocard-sell.disabled {
+  background: rgba(126,126,146,0.16);
+  border-color: rgba(126,126,146,0.16);
   color: ${COLOR.textMuted};
-}
-
-.dsp-ocard-money {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-.dsp-ocard-pct {
-  font-family: ${FONT.mono};
-  font-size: 15px;
-  font-weight: ${FONT.weight.bold};
-}
-.dsp-ocard-usd {
-  font-family: ${FONT.mono};
-  font-size: 11px;
-  color: ${COLOR.textMuted};
-}
-
-.dsp-ocard-prices {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  font-family: ${FONT.mono};
-  font-size: 10px;
-  color: ${COLOR.textMuted};
-}
-.dsp-ocard-prices > span strong {
-  color: ${COLOR.text};
-  font-weight: ${FONT.weight.bold};
-  margin-left: 2px;
+  cursor: not-allowed;
 }
 `
 );
@@ -159,6 +243,21 @@ function deriveStatus(text: string | null | undefined): string {
   return '—';
 }
 
+type SellState = 'active' | 'closing' | 'closed' | 'pending';
+function deriveSellState(t: string | null | undefined): SellState {
+  const x = t ?? '';
+  if (/ile kapandı|kapandı$/i.test(x)) return 'closed';
+  if (/TP @|SL tetik|FS @|kapatma emri|satış emri/i.test(x)) return 'closing';
+  if (/dolum bekleniyor|gönderiliyor/i.test(x)) return 'pending';
+  return 'active';
+}
+function sellLabel(s: SellState): string {
+  if (s === 'closed') return 'KAPANDI';
+  if (s === 'closing') return 'KAPANIYOR';
+  if (s === 'pending') return 'BEKLİYOR';
+  return 'ŞİMDİ SAT';
+}
+
 function OpenCard({ position }: { position: PositionSummary }) {
   const coin = COIN_FALLBACK[position.asset ?? ''];
   const tone = position.pnl_tone ?? 'neutral';
@@ -169,11 +268,16 @@ function OpenCard({ position }: { position: PositionSummary }) {
   const sideColor = side === 'UP' ? COLOR.green : COLOR.red;
   const coinTone = coin?.tone;
   const bgStyle = coinTone
-    ? { background: `linear-gradient(135deg, ${coinTone}22 0%, ${COLOR.surface} 60%)`, borderColor: `${coinTone}55` }
+    ? { background: `linear-gradient(135deg, ${coinTone}1f 0%, ${COLOR.surface} 55%)`, borderColor: `${coinTone}55` }
     : undefined;
+  const cost = position.requested_amount_usd != null ? `$${position.requested_amount_usd.toFixed(2)}` : '—';
+  const exits = position.exits;
+  const sellState = deriveSellState(position.activity?.text);
+  const sellDisabled = sellState !== 'active';
+
   return (
     <div className={`dsp-ocard tone-${tone}`} style={bgStyle}>
-      <div className="dsp-ocard-row">
+      <div className="dsp-ocard-hdr">
         <div className="dsp-ocard-logo">
           {coin?.logo_url ? <img src={coin.logo_url} alt={position.asset ?? ''} /> : null}
         </div>
@@ -181,19 +285,57 @@ function OpenCard({ position }: { position: PositionSummary }) {
         <span className="dsp-ocard-side" style={{ color: sideColor }}>
           {side === 'UP' ? '▲' : '▼'} {live?.entry ?? '—'}
         </span>
+        <span className="dsp-ocard-pct" style={{ color: pnlFg }}>{position.pnl_big ?? '—'}</span>
         <span className="dsp-ocard-status">{status}</span>
       </div>
-      <div className="dsp-ocard-money">
-        <span className="dsp-ocard-pct" style={{ color: pnlFg }}>
-          {position.pnl_big ?? '—'}
-        </span>
-        <span className="dsp-ocard-usd" style={{ color: pnlFg }}>
-          {position.pnl_amount ?? ''}
-        </span>
+
+      <div className="dsp-ocard-cells">
+        <div className="dsp-ocard-cell">
+          <span className="dsp-ocard-cell-lbl">Tutar</span>
+          <span className="dsp-ocard-cell-val" style={{ color: COLOR.cyan }}>{cost}</span>
+        </div>
+        <div className="dsp-ocard-cell">
+          <span className="dsp-ocard-cell-lbl">USD</span>
+          <span className="dsp-ocard-cell-val" style={{ color: pnlFg }}>{position.pnl_amount ?? '—'}</span>
+        </div>
+        <div className="dsp-ocard-cell">
+          <span className="dsp-ocard-cell-lbl">Δ</span>
+          <span className="dsp-ocard-cell-val">{live?.delta_text ?? '—'}</span>
+        </div>
       </div>
-      <div className="dsp-ocard-prices">
-        <span>Canlı<strong>{live?.live ?? '—'}</strong></span>
-        <span>Δ<strong>{live?.delta_text ?? '—'}</strong></span>
+
+      {exits && (
+        <div className="dsp-ocard-exits">
+          <div className="dsp-ocard-exit tp">
+            <span className="dsp-ocard-exit-lbl">TP</span>
+            <span className="dsp-ocard-exit-val">{exits.tp}</span>
+          </div>
+          <div className="dsp-ocard-exit sl">
+            <span className="dsp-ocard-exit-lbl">SL</span>
+            <span className="dsp-ocard-exit-val">{exits.sl}</span>
+          </div>
+          <div className="dsp-ocard-exit fs">
+            <span className="dsp-ocard-exit-lbl">FS</span>
+            <span className="dsp-ocard-exit-val">{exits.fs}</span>
+          </div>
+          <div className="dsp-ocard-exit fsp">
+            <span className="dsp-ocard-exit-lbl">F/P</span>
+            <span className="dsp-ocard-exit-val">{exits.fs_pnl ?? '—'}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="dsp-ocard-footer">
+        <div className="dsp-ocard-act" title={position.activity?.text ?? ''}>
+          {position.activity?.text ?? '—'}
+        </div>
+        <button
+          type="button"
+          className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
+          disabled={sellDisabled}
+        >
+          {sellLabel(sellState)}
+        </button>
       </div>
     </div>
   );

@@ -283,14 +283,6 @@ function BrandBlock() {
           />
         </svg>
         <div className="dsp-sb-brand-title">POLYFAST</div>
-        <button
-          type="button"
-          className="dsp-sb-brand-bell"
-          title="Bildirimler"
-          aria-label="Bildirimler"
-        >
-          🔔
-        </button>
       </div>
     </div>
   );
