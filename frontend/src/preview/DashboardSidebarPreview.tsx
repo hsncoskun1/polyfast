@@ -22,6 +22,7 @@ import Sidebar, { type BotLocalMode } from './Sidebar';
 import TopBar from './TopBar';
 import SectionFilterStrip, { type SectionFilter } from './SectionFilterStrip';
 import EventTile from './EventTile';
+import NotifRail from './NotifRail';
 import { MOCK_DATA } from './mockData';
 import type {
   PositionSummary,
@@ -34,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v9',
+  'composition-v10',
   `
 .dsp-root {
   display: flex;
@@ -624,6 +625,7 @@ export default function DashboardSidebarPreview({
           )}
         </div>
       </div>
+      <NotifRail />
       {stopModalOpen && (
         <StopConfirmModal
           openPositionCount={positions.length}
