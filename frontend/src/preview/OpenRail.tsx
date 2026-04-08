@@ -153,12 +153,12 @@ ensureStyles(
   grid-column: 1 / -1;
   grid-row: 3;
   font-family: ${FONT.sans};
-  font-size: 14px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 7px 14px;
-  border-radius: 8px;
+  padding: 3px 12px;
+  border-radius: 7px;
   border: 1px solid;
   text-align: center;
   line-height: 1.15;
