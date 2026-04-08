@@ -115,14 +115,14 @@ ensureStyles(
   flex-shrink: 0;
 }
 .dsp-orail-title-text {
-  font-size: 18px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 .dsp-orail-title-count {
   font-family: ${FONT.mono};
-  font-size: 20px;
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
   line-height: 1;
 }
@@ -165,12 +165,12 @@ ensureStyles(
 .dsp-section-hdr-text { flex: 0 0 auto; }
 .dsp-section-hdr-spacer { display: none; }
 .dsp-section-hdr-title {
-  font-size: 18px !important;
-  letter-spacing: 0.12em !important;
+  font-size: 13px !important;
+  letter-spacing: 0.1em !important;
 }
 .dsp-section-hdr-dot {
-  width: 11px !important;
-  height: 11px !important;
+  width: 9px !important;
+  height: 9px !important;
 }
 .dsp-section-hdr-bar {
   width: 3px;
@@ -190,7 +190,7 @@ ensureStyles(
   gap: 12px;
 }
 .dsp-section-hdr-title-row .dsp-orail-title-count {
-  font-size: 20px;
+  font-size: 14px;
 }
 .dsp-section-hdr-spacer {
   flex: 1;
