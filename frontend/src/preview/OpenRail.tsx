@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v14',
+  'openrail-v15',
   `
 .dsp-orail {
   width: 100%;
@@ -102,12 +102,8 @@ ensureStyles(
   grid-row: 1;
   display: flex;
   align-items: center;
+  gap: 10px;
   min-width: 0;
-}
-.dsp-ocard-id-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 .dsp-ocard-ticker {
   font-size: 20px;
@@ -210,15 +206,9 @@ ensureStyles(
   grid-column: 1 / -1;
   grid-row: 5;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 6px;
   align-items: center;
-}
-.dsp-ocard-exits {
-  display: contents;
-}
-.dsp-ocard-sell-wrap {
-  display: contents;
 }
 .dsp-ocard.tone-profit { border-left-color: ${COLOR.green}; }
 .dsp-ocard.tone-loss   { border-left-color: ${COLOR.red}; }
@@ -308,9 +298,9 @@ ensureStyles(
   font-family: ${FONT.sans};
   font-size: 11px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 7px;
   cursor: pointer;
   line-height: 1.1;
@@ -378,6 +368,13 @@ function OpenCard({ position }: { position: PositionSummary }) {
 
       <div className="dsp-ocard-id">
         <span className="dsp-ocard-ticker">{position.asset}</span>
+        <button
+          type="button"
+          className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
+          disabled={sellDisabled}
+        >
+          {sellLabel(sellState)}
+        </button>
       </div>
 
       <div className="dsp-ocard-pnl">
@@ -445,15 +442,12 @@ function OpenCard({ position }: { position: PositionSummary }) {
               <span className="dsp-ocard-exit-lbl">FS</span>
               <span className="dsp-ocard-exit-val">{exits.fs}</span>
             </div>
+            <div className="dsp-ocard-exit fsp">
+              <span className="dsp-ocard-exit-lbl">F/P</span>
+              <span className="dsp-ocard-exit-val">{exits.fs_pnl ?? '—'}</span>
+            </div>
           </>
         )}
-        <button
-          type="button"
-          className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
-          disabled={sellDisabled}
-        >
-          {sellLabel(sellState)}
-        </button>
       </div>
     </div>
   );

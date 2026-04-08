@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v24',
+  'composition-v25',
   `
 .dsp-root {
   display: flex;
@@ -103,12 +103,14 @@ ensureStyles(
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding: 8px 18px;
-  border-radius: 14px 14px 0 0;
+  padding: 9px 14px;
+  border-radius: 10px 10px 0 0;
   background: linear-gradient(180deg, rgba(34,197,94,0.72), rgba(34,197,94,0.28));
   border-bottom: 1px solid;
   flex-shrink: 0;
   margin: 6px 8px 0;
+  height: 36px;
+  box-sizing: border-box;
 }
 .dsp-orail-title-dot {
   width: 11px; height: 11px; border-radius: 50%;
@@ -152,15 +154,15 @@ ensureStyles(
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding: 8px 18px;
-  border-radius: 14px 14px 0 0;
+  padding: 9px 14px;
+  border-radius: 10px 10px 0 0;
   border-bottom: 1px solid;
   position: relative;
   background: linear-gradient(180deg, rgba(6,182,212,0.72), rgba(6,182,212,0.28));
   margin: 6px 8px 0;
-  min-height: 36px;
+  height: 36px;
+  box-sizing: border-box;
 }
-.dsp-orail-title { min-height: 36px; }
 .dsp-section-hdr-bar { display: none; }
 .dsp-section-hdr-text { flex: 0 0 auto; }
 .dsp-section-hdr-spacer { display: none; }
