@@ -127,13 +127,10 @@ ensureStyles(
   letter-spacing: 0.02em;
   line-height: 1.4;
 }
-/* Section rows — auto-fit 2 col grid (Q1=1440 hedef, Q2=auto-fit responsive)
- * 1440 viewport: sidebar 252 + main padding 44 = 1144 - section gap 12 = 1132
- * Section content ~1128. Gap 12 dahil hesap: (1128 - 12) / 2 = 558 per col.
- * minmax(540, 1fr) -> 1440'ta 2 col, 1366'da 1 col fallback. */
+/* Section rows — single column (tek tile per row, full width) */
 .dsp-section-rows {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(540px, 1fr));
+  grid-template-columns: 1fr;
   gap: 6px;
 }
 

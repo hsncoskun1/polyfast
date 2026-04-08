@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v49',
+  'eventtile-v50',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -56,7 +56,7 @@ ensureStyles(
  *   tile internal: padding 11+11 + border 2 = 24 -> tile h ~150 */
 .dsp-tile {
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr) 220px;
+  grid-template-columns: 160px minmax(0, 1fr) 280px;
   gap: 0;
   padding: 6px 14px;
   background: ${COLOR.bgRaised};
@@ -64,7 +64,7 @@ ensureStyles(
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  height: 124px;
+  height: 92px;
   align-items: stretch;
   min-width: 0;
   line-height: 1.2;
