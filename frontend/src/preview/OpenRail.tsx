@@ -106,10 +106,21 @@ ensureStyles(
   min-width: 0;
 }
 .dsp-ocard-ticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 20px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+}
+.dsp-ocard-ticker:hover { color: ${COLOR.cyan}; }
+.dsp-ocard-ticker-ico {
+  font-size: 13px;
+  opacity: 0.75;
+  line-height: 1;
 }
 .dsp-ocard-side {
   font-family: ${FONT.mono};
@@ -395,7 +406,16 @@ function OpenCard({ position }: { position: PositionSummary }) {
       </div>
 
       <div className="dsp-ocard-id">
-        <span className="dsp-ocard-ticker">{position.asset}</span>
+        <a
+          className="dsp-ocard-ticker"
+          href={position.event_url ?? '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`${position.asset} Polymarket event'i aç`}
+        >
+          <span>{position.asset}</span>
+          <span className="dsp-ocard-ticker-ico">↗</span>
+        </a>
         <button type="button" className="dsp-ocard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
         <button type="button" className="dsp-ocard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
       </div>
