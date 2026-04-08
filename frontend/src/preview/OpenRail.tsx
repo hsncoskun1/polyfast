@@ -192,6 +192,7 @@ ensureStyles(
 .dsp-ocard-cells {
   grid-column: 1 / -1;
   grid-row: 3;
+  margin-top: -6px;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 4px;
