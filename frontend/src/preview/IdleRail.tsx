@@ -7,12 +7,13 @@
  *   [kural grid 3x2 (varsa) veya sebep metni]
  */
 
+import type React from 'react';
 import { COLOR, FONT, SIZE, ACTIVITY_TONE, ensureStyles } from './styles';
 import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v3',
+  'idlerail-v4',
   `
 .dsp-irail-list {
   display: grid;
@@ -103,6 +104,32 @@ ensureStyles(
 }
 .dsp-icard-icbtn.dollar { background: ${COLOR.greenSoft}; color: ${COLOR.green}; }
 .dsp-icard-icbtn:hover { filter: brightness(1.25); }
+
+/* Inline button pill — activity text içinde token yerine */
+.dsp-icard-inline-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0 2px;
+  border-radius: 5px;
+  font-family: ${FONT.sans};
+  font-size: 11px;
+  font-weight: ${FONT.weight.bold};
+  line-height: 1;
+  vertical-align: -4px;
+}
+.dsp-icard-inline-btn.dollar {
+  background: ${COLOR.greenSoft};
+  color: ${COLOR.green};
+  border: 1px solid ${COLOR.green};
+}
+.dsp-icard-inline-btn.gear {
+  background: ${COLOR.yellowSoft};
+  color: ${COLOR.yellow};
+  border: 1px solid ${COLOR.yellow};
+}
 .dsp-icard-icbtn:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
 .dsp-icard-ticker:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; border-radius: 3px; }
 
@@ -176,6 +203,28 @@ const KIND_LABEL: Record<string, string> = {
   error: 'HATA',
 };
 
+/** Activity metinde {DOLLAR} / {GEAR} token'larını inline button pill ile değiştir */
+function renderActivityText(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const regex = /\{(DOLLAR|GEAR)\}/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  let i = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > last) {
+      parts.push(<span key={`t${i++}`}>{text.slice(last, match.index)}</span>);
+    }
+    if (match[1] === 'DOLLAR') {
+      parts.push(<span key={`d${i++}`} className="dsp-icard-inline-btn dollar">$</span>);
+    } else {
+      parts.push(<span key={`g${i++}`} className="dsp-icard-inline-btn gear">⚙</span>);
+    }
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(<span key={`t${i++}`}>{text.slice(last)}</span>);
+  return parts;
+}
+
 function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'settings' }) {
   const coin = tile.coin ? COIN_FALLBACK[tile.coin] : undefined;
   const coinTone = coin?.tone;
@@ -216,7 +265,7 @@ function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'sett
             return { color: t.fg, borderColor: `${t.fg}44`, background: `${t.fg}14` };
           })()}
         >
-          {tile.activity.text}
+          {renderActivityText(tile.activity.text)}
         </div>
       )}
 
