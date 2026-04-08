@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v42',
+  'composition-v43',
   `
 .dsp-root {
   display: flex;
@@ -85,16 +85,16 @@ ensureStyles(
   border-radius: 0 12px 12px 12px;
   position: relative;
 }
-/* Chrome-tab: wrap'in sol üstüne "yapışık" tab */
+/* Chrome-tab: wrap'in sol üstüne "yapışık" tab — alt 2px body border'ın üstüne biner */
 .dsp-orail-wrap > .dsp-orail-title {
   position: absolute;
   top: -36px;
   left: -2px;
-  height: 36px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 0 22px;
+  padding: 0 22px 2px;
   background: linear-gradient(180deg, rgba(34,197,94,0.82), rgba(34,197,94,0.42));
   border: 2px solid ${COLOR.green};
   border-bottom: none;
@@ -190,7 +190,7 @@ ensureStyles(
   display: flex;
   gap: 4px;
   padding: 0;
-  height: 36px;
+  height: 38px;
   z-index: 5;
   overflow: visible;
 }
@@ -200,8 +200,8 @@ ensureStyles(
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  height: 36px;
-  padding: 0 22px;
+  height: 38px;
+  padding: 0 22px 2px;
   border: 2px solid color-mix(in srgb, var(--dsp-main-tone, ${COLOR.cyan}) 35%, transparent);
   border-bottom: none;
   border-radius: 12px 12px 0 0;
