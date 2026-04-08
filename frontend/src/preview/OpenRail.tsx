@@ -326,12 +326,12 @@ ensureStyles(
   border: 1px solid ${COLOR.redSoft};
   color: ${COLOR.red};
   font-family: ${FONT.sans};
-  font-size: 11px;
+  font-size: 17px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.06em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: 5px 12px;
-  border-radius: 7px;
+  padding: 8px 22px;
+  border-radius: 8px;
   cursor: pointer;
   line-height: 1.1;
   flex-shrink: 0;
@@ -370,7 +370,7 @@ function sellLabel(s: SellState): string {
   if (s === 'closed') return 'KAPANDI';
   if (s === 'closing') return 'KAPANIYOR';
   if (s === 'pending') return 'BEKLİYOR';
-  return 'ŞİMDİ SAT';
+  return 'SAT';
 }
 
 function OpenCard({ position }: { position: PositionSummary }) {
