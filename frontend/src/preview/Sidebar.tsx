@@ -67,10 +67,11 @@ ensureStyles(
   gap: 10px;
 }
 .dsp-sb-brand-logo {
-  width: 52px;
-  height: 52px;
+  width: 190px;
+  height: auto;
+  max-width: 100%;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 10px ${COLOR.brandGlow});
+  filter: drop-shadow(0 0 14px rgba(6,182,212,0.35));
 }
 .dsp-sb-brand-title {
   font-size: 18px;
@@ -248,41 +249,11 @@ function BrandBlock() {
   return (
     <div className="dsp-sb-brand">
       <div className="dsp-sb-brand-row">
-        <svg
+        <img
           className="dsp-sb-brand-logo"
-          viewBox="0 0 32 32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-label="POLYFAST logo"
-        >
-          <defs>
-            <linearGradient id="dsp-logo-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stopColor="#8b5cf6" />
-              <stop offset="1" stopColor="#c084fc" />
-            </linearGradient>
-            <linearGradient id="dsp-logo-bolt" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stopColor="#fafaff" />
-              <stop offset="1" stopColor="#e9d8ff" />
-            </linearGradient>
-          </defs>
-          {/* Hexagon */}
-          <path
-            d="M16 1.5 L28 8 L28 24 L16 30.5 L4 24 L4 8 Z"
-            fill="url(#dsp-logo-grad)"
-            stroke="#c084fc"
-            strokeWidth="1"
-            strokeLinejoin="round"
-          />
-          {/* Lightning bolt */}
-          <path
-            d="M18 7 L10 18 L15 18 L13 25 L22 13 L17 13 Z"
-            fill="url(#dsp-logo-bolt)"
-            stroke="#fafaff"
-            strokeWidth="0.5"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <div className="dsp-sb-brand-title">POLYFAST</div>
+          src="/polyfast-logo.png"
+          alt="Polyfast"
+        />
       </div>
     </div>
   );
