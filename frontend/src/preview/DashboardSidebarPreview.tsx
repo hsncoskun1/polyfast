@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v47',
+  'composition-v48',
   `
 .dsp-root {
   display: flex;
@@ -216,6 +216,21 @@ ensureStyles(
 .dsp-main-tab:hover { opacity: 0.9; }
 .dsp-main-tab:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
 .dsp-modal-btn:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
+
+/* Accessibility — kullanıcı OS'te 'animasyon azalt' tercihi yaptıysa tüm pulse/loop dursun */
+@media (prefers-reduced-motion: reduce) {
+  .dsp-scard-act,
+  .dsp-icard-act,
+  .dsp-ocard-exit-pop,
+  .dsp-sb-bot-status.running .dsp-sb-bot-status-dot {
+    animation: none !important;
+  }
+  .dsp-ocard,
+  .dsp-scard,
+  .dsp-icard {
+    transition: none !important;
+  }
+}
 .dsp-main-tab.active { opacity: 1; color: #ffffff; }
 .dsp-main-tab.tone-search.active   { background: linear-gradient(180deg, rgba(6,182,212,0.82), rgba(6,182,212,0.42)); border-color: ${COLOR.cyan}; color: #fff; }
 .dsp-main-tab.tone-search.active::after { color: ${COLOR.cyan}; }
