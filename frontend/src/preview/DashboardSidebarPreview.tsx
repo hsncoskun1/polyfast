@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v45',
+  'composition-v46',
   `
 .dsp-root {
   display: flex;
@@ -666,13 +666,6 @@ export default function DashboardSidebarPreview({
           className="dsp-orail-title"
           style={{ borderBottomColor: `${SECTION_TONE.open.fg}22` }}
         >
-          <span
-            className="dsp-orail-title-dot"
-            style={{
-              background: SECTION_TONE.open.fg,
-              boxShadow: `0 0 6px ${SECTION_TONE.open.fg}99`,
-            }}
-          />
           <span className="dsp-orail-title-text" style={{ color: SECTION_TONE.open.fg }}>
             AÇIK İŞLEMLER
           </span>
