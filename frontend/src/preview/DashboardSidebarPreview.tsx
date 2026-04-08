@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v10',
+  'composition-v11',
   `
 .dsp-root {
   display: flex;
@@ -57,10 +57,10 @@ ensureStyles(
 .dsp-content {
   flex: 1;
   overflow-y: auto;
-  padding: 10px 20px 10px;
+  padding: 6px 16px 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* Section — header + rows (defensive 8 tile fit) */
@@ -132,7 +132,7 @@ ensureStyles(
 .dsp-section-rows {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 6px;
+  gap: 4px;
 }
 
 /* Empty state — premium kart, kompakt (turn 4: tile yuksekligine yakin) */
