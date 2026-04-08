@@ -7,7 +7,7 @@
  *   [    4-col rules (Zaman / Fiyat / Delta / Spread)]
  */
 
-import { COLOR, FONT, SIZE, PNL_TONE, ensureStyles } from './styles';
+import { COLOR, FONT, SIZE, ensureStyles } from './styles';
 import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
@@ -281,8 +281,8 @@ function pickRule(rules: RuleSpecContract[], label: string): RuleSpecContract | 
 
 function SearchCard({ tile }: { tile: SearchTileContract }) {
   const coin = COIN_FALLBACK[tile.coin];
-  const tone = tile.pnl_tone ?? 'neutral';
-  const pnlFg = PNL_TONE[tone]?.fg ?? COLOR.text;
+  const passN = tile.rules.filter((r) => r.state === 'pass').length;
+  const pnlFg = passN >= 6 ? COLOR.green : passN === 5 ? COLOR.yellow : COLOR.red;
   const coinTone = coin?.tone;
   const bgStyle = coinTone
     ? { background: `linear-gradient(135deg, ${coinTone}1f 0%, ${COLOR.surface} 55%)` }
