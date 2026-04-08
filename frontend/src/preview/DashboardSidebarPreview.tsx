@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v41',
+  'composition-v42',
   `
 .dsp-root {
   display: flex;
@@ -103,20 +103,18 @@ ensureStyles(
   margin: 0;
   white-space: nowrap;
 }
-/* Sağ alt concave — body border'a chrome-tab gibi bağlanır */
+/* Sağ alt concave — tab body ile birleşik görünsün, ters yuvarlatma
+ * Teknik: 12x12 kutu, body bg rengi + üstte yuvarlak boşluk (radial transparent) */
 .dsp-orail-wrap > .dsp-orail-title::after {
   content: '';
   position: absolute;
   right: -12px;
   bottom: -2px;
   width: 12px;
-  height: 12px;
-  background: radial-gradient(circle at bottom right,
-    transparent 0,
-    transparent 11px,
-    ${COLOR.green} 11px,
-    ${COLOR.green} 13px,
-    transparent 13px);
+  height: 14px;
+  background: ${COLOR.green};
+  -webkit-mask: radial-gradient(circle 12px at top right, transparent 12px, #000 12.5px);
+          mask: radial-gradient(circle 12px at top right, transparent 12px, #000 12.5px);
 }
 .dsp-orail-wrap > .dsp-orail {
   width: 100%;
@@ -237,13 +235,10 @@ ensureStyles(
   right: -12px;
   bottom: -2px;
   width: 12px;
-  height: 12px;
-  background: radial-gradient(circle at bottom right,
-    transparent 0,
-    transparent 11px,
-    currentColor 11px,
-    currentColor 13px,
-    transparent 13px);
+  height: 14px;
+  background: currentColor;
+  -webkit-mask: radial-gradient(circle 12px at top right, transparent 12px, #000 12.5px);
+          mask: radial-gradient(circle 12px at top right, transparent 12px, #000 12.5px);
 }
 .dsp-main-tab.tone-search.active   { background: linear-gradient(180deg, rgba(6,182,212,0.82), rgba(6,182,212,0.42)); border-color: ${COLOR.cyan}; color: #fff; }
 .dsp-main-tab.tone-search.active::after { color: ${COLOR.cyan}; }
