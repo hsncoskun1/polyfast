@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v16',
+  'composition-v17',
   `
 .dsp-root {
   display: flex;
@@ -80,6 +80,37 @@ ensureStyles(
   flex: 1;
   min-height: 0;
   border-left: none;
+}
+.dsp-orail-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px 4px;
+  border-bottom: 1px solid;
+  flex-shrink: 0;
+}
+.dsp-orail-title-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.dsp-orail-title-text {
+  font-size: 11px;
+  font-weight: ${FONT.weight.bold};
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: ${COLOR.textMuted};
+}
+.dsp-orail-title-badge {
+  margin-left: auto;
+  font-family: ${FONT.mono};
+  font-size: 11px;
+  font-weight: ${FONT.weight.bold};
+  padding: 1px 8px;
+  border-radius: 9px;
+  border: 1px solid;
+  min-width: 24px;
+  text-align: center;
+  line-height: 1.4;
 }
 .dsp-content {
   flex: 1;
@@ -555,9 +586,30 @@ export default function DashboardSidebarPreview({
         <TopBar overview={data.overview} />
         <div className="dsp-body">
       <div className="dsp-orail-wrap">
-        <Section sectionKey="open" count={positions.filter((p) => p.variant !== 'claim').length}>
-          <OpenRail positions={sortedPositions} />
-        </Section>
+        <div
+          className="dsp-orail-title"
+          style={{ borderBottomColor: `${SECTION_TONE.open.fg}22` }}
+        >
+          <span
+            className="dsp-orail-title-dot"
+            style={{
+              background: SECTION_TONE.open.fg,
+              boxShadow: `0 0 6px ${SECTION_TONE.open.fg}99`,
+            }}
+          />
+          <span className="dsp-orail-title-text">AÇIK İŞLEMLER</span>
+          <span
+            className="dsp-orail-title-badge"
+            style={{
+              color: SECTION_TONE.open.fg,
+              borderColor: `${SECTION_TONE.open.fg}44`,
+              background: `${SECTION_TONE.open.fg}11`,
+            }}
+          >
+            {positions.filter((p) => p.variant !== 'claim').length}
+          </span>
+        </div>
+        <OpenRail positions={sortedPositions} />
       </div>
       <div className="dsp-main">
 
