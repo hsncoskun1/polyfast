@@ -12,7 +12,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v8',
+  'searchrail-v9',
   `
 .dsp-srail-list {
   display: grid;
@@ -32,21 +32,16 @@ ensureStyles(
   min-height: 0;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
-  border-left-width: 3px;
-  border-left-color: ${COLOR.cyan};
   border-radius: ${SIZE.radius}px;
-  padding: 10px 12px;
+  padding: 7px 9px;
   display: grid;
   grid-template-columns: 1fr auto;
   grid-template-rows: auto auto auto auto;
-  column-gap: 10px;
+  column-gap: 8px;
   row-gap: 2px;
   min-width: 0;
   overflow: hidden;
 }
-.dsp-scard.ready { border-left-color: ${COLOR.green}; }
-.dsp-scard.wait  { border-left-color: ${COLOR.yellow}; }
-.dsp-scard.block { border-left-color: ${COLOR.red}; }
 
 /* Row 1 — id (logo + ticker + Tutar/Değer) */
 .dsp-scard-id {
@@ -181,14 +176,14 @@ ensureStyles(
 .dsp-scard-act {
   grid-column: 1 / -1;
   grid-row: 3;
-  margin-top: 4px;
-  padding: 8px 12px;
+  margin-top: 3px;
+  padding: 5px 10px;
   background: ${COLOR.bgRaised};
   border: 1px solid;
   border-radius: 7px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: ${FONT.weight.semibold};
-  line-height: 1.3;
+  line-height: 1.2;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
