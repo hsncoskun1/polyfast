@@ -100,7 +100,7 @@ ensureStyles(
   grid-template-columns: auto 1fr;
   grid-template-rows: auto auto auto;
   column-gap: 10px;
-  row-gap: 0;
+  row-gap: 3px;
   min-width: 0;
   align-content: start;
 }
@@ -115,7 +115,7 @@ ensureStyles(
   min-width: 0;
 }
 .dsp-ocard-id-lbl {
-  font-size: 9px;
+  font-size: 11px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   letter-spacing: 0.06em;
@@ -123,7 +123,7 @@ ensureStyles(
 }
 .dsp-ocard-id-val {
   font-family: ${FONT.mono};
-  font-size: 14px;
+  font-size: 17px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.cyan};
 }
@@ -169,19 +169,19 @@ ensureStyles(
   flex-direction: column;
   justify-content: flex-start;
   align-items: flex-end;
-  gap: 0;
+  gap: 3px;
   min-width: 0;
 }
 .dsp-ocard-pct {
   font-family: ${FONT.mono};
-  font-size: 22px;
+  font-size: 24px;
   font-weight: ${FONT.weight.bold};
-  line-height: 1.1;
+  line-height: 1.05;
   letter-spacing: -0.02em;
 }
 .dsp-ocard-usd {
   font-family: ${FONT.mono};
-  font-size: 11px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   text-transform: uppercase;
   letter-spacing: 0.04em;
