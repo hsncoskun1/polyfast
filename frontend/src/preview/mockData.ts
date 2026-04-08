@@ -137,7 +137,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
   // ─── OPEN LIFECYCLE 1: yeni fill ───
   // 1) BTC — yeni fill (pozisyon yeni acildi)
   {
-    ...baseOpen('mock-pos-1', 'BTC', 'UP'),
+    ...baseOpen('mock-pos-1', 'MATIC', 'UP'),
     fill_price: 0.68,
     pnl_big: '+0.0%',
     pnl_amount: '+0.00$',
