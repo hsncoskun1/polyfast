@@ -124,10 +124,12 @@ export default function SectionFilterStrip({
   filter,
   onFilterChange,
   counts,
-}: SectionFilterStripProps) {
+  only,
+}: SectionFilterStripProps & { only?: SectionFilter[] }) {
+  const tabs = only ? TABS.filter((t) => only.includes(t.key)) : TABS;
   return (
     <div className="dsp-sfs">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = filter === tab.key;
         const count = counts[tab.key];
         return (

@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v15',
+  'composition-v16',
   `
 .dsp-root {
   display: flex;
@@ -66,6 +66,12 @@ ensureStyles(
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
+}
+.dsp-orail-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex-shrink: 0;
 }
 .dsp-content {
   flex: 1;
@@ -548,12 +554,21 @@ export default function DashboardSidebarPreview({
       <div className="dsp-right">
         <TopBar overview={data.overview} />
         <div className="dsp-body">
-      <OpenRail positions={sortedPositions} />
+      <div className="dsp-orail-wrap">
+        <SectionFilterStrip
+          filter={filter}
+          onFilterChange={setFilter}
+          counts={counts}
+          only={['open']}
+        />
+        <OpenRail positions={sortedPositions} />
+      </div>
       <div className="dsp-main">
         <SectionFilterStrip
           filter={filter}
           onFilterChange={setFilter}
           counts={counts}
+          only={['search', 'idle', 'all']}
         />
 
         {data.loading && (
