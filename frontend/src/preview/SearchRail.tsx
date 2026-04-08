@@ -12,11 +12,11 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v3',
+  'searchrail-v4',
   `
 .dsp-srail-list {
   display: grid;
-  grid-template-rows: repeat(6, 1fr);
+  grid-template-rows: repeat(4, 1fr);
   gap: 6px;
   flex: 1;
   min-height: 0;

@@ -672,7 +672,7 @@ export default function DashboardSidebarPreview({
                   statusText={statusText}
                 />
               ) : (
-                <SearchRail tiles={search.slice(0, 6)} />
+                <SearchRail tiles={search.slice(0, 4)} />
               )}
             </Section>
           )}
