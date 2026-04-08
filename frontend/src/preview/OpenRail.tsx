@@ -337,10 +337,11 @@ ensureStyles(
   flex-shrink: 0;
 }
 .dsp-ocard-sell.disabled {
-  background: rgba(126,126,146,0.16);
-  border-color: rgba(126,126,146,0.16);
-  color: ${COLOR.textMuted};
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.08);
+  color: rgba(239, 68, 68, 0.45);
   cursor: not-allowed;
+  opacity: 0.55;
 }
 `
 );
@@ -366,10 +367,7 @@ function deriveSellState(t: string | null | undefined): SellState {
   if (/dolum bekleniyor|gönderiliyor/i.test(x)) return 'pending';
   return 'active';
 }
-function sellLabel(s: SellState): string {
-  if (s === 'closed') return 'KAPANDI';
-  if (s === 'closing') return 'KAPANIYOR';
-  if (s === 'pending') return 'BEKLİYOR';
+function sellLabel(_s: SellState): string {
   return 'SAT';
 }
 
