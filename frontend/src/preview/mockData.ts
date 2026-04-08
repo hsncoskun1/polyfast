@@ -504,7 +504,7 @@ export const MOCK_IDLE: IdleTileContract[] = [
     tile_id: 'mock-idle-1',
     coin: 'MATIC',
     idle_kind: 'bot_stopped',
-    msg: 'Pasif — işlem aranmıyor',
+    msg: 'Ayarlar yapıldı ama pasif durumda',
     activity: { text: 'Ayarlar yapıldı, aktif etmek için {DOLLAR} bas', severity: 'info' },
     rules: null,
     event_url: null,
