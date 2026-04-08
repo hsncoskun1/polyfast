@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v17',
+  'composition-v18',
   `
 .dsp-root {
   display: flex;
@@ -189,7 +189,7 @@ ensureStyles(
 /* Section rows — single column (tek tile per row, full width) */
 .dsp-section-rows {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 4px;
 }
 
