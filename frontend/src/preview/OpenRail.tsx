@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v4',
+  'openrail-v5',
   `
 .dsp-orail {
   width: 340px;
@@ -63,10 +63,10 @@ ensureStyles(
   border: 1px solid ${COLOR.divider};
   border-left-width: 3px;
   border-radius: ${SIZE.radius}px;
-  padding: 7px 9px 8px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 9px;
   min-width: 0;
   overflow: hidden;
 }
@@ -80,11 +80,11 @@ ensureStyles(
 .dsp-ocard-hdr {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 10px;
   min-width: 0;
 }
 .dsp-ocard-logo {
-  width: 22px; height: 22px;
+  width: 30px; height: 30px;
   border-radius: 50%;
   background: ${COLOR.bg};
   flex-shrink: 0;
@@ -93,29 +93,30 @@ ensureStyles(
 }
 .dsp-ocard-logo img { width: 124%; height: 124%; object-fit: contain; }
 .dsp-ocard-ticker {
-  font-size: 13px;
+  font-size: 17px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
+  letter-spacing: 0.02em;
 }
 .dsp-ocard-side {
   font-family: ${FONT.mono};
-  font-size: 11px;
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
 }
 .dsp-ocard-pct {
   margin-left: auto;
   font-family: ${FONT.mono};
-  font-size: 14px;
+  font-size: 19px;
   font-weight: ${FONT.weight.bold};
 }
 .dsp-ocard-status {
   font-family: ${FONT.mono};
-  font-size: 8px;
+  font-size: 9px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 2px 5px;
-  border-radius: 7px;
+  padding: 3px 7px;
+  border-radius: 8px;
   border: 1px solid ${COLOR.divider};
   color: ${COLOR.textMuted};
   flex-shrink: 0;
@@ -125,30 +126,30 @@ ensureStyles(
 .dsp-ocard-cells {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 4px;
+  gap: 6px;
 }
 .dsp-ocard-cell {
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
-  border-radius: 6px;
-  padding: 3px 5px;
+  border-radius: 7px;
+  padding: 6px 9px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 3px;
+  gap: 6px;
   min-width: 0;
 }
 .dsp-ocard-cell-lbl {
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   flex-shrink: 0;
 }
 .dsp-ocard-cell-val {
   font-family: ${FONT.mono};
-  font-size: 10px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.text};
   overflow: hidden;
@@ -161,27 +162,27 @@ ensureStyles(
 .dsp-ocard-exits {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: 4px;
+  gap: 6px;
 }
 .dsp-ocard-exit {
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
-  border-radius: 6px;
-  padding: 3px 5px;
+  border-radius: 7px;
+  padding: 6px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 3px;
+  gap: 5px;
   min-width: 0;
   font-family: ${FONT.mono};
-  font-size: 10px;
+  font-size: 13px;
 }
 .dsp-ocard-exit-lbl {
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 .dsp-ocard-exit-val { font-weight: ${FONT.weight.bold}; }
 .dsp-ocard-exit.tp   .dsp-ocard-exit-val { color: ${COLOR.green}; }
@@ -193,14 +194,14 @@ ensureStyles(
 .dsp-ocard-footer {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 6px;
+  gap: 10px;
   align-items: center;
 }
 .dsp-ocard-act {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: ${FONT.weight.semibold};
   color: ${COLOR.textMuted};
-  line-height: 1.2;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -211,12 +212,12 @@ ensureStyles(
   border: 1px solid ${COLOR.redSoft};
   color: ${COLOR.red};
   font-family: ${FONT.sans};
-  font-size: 9px;
+  font-size: 11px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 6px 14px;
+  border-radius: 7px;
   cursor: pointer;
   line-height: 1.1;
   flex-shrink: 0;

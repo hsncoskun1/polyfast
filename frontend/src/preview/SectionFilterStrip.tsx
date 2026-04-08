@@ -23,7 +23,7 @@ import { COLOR, FONT, SIZE, ensureStyles } from './styles';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sectionstrip-v2',
+  'sectionstrip-v3',
   `
 .dsp-sfs {
   height: ${SIZE.sectionStripHeight}px;
@@ -37,6 +37,8 @@ ensureStyles(
   font-family: ${FONT.sans};
 }
 .dsp-sfs-tab {
+  flex: 1 1 0;
+  justify-content: center;
   display: flex;
   align-items: center;
   gap: 8px;

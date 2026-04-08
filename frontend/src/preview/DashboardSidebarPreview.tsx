@@ -22,7 +22,6 @@ import Sidebar, { type BotLocalMode } from './Sidebar';
 import TopBar from './TopBar';
 import SectionFilterStrip, { type SectionFilter } from './SectionFilterStrip';
 import EventTile from './EventTile';
-import NotifRail from './NotifRail';
 import OpenRail from './OpenRail';
 import { MOCK_DATA } from './mockData';
 import type {
@@ -533,8 +532,9 @@ export default function DashboardSidebarPreview({
         localBotMode={botLocalMode}
         onBotAction={handleBotAction}
       />
+      <OpenRail positions={sortedPositions} />
       <div className="dsp-main">
-        <TopBar overview={data.overview} mockMode={mockMode} />
+        <TopBar overview={data.overview} />
         <SectionFilterStrip
           filter={filter}
           onFilterChange={setFilter}
@@ -600,13 +600,6 @@ export default function DashboardSidebarPreview({
           )}
         </div>
       </div>
-      <OpenRail positions={sortedPositions} />
-      <NotifRail
-        coins={sortedPositions
-          .filter((p) => p.variant !== 'claim')
-          .slice(0, 4)
-          .map((p) => p.asset)}
-      />
       {stopModalOpen && (
         <StopConfirmModal
           openPositionCount={positions.length}
