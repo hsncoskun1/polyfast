@@ -24,7 +24,7 @@ export interface NotifItem {
 
 // ─── CSS ───
 ensureStyles(
-  'notifrail-v1',
+  'notifrail-v2',
   `
 .dsp-nrail {
   width: 260px;
@@ -105,7 +105,7 @@ ensureStyles(
 .dsp-ncard-ticker {
   font-size: 12px;
   font-weight: ${FONT.weight.bold};
-  color: ${COLOR.brand};
+  color: ${COLOR.text};
   letter-spacing: 0.03em;
 }
 .dsp-ncard-time {

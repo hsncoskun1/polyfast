@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v7',
+  'topbar-v8',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -265,7 +265,7 @@ export default function TopBar({ overview, mockMode = false }: TopBarProps) {
     <div className="dsp-topbar">
       {/* Group 1 — MONEY */}
       <div className="dsp-tb-group">
-        <KpiCell label="Bakiye" value={fmtMoney(overview?.bakiye_text)} chipTone="brand" />
+        <KpiCell label="Bakiye" value={fmtMoney(overview?.bakiye_text)} chipTone="cyan" />
         <KpiCell
           label="Kullanılabilir"
           value={fmtMoney(overview?.kullanilabilir_text)}

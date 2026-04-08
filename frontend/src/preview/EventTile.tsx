@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v51',
+  'eventtile-v53',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -64,7 +64,7 @@ ensureStyles(
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  height: 84px;
+  height: 140px;
   align-items: stretch;
   min-width: 0;
   line-height: 1.2;
@@ -152,7 +152,7 @@ ensureStyles(
 .dsp-tile-l-symbol {
   font-size: 13px;
   font-weight: ${FONT.weight.bold};
-  color: ${COLOR.brand};
+  color: ${COLOR.text};
   letter-spacing: 0.03em;
   line-height: 1.1;
   text-align: center;
