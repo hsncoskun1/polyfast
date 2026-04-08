@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v1',
+  'openrail-v2',
   `
 .dsp-orail {
   width: 280px;
@@ -46,8 +46,8 @@ ensureStyles(
 }
 .dsp-orail-list {
   flex: 1;
-  overflow-y: auto;
-  padding: 10px 10px 14px;
+  overflow: hidden;
+  padding: 8px 10px 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -55,15 +55,19 @@ ensureStyles(
 
 /* Kart — 3 micro-row: header (logo+ticker+durum), money (pnl%+usd), prices (giriş/canlı/delta) */
 .dsp-ocard {
+  flex: 1 1 0;
+  min-height: 0;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-left-width: 3px;
   border-radius: ${SIZE.radius}px;
-  padding: 8px 10px 9px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  justify-content: space-between;
+  gap: 6px;
   min-width: 0;
+  overflow: hidden;
 }
 .dsp-ocard.tone-profit { border-left-color: ${COLOR.green}; }
 .dsp-ocard.tone-loss   { border-left-color: ${COLOR.red}; }
@@ -192,7 +196,7 @@ function OpenCard({ position }: { position: PositionSummary }) {
 }
 
 export default function OpenRail({ positions }: { positions: PositionSummary[] }) {
-  const openOnly = positions.filter((p) => p.variant !== 'claim');
+  const openOnly = positions.filter((p) => p.variant !== 'claim').slice(0, 6);
   return (
     <aside className="dsp-orail">
       <div className="dsp-orail-hdr">

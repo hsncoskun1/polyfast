@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v8',
+  'topbar-v9',
   `
 .dsp-topbar {
   height: ${SIZE.topBarHeight}px;
@@ -263,7 +263,7 @@ export default function TopBar({ overview, mockMode = false }: TopBarProps) {
   const pnlValue = overview?.session_pnl;
   return (
     <div className="dsp-topbar">
-      {/* Group 1 — MONEY */}
+      {/* Group 1 — MONEY — mor yasak, sadece cyan/green/red/yellow */}
       <div className="dsp-tb-group">
         <KpiCell label="Bakiye" value={fmtMoney(overview?.bakiye_text)} chipTone="cyan" />
         <KpiCell
@@ -283,9 +283,9 @@ export default function TopBar({ overview, mockMode = false }: TopBarProps) {
 
       {/* Group 2 — ACTIVITY */}
       <div className="dsp-tb-group">
-        <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} chipTone="brand" />
-        <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} chipTone="brand" />
-        <KpiCell label="A/G Rate" value={overview?.ag_rate ?? '—'} chipTone="brand" />
+        <KpiCell label="Açılan" value={fmtNum(overview?.acilan)} chipTone="cyan" />
+        <KpiCell label="Görülen" value={fmtNum(overview?.gorulen)} chipTone="cyan" />
+        <KpiCell label="A/G Rate" value={overview?.ag_rate ?? '—'} chipTone="yellow" />
       </div>
 
       <div className="dsp-tb-divider" />

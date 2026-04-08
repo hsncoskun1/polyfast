@@ -24,7 +24,7 @@ export interface NotifItem {
 
 // ─── CSS ───
 ensureStyles(
-  'notifrail-v2',
+  'notifrail-v3',
   `
 .dsp-nrail {
   width: 260px;
@@ -61,24 +61,28 @@ ensureStyles(
 }
 .dsp-nrail-list {
   flex: 1;
-  overflow-y: auto;
-  padding: 10px 10px 14px;
+  overflow: hidden;
+  padding: 8px 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 /* Kart — coin logosu + ticker + metin, severity sol-bordür */
 .dsp-ncard {
+  flex: 1 1 0;
+  min-height: 0;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.divider};
   border-left-width: 3px;
   border-radius: ${SIZE.radius}px;
-  padding: 8px 10px 9px;
+  padding: 6px 10px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  justify-content: center;
+  gap: 3px;
   min-width: 0;
+  overflow: hidden;
 }
 .dsp-ncard.sev-success { border-left-color: ${COLOR.green}; }
 .dsp-ncard.sev-warning { border-left-color: ${COLOR.yellow}; }
@@ -167,6 +171,7 @@ function NotifCard({ item }: { item: NotifItem }) {
 }
 
 export default function NotifRail({ items = MOCK_NOTIFS }: { items?: NotifItem[] }) {
+  const visible = items.slice(0, 12);
   return (
     <aside className="dsp-nrail">
       <div className="dsp-nrail-hdr">
@@ -174,7 +179,7 @@ export default function NotifRail({ items = MOCK_NOTIFS }: { items?: NotifItem[]
         <span className="dsp-nrail-hdr-badge">{items.length}</span>
       </div>
       <div className="dsp-nrail-list">
-        {items.map((n) => (
+        {visible.map((n) => (
           <NotifCard key={n.id} item={n} />
         ))}
       </div>
