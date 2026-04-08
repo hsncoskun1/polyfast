@@ -103,8 +103,8 @@ ensureStyles(
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 14px 24px;
-  border-radius: 16px 16px 0 0;
+  padding: 8px 18px;
+  border-radius: 14px 14px 0 0;
   background: linear-gradient(180deg, rgba(34,197,94,0.72), rgba(34,197,94,0.28));
   border-bottom: 1px solid;
   flex-shrink: 0;
@@ -152,15 +152,15 @@ ensureStyles(
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 14px 24px;
-  border-radius: 16px 16px 0 0;
+  padding: 8px 18px;
+  border-radius: 14px 14px 0 0;
   border-bottom: 1px solid;
   position: relative;
   background: linear-gradient(180deg, rgba(6,182,212,0.72), rgba(6,182,212,0.28));
   margin: 6px 8px 0;
-  min-height: 52px;
+  min-height: 36px;
 }
-.dsp-orail-title { min-height: 52px; }
+.dsp-orail-title { min-height: 36px; }
 .dsp-section-hdr-bar { display: none; }
 .dsp-section-hdr-text { flex: 0 0 auto; }
 .dsp-section-hdr-spacer { display: none; }
