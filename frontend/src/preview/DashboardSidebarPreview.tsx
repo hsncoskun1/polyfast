@@ -101,7 +101,7 @@ ensureStyles(
 .dsp-orail-title {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 12px;
   padding: 8px 18px;
   border-radius: 14px 14px 0 0;
@@ -150,7 +150,7 @@ ensureStyles(
 .dsp-section-hdr {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 12px;
   padding: 8px 18px;
   border-radius: 14px 14px 0 0;
