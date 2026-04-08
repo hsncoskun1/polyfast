@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v2',
+  'openrail-v3',
   `
 .dsp-orail {
   width: 280px;
@@ -167,8 +167,12 @@ function OpenCard({ position }: { position: PositionSummary }) {
   const status = deriveStatus(position.activity?.text);
   const side = live?.side ?? position.side ?? 'UP';
   const sideColor = side === 'UP' ? COLOR.green : COLOR.red;
+  const coinTone = coin?.tone;
+  const bgStyle = coinTone
+    ? { background: `linear-gradient(135deg, ${coinTone}22 0%, ${COLOR.surface} 60%)`, borderColor: `${coinTone}55` }
+    : undefined;
   return (
-    <div className={`dsp-ocard tone-${tone}`}>
+    <div className={`dsp-ocard tone-${tone}`} style={bgStyle}>
       <div className="dsp-ocard-row">
         <div className="dsp-ocard-logo">
           {coin?.logo_url ? <img src={coin.logo_url} alt={position.asset ?? ''} /> : null}

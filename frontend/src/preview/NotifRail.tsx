@@ -24,7 +24,7 @@ export interface NotifItem {
 
 // ─── CSS ───
 ensureStyles(
-  'notifrail-v4',
+  'notifrail-v5',
   `
 .dsp-nrail {
   width: 280px;
@@ -67,13 +67,6 @@ ensureStyles(
   flex-direction: column;
   gap: 8px;
 }
-.dsp-nrail-group {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
 
 /* Kart — coin logosu + ticker + metin, severity sol-bordür */
 .dsp-ncard {
@@ -83,11 +76,11 @@ ensureStyles(
   border: 1px solid ${COLOR.divider};
   border-left-width: 3px;
   border-radius: ${SIZE.radius}px;
-  padding: 6px 10px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
 }
@@ -127,11 +120,13 @@ ensureStyles(
   flex-shrink: 0;
 }
 .dsp-ncard-text {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: ${FONT.weight.semibold};
   line-height: 1.35;
   color: ${COLOR.text};
-  word-break: break-word;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 .dsp-ncard.sev-success .dsp-ncard-text { color: ${COLOR.green}; }
 .dsp-ncard.sev-warning .dsp-ncard-text { color: ${COLOR.yellow}; }
@@ -180,34 +175,27 @@ function NotifCard({ item }: { item: NotifItem }) {
   );
 }
 
-/** Coin listesine göre group'lar — her coin için 2 bildirim, 6 grup = 12 kart. */
+/** Her open coin için 1 bildirim — OpenRail kartlarıyla birebir simetrik. */
 export default function NotifRail({
   items = MOCK_NOTIFS,
   coins,
 }: {
   items?: NotifItem[];
-  /** OpenRail ile aynı sıra: her coin için 2 bildirim yan yana basılır. */
   coins?: string[];
 }) {
-  const groupKeys = coins && coins.length ? coins.slice(0, 6) : Array.from(new Set(items.map((i) => i.coin))).slice(0, 6);
-  const groups = groupKeys.map((c) => ({
-    coin: c,
-    notifs: items.filter((i) => i.coin === c).slice(0, 2),
-  }));
-  const total = groups.reduce((s, g) => s + g.notifs.length, 0);
+  const keys = coins && coins.length ? coins.slice(0, 6) : Array.from(new Set(items.map((i) => i.coin))).slice(0, 6);
+  const picked = keys
+    .map((c) => items.find((i) => i.coin === c))
+    .filter((n): n is NotifItem => Boolean(n));
   return (
     <aside className="dsp-nrail">
       <div className="dsp-nrail-hdr">
         <span className="dsp-nrail-hdr-title">Bildirimler</span>
-        <span className="dsp-nrail-hdr-badge">{total}</span>
+        <span className="dsp-nrail-hdr-badge">{picked.length}</span>
       </div>
       <div className="dsp-nrail-list">
-        {groups.map((g) => (
-          <div key={g.coin} className="dsp-nrail-group">
-            {g.notifs.map((n) => (
-              <NotifCard key={n.id} item={n} />
-            ))}
-          </div>
+        {picked.map((n) => (
+          <NotifCard key={n.id} item={n} />
         ))}
       </div>
     </aside>

@@ -20,7 +20,7 @@ import type { DashboardOverview, PnlTone } from '../api/dashboard';
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'topbar-v10',
+  'topbar-v11',
   `
 .dsp-topbar {
   height: 56px;
@@ -29,12 +29,14 @@ ensureStyles(
   border-bottom: 1px solid ${COLOR.border};
   display: flex;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 12px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  gap: 10px;
-  overflow-x: auto;
+  gap: 8px;
+  overflow: hidden;
+  min-width: 0;
 }
+.dsp-tb-group { flex: 1 1 0; min-width: 0; justify-content: center; }
 
 .dsp-tb-group {
   display: flex;
@@ -57,11 +59,11 @@ ensureStyles(
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 3px 10px 4px;
+  padding: 3px 8px 4px;
   background: ${COLOR.surface};
   border: 1px solid ${COLOR.border};
   border-radius: ${SIZE.radius}px;
-  min-width: 68px;
+  min-width: 56px;
   white-space: nowrap;
   flex-shrink: 0;
   position: relative;
@@ -92,11 +94,11 @@ ensureStyles(
 
 /* PNL chip ozel — 2 satir, tone bg, daha buyuk vurgu */
 .dsp-tb-chip.pnl {
-  min-width: 108px;
-  padding: 3px 12px 4px;
+  min-width: 92px;
+  padding: 3px 10px 4px;
 }
 .dsp-tb-chip.pnl .dsp-tb-chip-value {
-  font-size: 15px;
+  font-size: 14px;
 }
 .dsp-tb-chip.pnl.profit { background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
 .dsp-tb-chip.pnl.profit .dsp-tb-chip-value, .dsp-tb-chip.pnl.profit .dsp-tb-chip-sub { color: ${COLOR.green}; }
@@ -259,7 +261,7 @@ export interface TopBarProps {
   mockMode?: boolean;
 }
 
-export default function TopBar({ overview, mockMode = false }: TopBarProps) {
+export default function TopBar({ overview }: TopBarProps) {
   const pnlValue = overview?.session_pnl;
   return (
     <div className="dsp-topbar">
@@ -302,14 +304,6 @@ export default function TopBar({ overview, mockMode = false }: TopBarProps) {
         />
       </div>
 
-      {mockMode && (
-        <div className="dsp-tb-actions">
-          <span className="dsp-tb-mock" title="Mock showcase mode (gercek backend baglantisi yok)">
-            <span className="dsp-tb-mock-dot" />
-            MOCK
-          </span>
-        </div>
-      )}
     </div>
   );
 }
