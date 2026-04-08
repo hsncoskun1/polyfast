@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v21',
+  'openrail-v22',
   `
 .dsp-orail {
   width: 100%;
@@ -163,6 +163,41 @@ ensureStyles(
   text-align: center;
   line-height: 1.15;
 }
+/* Activity bar — status'tan yukarı açılıyor hissi animasyon */
+.dsp-ocard-act {
+  grid-column: 1 / -1;
+  grid-row: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: ${COLOR.bg};
+  border: 1px solid ${COLOR.divider};
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: ${FONT.weight.semibold};
+  color: ${COLOR.textMuted};
+  line-height: 1.3;
+  overflow: hidden;
+  min-width: 0;
+  transform-origin: top center;
+  animation: dsp-ocard-act-in 0.42s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+@keyframes dsp-ocard-act-in {
+  0%   { transform: translateY(-8px) scaleY(0); opacity: 0; }
+  60%  { transform: translateY(-2px) scaleY(1.06); opacity: 0.9; }
+  100% { transform: translateY(0) scaleY(1); opacity: 1; }
+}
+.dsp-ocard-act-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.dsp-ocard-act-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 /* status tone variants */
 .dsp-ocard-status.s-new     { color: ${COLOR.cyan};  background: ${COLOR.cyanSoft};  border-color: ${COLOR.cyanSoft}; }
 .dsp-ocard-status.s-tpykn   { color: ${COLOR.green}; background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
@@ -206,33 +241,6 @@ ensureStyles(
 }
 
 /* Row 3 (span 3): exits + sell */
-.dsp-ocard-act {
-  grid-column: 1 / -1;
-  grid-row: 5;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: ${COLOR.bg};
-  border: 1px solid ${COLOR.divider};
-  border-radius: 7px;
-  font-size: 11px;
-  font-weight: ${FONT.weight.semibold};
-  color: ${COLOR.textMuted};
-  line-height: 1.3;
-  overflow: hidden;
-  min-width: 0;
-}
-.dsp-ocard-act-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  flex-shrink: 0;
-}
-.dsp-ocard-act-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
 .dsp-ocard-bottom {
   grid-column: 1 / -1;
   grid-row: 6;
