@@ -401,7 +401,7 @@ type SellState = 'active' | 'closing' | 'closed' | 'pending';
 function deriveSellState(t: string | null | undefined): SellState {
   const x = t ?? '';
   if (/ile kapandı|kapandı$/i.test(x)) return 'closed';
-  if (/TP @|SL tetik|FS @|kapatma emri|satış emri/i.test(x)) return 'closing';
+  if (/TP @|SL tetik|FS @|FS eşik|zorunlu kapatma|kapatma emri|satış emri/i.test(x)) return 'closing';
   if (/dolum bekleniyor|gönderiliyor/i.test(x)) return 'pending';
   return 'active';
 }
