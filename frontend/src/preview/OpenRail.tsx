@@ -78,7 +78,7 @@ ensureStyles(
   padding: 10px 12px;
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto auto auto;
+  grid-template-rows: auto auto auto;
   column-gap: 10px;
   row-gap: 2px;
   min-width: 0;
@@ -95,7 +95,7 @@ ensureStyles(
 }
 .dsp-ocard-id {
   grid-column: 1;
-  grid-row: 1 / span 2;
+  grid-row: 1;
   display: grid;
   grid-template-columns: auto 1fr;
   grid-template-rows: auto auto auto;
@@ -164,7 +164,7 @@ ensureStyles(
 
 .dsp-ocard-pnl {
   grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -191,8 +191,8 @@ ensureStyles(
 /* Row 2 (span 3): info cells — Tutar / Giriş / Canlı / Delta */
 .dsp-ocard-cells {
   grid-column: 1 / -1;
-  grid-row: 3;
-  margin-top: -6px;
+  grid-row: 2;
+  margin-top: 4px;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 4px;
@@ -201,7 +201,7 @@ ensureStyles(
 /* Row 3 (span 3): exits + sell */
 .dsp-ocard-bottom {
   grid-column: 1 / -1;
-  grid-row: 4;
+  grid-row: 3;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 4px;
