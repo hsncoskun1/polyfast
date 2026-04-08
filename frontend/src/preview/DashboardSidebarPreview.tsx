@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v25',
+  'composition-v26',
   `
 .dsp-root {
   display: flex;
@@ -158,19 +158,57 @@ ensureStyles(
   flex-direction: column;
   gap: 4px;
 }
-.dsp-section-hdr {
+/* Main tab bar — İşlem Arananlar / İşlem Aranmayanlar / Ayar Gerekli */
+.dsp-main-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px 0;
+  flex-shrink: 0;
+}
+.dsp-main-tab {
+  flex: 1 1 0;
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  gap: 10px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1.5px solid transparent;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: rgba(255,255,255,0.04);
+  color: ${COLOR.textMuted};
+  font-family: ${FONT.sans};
+  font-size: 13px;
+  font-weight: ${FONT.weight.bold};
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.15s, background 0.15s;
+}
+.dsp-main-tab:hover { opacity: 0.9; }
+.dsp-main-tab.active { opacity: 1; color: #ffffff; }
+.dsp-main-tab.tone-search.active   { background: linear-gradient(180deg, rgba(6,182,212,0.72), rgba(6,182,212,0.28)); border-color: ${COLOR.cyan}; }
+.dsp-main-tab.tone-idle.active     { background: linear-gradient(180deg, rgba(148,163,184,0.72), rgba(148,163,184,0.28)); border-color: #94a3b8; }
+.dsp-main-tab.tone-settings.active { background: linear-gradient(180deg, rgba(234,179,8,0.72), rgba(234,179,8,0.28)); border-color: ${COLOR.yellow}; }
+.dsp-main-tab-count {
+  font-family: ${FONT.mono};
+  font-size: 14px;
+  padding: 3px 9px;
+  border: 1.5px solid currentColor;
+  border-radius: 6px;
+  line-height: 1;
+}
+/* Legacy section hdr — backwards compat (open rail kullanılmıyor) */
+.dsp-section-hdr {
+  display: flex;
+  align-items: center;
   gap: 12px;
   padding: 9px 14px;
   border-radius: 10px 10px 0 0;
   border-bottom: 1px solid;
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  backdrop-filter: blur(6px);
-  background: linear-gradient(180deg, rgba(6,182,212,0.85), rgba(6,182,212,0.55));
+  background: linear-gradient(180deg, rgba(6,182,212,0.72), rgba(6,182,212,0.28));
   margin: 6px 10px 0;
   height: 36px;
   box-sizing: border-box;
@@ -585,6 +623,7 @@ export default function DashboardSidebarPreview({
 
   // Madde 1.3: bot lifecycle lokal state (frontend-only, backend wiring sonra)
   const [botLocalMode, setBotLocalMode] = useState<BotLocalMode>('running');
+  const [mainTab, setMainTab] = useState<'search' | 'idle' | 'settings'>('search');
   // Madde 1.4: stop confirmation modal
   const [stopModalOpen, setStopModalOpen] = useState(false);
 
@@ -595,8 +634,9 @@ export default function DashboardSidebarPreview({
 
   const sortedPositions = useMemo(() => sortPositions(positions), [positions]);
 
-  const showSearch = true;
-  const showIdle = false;
+  const idleSettings = idle.filter((i) => i.idle_kind === 'bot_stopped' || i.idle_kind === 'error');
+  const idleOnly = idle.filter((i) => i.idle_kind !== 'bot_stopped' && i.idle_kind !== 'error');
+  const mainCounts = { search: search.length, idle: idleOnly.length, settings: idleSettings.length };
 
   // Status chip: hep gosterilir (Q3 = a)
   const online = data.errorStreak < 3;
@@ -671,47 +711,64 @@ export default function DashboardSidebarPreview({
           </div>
         )}
 
+        <div className="dsp-main-tabs">
+          {([
+            { key: 'search',   label: 'İşlem Arananlar',    count: mainCounts.search },
+            { key: 'idle',     label: 'İşlem Aranmayanlar', count: mainCounts.idle },
+            { key: 'settings', label: 'Ayar Gerekli',       count: mainCounts.settings },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              className={`dsp-main-tab ${mainTab === t.key ? 'active' : ''} tone-${t.key}`}
+              onClick={() => setMainTab(t.key)}
+            >
+              <span className="dsp-main-tab-label">{t.label}</span>
+              <span className="dsp-main-tab-count">{t.count}</span>
+            </button>
+          ))}
+        </div>
         <div className="dsp-content">
-          {showSearch && (
-            <Section sectionKey="search" count={search.length}>
-              {search.length === 0 ? (
-                <EmptyState
-                  sectionKey="search"
-                  icon="⌕"
-                  title="Sinyal aranıyor"
-                  description="Kuralların tüm coinler için oluşmasını bekliyoruz — eligible olanlar burada listelenecek"
-                  online={online}
-                  statusText={statusText}
-                />
-              ) : (
-                <SearchRail tiles={search.slice(0, 4)} />
-              )}
-            </Section>
-          )}
-
-          {showIdle && (
-            <Section sectionKey="idle" count={idle.length}>
-              {idle.length === 0 ? (
-                <EmptyState
-                  sectionKey="idle"
-                  icon="⊙"
-                  title="Pasif coin yok"
-                  description="Tüm coinler aktif ya da henüz kayıt yok — manuel kapatılan coinler burada görünür"
-                  online={online}
-                  statusText={statusText}
-                />
-              ) : (
-                idle.map((i) => (
-                  <EventTile
-                    key={i.tile_id}
-                    variant="idle"
-                    idle={i}
-                    coins={data.coins}
-                  />
-                ))
-              )}
-            </Section>
-          )}
+          {mainTab === 'search' && (search.length === 0 ? (
+            <EmptyState
+              sectionKey="search"
+              icon="⌕"
+              title="Sinyal aranıyor"
+              description="Kuralların tüm coinler için oluşmasını bekliyoruz — eligible olanlar burada listelenecek"
+              online={online}
+              statusText={statusText}
+            />
+          ) : (
+            <SearchRail tiles={search.slice(0, 4)} />
+          ))}
+          {mainTab === 'idle' && (idleOnly.length === 0 ? (
+            <EmptyState
+              sectionKey="idle"
+              icon="⊙"
+              title="Pasif coin yok"
+              description="Tüm coinler aktif ya da henüz kayıt yok — manuel kapatılan coinler burada görünür"
+              online={online}
+              statusText={statusText}
+            />
+          ) : (
+            idleOnly.map((i) => (
+              <EventTile key={i.tile_id} variant="idle" idle={i} coins={data.coins} />
+            ))
+          ))}
+          {mainTab === 'settings' && (idleSettings.length === 0 ? (
+            <EmptyState
+              sectionKey="idle"
+              icon="⚙"
+              title="Ayar gerektiren coin yok"
+              description="Bot çalışır durumda — hata/duraklamış coin olduğunda burada görünür"
+              online={online}
+              statusText={statusText}
+            />
+          ) : (
+            idleSettings.map((i) => (
+              <EventTile key={i.tile_id} variant="idle" idle={i} coins={data.coins} />
+            ))
+          ))}
         </div>
       </div>
         </div>
