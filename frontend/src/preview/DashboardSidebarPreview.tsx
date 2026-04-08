@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v21',
+  'composition-v22',
   `
 .dsp-root {
   display: flex;
@@ -74,7 +74,13 @@ ensureStyles(
   min-height: 0;
   overflow: hidden;
   border-left: 1px solid ${COLOR.border};
-  background: ${COLOR.greenSoft};
+  /* Chrome-tab yayılma: üstte yoğun yeşil → alta doğru fade */
+  background: linear-gradient(180deg,
+    rgba(34, 197, 94, 0.32) 0px,
+    rgba(34, 197, 94, 0.12) 60px,
+    rgba(34, 197, 94, 0.04) 180px,
+    transparent 100%
+  );
 }
 .dsp-orail-wrap > .dsp-orail {
   width: 100%;
@@ -83,17 +89,25 @@ ensureStyles(
   border-left: none;
   background: transparent;
 }
-/* Main (İşlem Aranan) — cyan tint background */
+/* Main (İşlem Aranan) — chrome-tab cyan yayılma */
 .dsp-main {
-  background: rgba(6, 182, 212, 0.08);
+  background: linear-gradient(180deg,
+    rgba(6, 182, 212, 0.32) 0px,
+    rgba(6, 182, 212, 0.12) 60px,
+    rgba(6, 182, 212, 0.04) 180px,
+    transparent 100%
+  );
 }
 .dsp-orail-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
+  padding: 8px 18px;
+  border-radius: 14px 14px 0 0;
+  background: linear-gradient(180deg, rgba(34,197,94,0.55), rgba(34,197,94,0.2));
   border-bottom: 1px solid;
   flex-shrink: 0;
+  margin: 6px 8px 0;
 }
 .dsp-orail-title-dot {
   width: 9px; height: 9px; border-radius: 50%;
@@ -118,7 +132,13 @@ ensureStyles(
   display: flex;
   flex-direction: column;
   gap: 6px;
+  scrollbar-color: ${COLOR.cyan} transparent;
+  scrollbar-width: thin;
 }
+.dsp-content::-webkit-scrollbar { width: 8px; }
+.dsp-content::-webkit-scrollbar-track { background: transparent; }
+.dsp-content::-webkit-scrollbar-thumb { background: ${COLOR.cyan}; border-radius: 4px; }
+.dsp-content::-webkit-scrollbar-thumb:hover { background: #0891b2; }
 
 /* Section — header + rows (defensive 8 tile fit) */
 .dsp-section {
@@ -130,9 +150,12 @@ ensureStyles(
   display: flex;
   align-items: stretch;
   gap: 10px;
-  padding: 0 0 2px;
+  padding: 8px 18px;
+  border-radius: 14px 14px 0 0;
   border-bottom: 1px solid;
   position: relative;
+  background: linear-gradient(180deg, rgba(6,182,212,0.55), rgba(6,182,212,0.2));
+  margin: 6px 8px 0;
 }
 .dsp-section-hdr-bar {
   width: 3px;

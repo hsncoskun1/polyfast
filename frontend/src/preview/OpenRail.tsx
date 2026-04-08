@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v12',
+  'openrail-v13',
   `
 .dsp-orail {
   width: 100%;
@@ -78,7 +78,7 @@ ensureStyles(
   padding: 14px 16px;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto;
   column-gap: 14px;
   row-gap: 8px;
   min-width: 0;
@@ -101,8 +101,7 @@ ensureStyles(
   grid-column: 2;
   grid-row: 1;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
   min-width: 0;
 }
 .dsp-ocard-id-row {
@@ -122,17 +121,29 @@ ensureStyles(
   font-weight: ${FONT.weight.bold};
 }
 .dsp-ocard-status {
-  align-self: flex-start;
-  font-family: ${FONT.mono};
-  font-size: 9px;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-family: ${FONT.sans};
+  font-size: 14px;
   font-weight: ${FONT.weight.bold};
-  letter-spacing: 0.07em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 6px;
-  border: 1px solid ${COLOR.divider};
-  color: ${COLOR.textMuted};
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid;
+  text-align: center;
+  line-height: 1.15;
 }
+/* status tone variants */
+.dsp-ocard-status.s-new     { color: ${COLOR.cyan};  background: ${COLOR.cyanSoft};  border-color: ${COLOR.cyanSoft}; }
+.dsp-ocard-status.s-tpykn   { color: ${COLOR.green}; background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
+.dsp-ocard-status.s-tphit   { color: ${COLOR.green}; background: ${COLOR.greenSoft}; border-color: ${COLOR.greenSoft}; }
+.dsp-ocard-status.s-slykn   { color: ${COLOR.yellow};background: ${COLOR.yellowSoft};border-color: ${COLOR.yellowSoft}; }
+.dsp-ocard-status.s-slhit   { color: ${COLOR.red};   background: ${COLOR.redSoft};   border-color: ${COLOR.redSoft}; }
+.dsp-ocard-status.s-fs      { color: ${COLOR.yellow};background: ${COLOR.yellowSoft};border-color: ${COLOR.yellowSoft}; }
+.dsp-ocard-status.s-closed  { color: ${COLOR.textMuted}; background: rgba(126,126,146,0.16); border-color: rgba(126,126,146,0.16); }
+.dsp-ocard-status.s-claim   { color: ${COLOR.yellow};background: ${COLOR.yellowSoft};border-color: ${COLOR.yellowSoft}; }
+.dsp-ocard-status.s-none    { color: ${COLOR.textMuted}; background: ${COLOR.bg}; border-color: ${COLOR.divider}; }
 
 /* Row 1 col 3: PNL% hero + USD */
 .dsp-ocard-pnl {
@@ -160,7 +171,7 @@ ensureStyles(
 /* Row 2 (span 3): info cells — Tutar / Giriş / Canlı / Delta */
 .dsp-ocard-cells {
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: 3;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
@@ -170,7 +181,7 @@ ensureStyles(
 /* Row 3 (span 3): exits + sell */
 .dsp-ocard-bottom {
   grid-column: 1 / -1;
-  grid-row: 3;
+  grid-row: 4;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr auto;
   gap: 6px;
@@ -287,17 +298,17 @@ ensureStyles(
 `
 );
 
-function deriveStatus(text: string | null | undefined): string {
+function deriveStatus(text: string | null | undefined): { label: string; klass: string } {
   const t = text ?? '';
-  if (/Emir doldu/i.test(t)) return 'YENİ';
-  if (/TP @|kapatma emri/i.test(t)) return 'TP HIT';
-  if (/SL tetik|satış emri/i.test(t)) return 'SL HIT';
-  if (/Force sell.*saniye|FS countdown/i.test(t)) return 'FS…';
-  if (/FS @|ile kapandı/i.test(t)) return 'KAPANDI';
-  if (/TP yakla/i.test(t)) return 'TP YKN';
-  if (/SL yakla/i.test(t)) return 'SL YKN';
-  if (/Claim/i.test(t)) return 'CLAIM';
-  return '—';
+  if (/Emir doldu/i.test(t)) return { label: 'YENİ İŞLEM', klass: 's-new' };
+  if (/TP @|kapatma emri/i.test(t)) return { label: 'TP TETİKLENDİ', klass: 's-tphit' };
+  if (/SL tetik|satış emri/i.test(t)) return { label: 'SL TETİKLENDİ', klass: 's-slhit' };
+  if (/Force sell.*saniye|FS countdown/i.test(t)) return { label: 'FORCE SELL YAKIN', klass: 's-fs' };
+  if (/FS @|ile kapandı/i.test(t)) return { label: 'KAPANDI', klass: 's-closed' };
+  if (/TP yakla/i.test(t)) return { label: 'TP YAKIN', klass: 's-tpykn' };
+  if (/SL yakla/i.test(t)) return { label: 'SL YAKIN', klass: 's-slykn' };
+  if (/Claim/i.test(t)) return { label: 'CLAIM BEKLİYOR', klass: 's-claim' };
+  return { label: '—', klass: 's-none' };
 }
 
 type SellState = 'active' | 'closing' | 'closed' | 'pending';
@@ -320,7 +331,7 @@ function OpenCard({ position }: { position: PositionSummary }) {
   const tone = position.pnl_tone ?? 'neutral';
   const pnlFg = PNL_TONE[tone]?.fg ?? COLOR.text;
   const live = position.live;
-  const status = deriveStatus(position.activity?.text);
+  const { label: statusLabel, klass: statusKlass } = deriveStatus(position.activity?.text);
   const side = live?.side ?? position.side ?? 'UP';
   const sideColor = side === 'UP' ? COLOR.green : COLOR.red;
   const coinTone = coin?.tone;
@@ -339,10 +350,7 @@ function OpenCard({ position }: { position: PositionSummary }) {
       </div>
 
       <div className="dsp-ocard-id">
-        <div className="dsp-ocard-id-row">
-          <span className="dsp-ocard-ticker">{position.asset}</span>
-        </div>
-        <span className="dsp-ocard-status">{status}</span>
+        <span className="dsp-ocard-ticker">{position.asset}</span>
       </div>
 
       <div className="dsp-ocard-pnl">
@@ -353,6 +361,8 @@ function OpenCard({ position }: { position: PositionSummary }) {
           {position.pnl_amount ?? ''}
         </span>
       </div>
+
+      <div className={`dsp-ocard-status ${statusKlass}`}>{statusLabel}</div>
 
       <div className="dsp-ocard-cells">
         <div className="dsp-ocard-cell">
