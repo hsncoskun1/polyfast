@@ -34,7 +34,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v19',
+  'composition-v20',
   `
 .dsp-root {
   display: flex;
@@ -67,7 +67,7 @@ ensureStyles(
   overflow: hidden;
 }
 .dsp-orail-wrap {
-  width: 640px;
+  width: 420px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -189,7 +189,7 @@ ensureStyles(
 /* Section rows — single column (tek tile per row, full width) */
 .dsp-section-rows {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 4px;
 }
 

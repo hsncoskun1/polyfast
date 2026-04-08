@@ -47,7 +47,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'eventtile-v55',
+  'eventtile-v56',
   `
 /* tile height hesabi (defensive 850 viewport, 3 section, 4 sat = 8 tile):
  *   850 - 76(topbar) - 38(strip) - 22(content pad) - 66(3 hdr) - 15(hdr gap)
@@ -64,7 +64,7 @@ ensureStyles(
   border-radius: ${SIZE.radiusLg}px;
   font-family: ${FONT.sans};
   color: ${COLOR.text};
-  height: 150px;
+  height: 148px;
   align-items: stretch;
   min-width: 0;
   line-height: 1.2;

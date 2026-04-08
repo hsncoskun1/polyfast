@@ -9,10 +9,10 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v7',
+  'openrail-v8',
   `
 .dsp-orail {
-  width: 640px;
+  width: 420px;
   flex-shrink: 0;
   background: ${COLOR.bg};
   border-left: 1px solid ${COLOR.border};
@@ -51,8 +51,7 @@ ensureStyles(
   overflow: hidden;
   padding: 6px 10px 8px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-auto-rows: 1fr;
+  grid-template-rows: repeat(6, 1fr);
   gap: 6px;
 }
 
