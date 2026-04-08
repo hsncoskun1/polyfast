@@ -274,14 +274,14 @@ ensureStyles(
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
   border-radius: 7px;
-  padding: 6px 9px;
+  padding: 11px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
   font-family: ${FONT.mono};
-  font-size: 13px;
+  font-size: 17px;
 }
 /* Aktif (tetiklenen) exit hücresi — kendi toneunda bg */
 .dsp-ocard-exit.active.tp  { background: ${COLOR.greenSoft};  border-color: ${COLOR.green}; }
@@ -347,7 +347,7 @@ ensureStyles(
   100% { transform: translateY(8px) scaleY(0); opacity: 0; }
 }
 .dsp-ocard-exit-lbl {
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
