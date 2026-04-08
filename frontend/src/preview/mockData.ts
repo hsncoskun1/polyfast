@@ -516,7 +516,7 @@ export const MOCK_IDLE: IdleTileContract[] = [
     tile_id: 'mock-idle-2',
     coin: 'BNB',
     idle_kind: 'waiting_rules',
-    msg: 'Eksik ayar — coin aktif edilemiyor',
+    msg: 'Ayarlar tamamlanmadan coinde işlem açılamaz',
     activity: { text: 'Ayar girmek için {GEAR} butonuna bas', severity: 'off' },
     rules: [
       { label: 'Zaman',  live_value: '—', state: 'disabled' },
