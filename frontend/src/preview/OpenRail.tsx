@@ -342,7 +342,7 @@ function OpenCard({ position }: { position: PositionSummary }) {
 }
 
 export default function OpenRail({ positions }: { positions: PositionSummary[] }) {
-  const openOnly = positions.filter((p) => p.variant !== 'claim').slice(0, 6);
+  const openOnly = positions.filter((p) => p.variant !== 'claim').slice(0, 4);
   return (
     <aside className="dsp-orail">
       <div className="dsp-orail-hdr">

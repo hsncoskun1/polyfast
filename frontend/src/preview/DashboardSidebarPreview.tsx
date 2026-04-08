@@ -604,7 +604,7 @@ export default function DashboardSidebarPreview({
       <NotifRail
         coins={sortedPositions
           .filter((p) => p.variant !== 'claim')
-          .slice(0, 6)
+          .slice(0, 4)
           .map((p) => p.asset)}
       />
       {stopModalOpen && (
