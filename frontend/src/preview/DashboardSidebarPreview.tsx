@@ -18,7 +18,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { COLOR, FONT, SIZE, SECTION_TONE, ensureStyles, type SectionKey } from './styles';
-import Sidebar, { type BotLocalMode } from './Sidebar';
+import Sidebar, { type BotMode } from './Sidebar';
 import TopBar from './TopBar';
 import OpenRail from './OpenRail';
 import SearchRail from './SearchRail';
@@ -760,8 +760,17 @@ export default function DashboardSidebarPreview({
   });
   const data = mockMode ? MOCK_DATA : liveData;
 
-  // Madde 1.3: bot lifecycle lokal state (frontend-only, backend wiring sonra)
-  const [botLocalMode, setBotLocalMode] = useState<BotLocalMode>('running');
+  // FAZ4-2: hızlı feedback için geçici local override (sonraki poll sıfırlar)
+  const [localOverride, setLocalOverride] = useState<BotMode | null>(null);
+
+  // Poll geldiğinde override'ı sıfırla — backend state artık güncel
+  const healthRef = useRef(liveData.health);
+  useEffect(() => {
+    if (liveData.health !== healthRef.current) {
+      healthRef.current = liveData.health;
+      if (localOverride !== null) setLocalOverride(null);
+    }
+  }, [liveData.health, localOverride]);
   const [mainTab, setMainTab] = useState<'search' | 'idle' | 'settings'>('search');
   // Madde 1.4: stop confirmation modal
   const [stopModalOpen, setStopModalOpen] = useState(false);
@@ -794,20 +803,24 @@ export default function DashboardSidebarPreview({
     : `Bağlantı sorunlu · ${data.errorStreak} retry`;
 
   // Bot action handler — backend fetch (gerçek mod) veya local sim (mock mod)
+  // localOverride: hızlı feedback, sonraki poll (3s) backend state ile sıfırlanır
+  const derivedMode: BotMode = localOverride
+    ?? (data.health?.bot_status?.running === false ? 'stopped'
+      : data.health?.bot_status?.paused === true ? 'paused'
+      : data.health?.bot_status ? 'running' : 'stopped');
+
   const handleBotAction = async (action: 'start' | 'pause' | 'stop') => {
     // Stop iken acik pozisyon varsa modal ac (madde 1.4)
-    if (action === 'stop' && positions.length > 0 && botLocalMode !== 'stopped') {
+    if (action === 'stop' && positions.length > 0 && derivedMode !== 'stopped') {
       setStopModalOpen(true);
       return;
     }
 
-    if (mockMode) {
-      // Mock mode — local simulate (backend yok)
-      if (action === 'start') setBotLocalMode('running');
-      else if (action === 'pause') setBotLocalMode('paused');
-      else setBotLocalMode('stopped');
-      return;
-    }
+    // Hızlı feedback — local override set
+    const nextMode: BotMode = action === 'start' ? 'running' : action === 'pause' ? 'paused' : 'stopped';
+    setLocalOverride(nextMode);
+
+    if (mockMode) return; // mock mode — backend yok, sadece local override yeterli
 
     // Gerçek backend mode — fetch
     try {
@@ -815,17 +828,16 @@ export default function DashboardSidebarPreview({
       if (action === 'start') await botStart();
       else if (action === 'pause') await botPause();
       else await botStop();
-      // State güncelleme: sonraki health poll (3s) otomatik alacak
-      // Ama hızlı feedback için local state de güncelle
-      if (action === 'start') setBotLocalMode('running');
-      else if (action === 'pause') setBotLocalMode('paused');
-      else setBotLocalMode('stopped');
+      // Sonraki poll backend state'i getirecek, override sıfırlanacak
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(`Bot ${action} failed:`, err);
+      // Fetch başarısız — override'ı geri al
+      setLocalOverride(null);
     }
   };
   const confirmStop = async () => {
+    setLocalOverride('stopped');
     if (!mockMode) {
       try {
         const { botStop } = await import('../api/bot');
@@ -833,9 +845,9 @@ export default function DashboardSidebarPreview({
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Bot stop failed:', err);
+        setLocalOverride(null);
       }
     }
-    setBotLocalMode('stopped');
     setStopModalOpen(false);
   };
   const cancelStop = () => setStopModalOpen(false);
@@ -844,8 +856,9 @@ export default function DashboardSidebarPreview({
     <div className="dsp-root">
       <Sidebar
         health={data.health}
-        localBotMode={botLocalMode}
         onBotAction={handleBotAction}
+        mockMode={mockMode}
+        localOverride={localOverride}
       />
       <div className="dsp-right">
         <TopBar overview={data.overview} />

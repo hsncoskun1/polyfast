@@ -13,9 +13,7 @@
  * Animasyon: YOK (1. tur statik)
  */
 
-import { useEffect, useRef, useState } from 'react';
 import { COLOR, FONT, SIZE, HEALTH_TONE, ensureStyles } from './styles';
-// CSS injection key sidebar-v3 (turn 2'de yukseltildi)
 import type {
   BotStatusContract,
   HealthLiteral,
@@ -505,95 +503,63 @@ function formatUptime(sec: number | null | undefined): string {
 }
 
 /**
- * BotLocalMode — frontend-only lifecycle state.
+ * BotMode — bot lifecycle state (backend authority).
  *
- * Backend bot lifecycle API'si henuz yok (envanter madde 5.4), bu yuzden
- * Pause/Stop semantik (madde 1.3) frontend state ile simule edilir:
- *  - 'running' : bot calisiyor (default)
- *  - 'paused'  : bot duraklatildi (sayac durur, monitor devam)
- *  - 'stopped' : bot durduruldu (sifir, manuel close gerek)
+ * Backend bot_status.running + bot_status.paused → deriveBotMode() ile türetilir.
+ * Mock mode'da localOverride ile hızlı feedback sağlanır.
  */
-export type BotLocalMode = 'running' | 'paused' | 'stopped';
+export type BotMode = 'running' | 'paused' | 'stopped';
+
+/** Backend bot_status'tan UI mode türet — tek otorite backend. */
+function deriveBotMode(bot: BotStatusContract | null | undefined): BotMode {
+  if (!bot || bot.running === false) return 'stopped';
+  if (bot.paused === true) return 'paused';
+  return 'running';
+}
 
 interface BotStatusPanelProps {
   bot: BotStatusContract | null | undefined;
-  /** Lokal lifecycle state (frontend-only, backend wiring sonra) */
-  localMode: BotLocalMode;
   /** Action handler — composition'dan modal trigger eder */
   onAction: (action: 'start' | 'pause' | 'stop') => void;
+  /** Mock mode — backend yoksa local sim kullanır */
+  mockMode?: boolean;
+  /** Mock mode'da hızlı feedback için geçici local override */
+  localOverride?: BotMode | null;
 }
 
-function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
-  void bot; // FAZ 4'te backend state tüketilecek, şimdilik localMode simülasyonu
-  // Lokal session tracking — frontend-only lifecycle simülasyonu
-  // - stopped: session null, display '—'
-  // - running (stopped'dan): base=0, startAt=now → sıfırdan say
-  // - paused: base=mevcut elapsed, startAt=now → donmuş
-  // - running (paused'dan): base=donmuş değer, startAt=now → son değerden devam
-  const sessionRef = useRef<{ base: number; startAt: number } | null>(null);
-  const [tick, setTick] = useState(0);
+function BotStatusPanel({ bot, onAction, mockMode, localOverride }: BotStatusPanelProps) {
+  // Mode: mock'ta localOverride, gerçek mod'da backend state
+  const mode: BotMode = localOverride ?? deriveBotMode(bot);
 
-  useEffect(() => {
-    if (localMode === 'stopped') {
-      sessionRef.current = null;
-    } else if (localMode === 'running') {
-      if (sessionRef.current == null) {
-        // Stopped → Running: sıfırdan başla
-        sessionRef.current = { base: 0, startAt: Date.now() };
-      } else {
-        // Paused → Running: donmuş base'den devam et
-        sessionRef.current = { base: sessionRef.current.base, startAt: Date.now() };
-      }
-    } else if (localMode === 'paused') {
-      if (sessionRef.current) {
-        const elapsed = Math.floor((Date.now() - sessionRef.current.startAt) / 1000);
-        sessionRef.current = { base: sessionRef.current.base + elapsed, startAt: Date.now() };
-      }
-    }
-    setTick((t) => t + 1);
-  }, [localMode]);
-
-  // Saniye tick — running iken re-render
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const liveUptime = (() => {
-    void tick;
-    if (sessionRef.current == null) return null;
-    if (localMode === 'paused') return sessionRef.current.base;
-    // running
-    const elapsed = Math.floor((Date.now() - sessionRef.current.startAt) / 1000);
-    return sessionRef.current.base + elapsed;
-  })();
+  // Uptime: backend authority (bot.uptime_sec), mock'ta null
+  const uptime = bot?.uptime_sec ?? null;
 
   // Buton disabled mantigi
-  const startDisabled = localMode === 'running';
-  const pauseDisabled = localMode !== 'running';
-  const stopDisabled = localMode === 'stopped';
+  const startDisabled = mode === 'running';
+  const pauseDisabled = mode !== 'running';
+  const stopDisabled = mode === 'stopped';
 
   // Status line renkleri
   const statusColor =
-    localMode === 'running' ? COLOR.green :
-    localMode === 'paused'  ? COLOR.yellow :
+    mode === 'running' ? COLOR.green :
+    mode === 'paused'  ? COLOR.yellow :
     COLOR.red;
   const statusLabel =
-    localMode === 'running' ? 'Çalışıyor' :
-    localMode === 'paused'  ? 'Durakladı' :
+    mode === 'running' ? 'Çalışıyor' :
+    mode === 'paused'  ? 'Durakladı' :
     'Durdu';
-  // statusTime: stopped → '—', running/paused → liveUptime
   const statusTime =
-    localMode === 'stopped'
+    mode === 'stopped'
       ? '—'
-      : liveUptime != null
-        ? formatUptime(liveUptime)
+      : uptime != null
+        ? formatUptime(uptime)
         : '—';
+  void mockMode;
 
   return (
     <div className="dsp-sb-bot">
       {/* Status line — bot'un mevcut durumu */}
-      <div className={`dsp-sb-bot-status ${localMode}`} style={{ borderColor: `${statusColor}55` }}>
+      <div className={`dsp-sb-bot-status ${mode}`} style={{ borderColor: `${statusColor}55` }}>
         <span
           className="dsp-sb-bot-status-dot"
           style={{ background: statusColor, boxShadow: `0 0 8px ${statusColor}aa` }}
@@ -609,7 +575,7 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
       <div className="dsp-sb-bot-seg">
         <button
           type="button"
-          className={`dsp-sb-bot-seg-btn play${localMode === 'running' ? ' active' : ''}`}
+          className={`dsp-sb-bot-seg-btn play${mode === 'running' ? ' active' : ''}`}
           disabled={startDisabled}
           onClick={() => onAction('start')}
           title="Başlat"
@@ -619,7 +585,7 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
         </button>
         <button
           type="button"
-          className={`dsp-sb-bot-seg-btn pause${localMode === 'paused' ? ' active' : ''}`}
+          className={`dsp-sb-bot-seg-btn pause${mode === 'paused' ? ' active' : ''}`}
           disabled={pauseDisabled}
           onClick={() => onAction('pause')}
           title="Duraklat"
@@ -629,7 +595,7 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
         </button>
         <button
           type="button"
-          className={`dsp-sb-bot-seg-btn stop${localMode === 'stopped' ? ' active' : ''}`}
+          className={`dsp-sb-bot-seg-btn stop${mode === 'stopped' ? ' active' : ''}`}
           disabled={stopDisabled}
           onClick={() => onAction('stop')}
           title="Durdur"
@@ -677,14 +643,18 @@ function HealthIndicator({
 
 export interface SidebarProps {
   health: HealthResponse | null;
-  localBotMode: BotLocalMode;
   onBotAction: (action: 'start' | 'pause' | 'stop') => void;
+  /** Mock mode — backend yoksa local sim kullanır */
+  mockMode?: boolean;
+  /** Mock mode'da hızlı feedback için geçici local override */
+  localOverride?: BotMode | null;
 }
 
 export default function Sidebar({
   health,
-  localBotMode,
   onBotAction,
+  mockMode,
+  localOverride,
 }: SidebarProps) {
   const bot = health?.bot_status ?? null;
   return (
@@ -694,8 +664,9 @@ export default function Sidebar({
       <div className="dsp-sb-spacer" />
       <BotStatusPanel
         bot={bot}
-        localMode={localBotMode}
         onAction={onBotAction}
+        mockMode={mockMode}
+        localOverride={localOverride}
       />
       <HealthIndicator bot={bot} />
     </aside>
