@@ -194,12 +194,12 @@ interface FieldDef {
 }
 
 const FIELDS: FieldDef[] = [
-  { key: 'api_key', label: 'API Key', hint: 'Polymarket CLOB API anahtarı', group: 'trading' },
-  { key: 'api_secret', label: 'API Secret', hint: 'API secret key', group: 'trading' },
-  { key: 'api_passphrase', label: 'Passphrase', hint: 'API hesap passphrase', group: 'trading' },
-  { key: 'private_key', label: 'Private Key', hint: 'Ethereum cüzdan private key (0x...)', group: 'signing' },
-  { key: 'funder_address', label: 'Funder Address', hint: 'İşlem yapan cüzdan adresi (0x...)', group: 'signing' },
-  { key: 'relayer_key', label: 'Relayer Key', hint: 'Auto claim relayer anahtarı', group: 'relayer' },
+  { key: 'api_key', label: 'API Key', hint: 'Polymarket hesabınızdan alınan CLOB API anahtarı', group: 'trading' },
+  { key: 'api_secret', label: 'API Secret', hint: 'API anahtarınıza ait gizli anahtar', group: 'trading' },
+  { key: 'api_passphrase', label: 'Passphrase', hint: 'API erişim parolası', group: 'trading' },
+  { key: 'private_key', label: 'Private Key', hint: 'Ethereum cüzdan özel anahtarı (64 hex karakter, 0x opsiyonel)', group: 'signing' },
+  { key: 'funder_address', label: 'Cüzdan Adresi', hint: 'İşlem yapan Ethereum cüzdan adresi (0x ile başlar)', group: 'signing' },
+  { key: 'relayer_key', label: 'Relayer Key', hint: 'Otomatik tahsilat için relayer API anahtarı', group: 'relayer' },
 ];
 
 const GROUP_LABELS: Record<string, string> = {
@@ -268,16 +268,57 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
     setValues(prev => ({ ...prev, [key]: value }));
     setTouched(prev => ({ ...prev, [key]: true }));
     setErrorFields(prev => { const n = new Set(prev); n.delete(key); return n; });
+    setErrorMsg(null);
   }, []);
+
+  // Blur'da boş alan kontrolü — anlık kırmızı border
+  const handleBlur = useCallback((key: FieldKey) => {
+    if (touched[key] && !values[key].trim()) {
+      setErrorFields(prev => new Set(prev).add(key));
+    }
+  }, [touched, values]);
 
   const handleSave = useCallback(async () => {
     if (mockMode) {
+      // Mock'ta da boş alan kontrolü — rasgele değerle onay vermemeli
+      const mockMissing = FIELDS.filter(f => !values[f.key].trim()).map(f => f.key);
+      if (mockMissing.length > 0) {
+        setErrorFields(new Set(mockMissing));
+        setErrorMsg(`Eksik alanlar: ${mockMissing.join(', ')}`);
+        setPhase('form');
+        return;
+      }
+      // Tüm alanlar dolu — mock validate
+      const checks = FIELDS.map(f => {
+        // Signing format check (0x prefix)
+        if (f.key === 'private_key' || f.key === 'funder_address') {
+          const v = values[f.key];
+          const hexPart = v.startsWith('0x') ? v.slice(2) : v;
+          const validHex = /^[0-9a-fA-F]+$/.test(hexPart);
+          if (!validHex) return { name: f.key, label: f.label, status: 'failed' as const, message: 'Geçersiz hex formatı', related_fields: [f.key] };
+          if (f.key === 'private_key' && hexPart.length !== 64) return { name: f.key, label: f.label, status: 'failed' as const, message: '64 hex karakter olmalı', related_fields: [f.key] };
+          if (f.key === 'funder_address' && !v.startsWith('0x')) return { name: f.key, label: f.label, status: 'failed' as const, message: '0x ile başlamalı', related_fields: [f.key] };
+          if (f.key === 'funder_address' && v.length !== 42) return { name: f.key, label: f.label, status: 'failed' as const, message: '42 karakter olmalı', related_fields: [f.key] };
+        }
+        return { name: f.key, label: f.label, status: 'passed' as const, message: 'Mock OK', related_fields: [f.key] };
+      });
+      const failedChecks = checks.filter(c => c.status === 'failed');
+      const allPassed = failedChecks.length === 0;
+      if (failedChecks.length > 0) {
+        const failFields = new Set<string>();
+        failedChecks.forEach(c => c.related_fields.forEach(rf => failFields.add(rf)));
+        setErrorFields(failFields);
+      }
       setPhase('result');
       setValidateResult({
-        validated: true, validation_status: 'passed',
-        checks: FIELDS.map(f => ({ name: f.key, label: f.label, status: 'passed' as const, message: 'Mock OK', related_fields: [f.key] })),
-        failed_checks: [], has_trading_api: true, has_signing: true, has_relayer: true,
-        can_place_orders: true, can_auto_claim: true, is_fully_ready: true, message: 'Mock: Kontrol tamamlandı',
+        validated: true,
+        validation_status: allPassed ? 'passed' : 'partial',
+        checks,
+        failed_checks: failedChecks.map(c => c.name),
+        has_trading_api: true, has_signing: allPassed, has_relayer: true,
+        can_place_orders: allPassed, can_auto_claim: allPassed,
+        is_fully_ready: allPassed,
+        message: allPassed ? 'Mock: Kontrol tamamlandı' : `Mock: ${failedChecks.length} sorunlu alan`,
       });
       return;
     }
@@ -362,6 +403,7 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
           placeholder={placeholder}
           value={values[f.key]}
           onChange={e => handleChange(f.key, e.target.value)}
+          onBlur={() => handleBlur(f.key)}
           disabled={isFormDisabled}
           autoComplete="off"
         />
@@ -384,6 +426,29 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
     </div>
   );
 
+  // Başarılıysa otomatik kapat (1.5s sonra), başarısızsa otomatik form'a dön (2s sonra)
+  useEffect(() => {
+    if (phase !== 'result' || !validateResult) return;
+    if (validateResult.is_fully_ready) {
+      const t = setTimeout(() => onClose(), 1500);
+      return () => clearTimeout(t);
+    } else {
+      const t = setTimeout(() => {
+        // Failed field'ları vurgula, form'a dön
+        const failFields = new Set<string>();
+        for (const c of validateResult.checks) {
+          if (c.status === 'failed') {
+            for (const rf of c.related_fields) failFields.add(rf);
+          }
+        }
+        setErrorFields(failFields);
+        setErrorMsg(validateResult.message);
+        setPhase('form');
+      }, 2500);
+      return () => clearTimeout(t);
+    }
+  }, [phase, validateResult, onClose]);
+
   const renderResult = () => {
     if (!validateResult) return null;
     const { validation_status, checks, message, is_fully_ready } = validateResult;
@@ -392,17 +457,11 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
       <>
         {renderChecks(checks)}
         <div className={`cred-result-msg ${tone}`}>{message}</div>
-        <div className="cred-actions">
-          {is_fully_ready ? (
-            <button type="button" className="cred-btn primary" onClick={onClose}>
-              Devam Et
-            </button>
-          ) : (
-            <button type="button" className="cred-btn secondary" onClick={handleRetry}>
-              Düzelt
-            </button>
-          )}
-        </div>
+        {is_fully_ready && (
+          <div style={{ fontSize: '12px', color: '#a8a8b8', textAlign: 'center', marginTop: '4px' }}>
+            Otomatik kapanıyor...
+          </div>
+        )}
       </>
     );
   };
