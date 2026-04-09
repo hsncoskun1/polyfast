@@ -58,12 +58,15 @@ class ExitOrchestrator:
         self,
         current_prices: dict[str, float] | None = None,
         remaining_seconds: dict[str, float] | None = None,
+        stale_assets: set[str] | None = None,
     ) -> dict:
         """Tek exit cycle -- periyodik cagrilir.
 
         Args:
             current_prices: asset -> held-side outcome fiyati
             remaining_seconds: asset -> event bitimine kalan saniye
+            stale_assets: stale fiyat olan asset'ler (TP/SL evaluation skip edilir,
+                          force sell evaluation devam eder)
 
         Returns:
             Cycle sonucu: triggers, closes, settlements, reconciled
@@ -71,6 +74,7 @@ class ExitOrchestrator:
         self._cycle_count += 1
         prices = current_prices or {}
         remaining = remaining_seconds or {}
+        stale = stale_assets or set()
 
         result = {
             "cycle": self._cycle_count,
@@ -93,7 +97,27 @@ class ExitOrchestrator:
             if price <= 0:
                 continue  # fiyat yok, evaluation yapilamaz
 
-            # TP/SL evaluation
+            # K5 stale guard — stale fiyatla TP/SL evaluation skip,
+            # force sell evaluation devam eder (stale override mantigi korunur)
+            if pos.asset in stale:
+                log_event(
+                    logger, logging.WARNING,
+                    f"Stale price — TP/SL skip: {pos.asset} (force sell devam)",
+                    entity_type="exit",
+                    entity_id=pos.position_id,
+                )
+                # Sadece force sell evaluate (stale override mantigi evaluate_force_sell icinde)
+                fs_result = self._evaluator.evaluate_force_sell(pos, price, secs)
+                if fs_result.should_exit:
+                    fs_triggers = fs_result.detail.get("trigger_set", []) if fs_result.detail else []
+                    self._tracker.request_close(
+                        pos.position_id, CloseReason.FORCE_SELL,
+                        trigger_set=fs_triggers,
+                    )
+                    result["triggers"] += 1
+                continue
+
+            # TP/SL evaluation (sadece fresh fiyatla)
             eval_result = self._evaluator.evaluate(pos, price)
             if eval_result.should_exit:
                 self._tracker.request_close(
@@ -110,7 +134,7 @@ class ExitOrchestrator:
                 )
                 continue
 
-            # Force sell evaluation (ayri -- time bazli)
+            # Force sell evaluation (ayri -- time bazli, fresh fiyatla)
             fs_result = self._evaluator.evaluate_force_sell(pos, price, secs)
             if fs_result.should_exit:
                 fs_triggers = fs_result.detail.get("trigger_set", []) if fs_result.detail else []

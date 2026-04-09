@@ -575,6 +575,7 @@ class Orchestrator:
                 # Acik pozisyonlar icin canli fiyat ve remaining seconds topla
                 prices = {}
                 remaining = {}
+                stale_assets: set[str] = set()
 
                 for pos in self.position_tracker.get_all_positions():
                     if pos.is_open:
@@ -588,6 +589,10 @@ class Orchestrator:
                                 price = getattr(price_data, "dominant_price", 0.0) if hasattr(price_data, "dominant_price") else 0.0
                             prices[pos.asset] = price
 
+                            # Stale detection -- K5 guard
+                            if price_data.is_stale:
+                                stale_assets.add(pos.asset)
+
                         # Remaining seconds — slot bazli
                         slot_start = (int(_time.time()) // 300) * 300
                         event_end = slot_start + 300
@@ -596,6 +601,7 @@ class Orchestrator:
                 result = await self.exit_orchestrator.run_cycle(
                     current_prices=prices,
                     remaining_seconds=remaining,
+                    stale_assets=stale_assets,
                 )
 
                 if result["triggers"] > 0 or result["closes"] > 0 or result["settlements"] > 0:
