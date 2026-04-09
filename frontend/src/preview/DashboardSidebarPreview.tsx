@@ -809,7 +809,7 @@ export default function DashboardSidebarPreview({
           </span>
           {flashOpen && <span className="dsp-flash-dot open" aria-hidden />}
         </div>
-        <OpenRail positions={sortedPositions} />
+        <OpenRail positions={sortedPositions} claims={data.claims ?? undefined} />
       </div>
       <div className={`dsp-main tab-${mainTab}`}>
 

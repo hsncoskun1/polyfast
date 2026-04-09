@@ -6,10 +6,10 @@
 
 import { COLOR, FONT, SIZE, PNL_TONE, ensureStyles } from './styles';
 import { COIN_FALLBACK } from './coinRegistry';
-import type { PositionSummary } from '../api/dashboard';
+import type { PositionSummary, ClaimSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v37',
+  'openrail-v39',
   `
 .dsp-orail {
   width: 100%;
@@ -395,6 +395,10 @@ ensureStyles(
   cursor: not-allowed;
   opacity: 0.4;
 }
+
+/* Claim variant — OpenCard iskeleti, sarı sol border */
+.dsp-ocard.claim { border-left-color: ${COLOR.yellow}; }
+.dsp-ocard.claim:hover { box-shadow: 0 4px 14px rgba(234, 179, 8, 0.18); border-color: ${COLOR.yellow}; }
 `
 );
 
@@ -575,15 +579,146 @@ function signColor(raw: string | null | undefined): string | undefined {
   return COLOR.textMuted;
 }
 
-export default function OpenRail({ positions }: { positions: PositionSummary[] }) {
+export default function OpenRail({
+  positions,
+  claims,
+}: {
+  positions: PositionSummary[];
+  claims?: ClaimSummary[];
+}) {
+  const claimPositions = positions.filter((p) => p.variant === 'claim');
   const openOnly = positions.filter((p) => p.variant !== 'claim');
+  const claimByPos = new Map<string, ClaimSummary>();
+  (claims ?? []).forEach((c) => claimByPos.set(c.position_id, c));
   return (
     <aside className="dsp-orail">
       <div className="dsp-orail-list">
+        {claimPositions.map((p) => (
+          <ClaimCard
+            key={p.position_id}
+            position={p}
+            claim={claimByPos.get(p.position_id) ?? null}
+          />
+        ))}
         {openOnly.map((p) => (
           <OpenCard key={p.position_id} position={p} />
         ))}
       </div>
     </aside>
+  );
+}
+
+/* ═══ ClaimCard — OpenCard ile aynı tasarım dili ═══════════════ */
+function ClaimCard({
+  position,
+  claim,
+}: {
+  position: PositionSummary;
+  claim: ClaimSummary | null;
+}) {
+  const coin = COIN_FALLBACK[position.asset ?? ''];
+  const coinTone = coin?.tone;
+  const bgStyle = coinTone
+    ? { background: `linear-gradient(135deg, ${coinTone}1f 0%, ${COLOR.surface} 55%)` }
+    : undefined;
+
+  const status = claim?.status ?? 'RETRY';
+  const toneColor =
+    status === 'OK'   ? COLOR.green :
+    status === 'FAIL' ? COLOR.red :
+    COLOR.yellow;
+  const label =
+    status === 'OK'   ? 'CLAIM BAŞARILI' :
+    status === 'FAIL' ? 'MAX RETRY' :
+    'CLAIM BEKLİYOR';
+
+  const retryText = claim
+    ? `${claim.retry ?? claim.retry_count ?? 0}/${claim.max_retry ?? 5}`
+    : '—';
+  const nextText = claim?.next_sec != null ? `${claim.next_sec}s` : '—';
+  const payout = claim?.payout ?? (status === 'OK' ? position.pnl_amount ?? '—' : '—');
+  const costRaw = position.requested_amount_usd != null
+    ? `$${position.requested_amount_usd.toFixed(2)}`
+    : '—';
+
+  return (
+    <div className="dsp-ocard claim" style={bgStyle}>
+      <div className="dsp-ocard-id">
+        <a
+          className="dsp-ocard-link"
+          href={position.event_url ?? '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`${position.asset} Polymarket event'i aç`}
+        >
+          <div className="dsp-ocard-logo">
+            {coin?.logo_url ? <img src={coin.logo_url} alt={position.asset ?? ''} /> : null}
+          </div>
+        </a>
+        <div className="dsp-ocard-id-row">
+          <a
+            className="dsp-ocard-ticker"
+            href={position.event_url ?? '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`${position.asset} Polymarket event'i aç`}
+          >
+            <span>{position.asset}</span>
+            <span className="dsp-ocard-ticker-ico" aria-hidden>🔗</span>
+          </a>
+        </div>
+        <div className="dsp-ocard-id-lbl">Tutar</div>
+        <div className="dsp-ocard-id-val">{costRaw}</div>
+      </div>
+
+      <div className="dsp-ocard-pnl">
+        <span className="dsp-ocard-pct" style={{ color: toneColor }}>
+          {label}
+        </span>
+        <span className="dsp-ocard-usd" style={{ color: toneColor }}>
+          {payout}
+        </span>
+      </div>
+
+      <div className="dsp-ocard-cells">
+        <div className="dsp-ocard-cell">
+          <span className="dsp-ocard-cell-lbl">Retry</span>
+          <span className="dsp-ocard-cell-val" style={{ color: toneColor }}>{retryText}</span>
+        </div>
+        <div className="dsp-ocard-cell">
+          <span className="dsp-ocard-cell-lbl">Sonraki</span>
+          <span className="dsp-ocard-cell-val">{nextText}</span>
+        </div>
+        <div className="dsp-ocard-cell">
+          <span className="dsp-ocard-cell-lbl">Durum</span>
+          <span className="dsp-ocard-cell-val" style={{ color: toneColor }}>{status}</span>
+        </div>
+      </div>
+
+      <div className="dsp-ocard-bottom">
+        <div className="dsp-ocard-exit tp">
+          <span className="dsp-ocard-exit-lbl">Sonuç</span>
+          <span className="dsp-ocard-exit-val" style={{ color: toneColor }}>
+            {status === 'OK' ? 'KAZANÇ' : status === 'FAIL' ? 'KAYIP' : 'BEKLİYOR'}
+          </span>
+        </div>
+        <div className="dsp-ocard-exit sl">
+          <span className="dsp-ocard-exit-lbl">Giriş</span>
+          <span className="dsp-ocard-exit-val">
+            {Math.round((position.fill_price ?? 0) * 100)}
+          </span>
+        </div>
+        <div className="dsp-ocard-exit fs">
+          <span className="dsp-ocard-exit-lbl">Kapanış</span>
+          <span className="dsp-ocard-exit-val">
+            {position.close_reason ? position.close_reason.toUpperCase() : '—'}
+          </span>
+        </div>
+        <div className="dsp-ocard-exit fsp">
+          <span className="dsp-ocard-exit-lbl">Tahsil</span>
+          <span className="dsp-ocard-exit-val" style={{ color: toneColor }}>{payout}</span>
+        </div>
+      </div>
+    </div>
   );
 }
