@@ -209,7 +209,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'DOWN', entry: '62', live: '64', delta_text: '+2' },
     exits: { tp: '67', sl: '58', fs: '0:08', fs_pnl: '-5%' },
-    activity: { text: 'FS countdown | süre 8s, zorunlu kapatma yaklaşıyor', severity: 'pending' },
+    activity: { text: 'FS countdown @64 | süre 8s, zorunlu kapatma yaklaşıyor', severity: 'pending' },
   },
 
   // ─── OPEN LIFECYCLE 7: FSP (eşik) sebep — FS başladı ───
@@ -222,7 +222,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'UP', entry: '56', live: '50', delta_text: '-6' },
     exits: { tp: '61', sl: '51', fs: '1:05', fs_pnl: '-5%' },
-    activity: { text: 'FS eşik aşıldı | -5.1% zorunlu kapatma başladı', severity: 'error' },
+    activity: { text: 'FS eşik aşıldı @50 | -5.1% zorunlu kapatma başladı', severity: 'error' },
   },
 
   // ─── OPEN LIFECYCLE 8: FS kapandı ───
@@ -274,7 +274,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'UP', entry: '65', live: '60', delta_text: '-5' },
     exits: { tp: '72', sl: '58', fs: '1:22', fs_pnl: '-5%' },
-    activity: { text: 'Manuel satış | kapatma emri gönderildi', severity: 'warning' },
+    activity: { text: 'Manuel satış @60 | kapatma emri gönderildi', severity: 'warning' },
   },
 
   // ─── OPEN LIFECYCLE 12: Open → Claim geçişi (showcase) ───
@@ -287,7 +287,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'profit',
     live: { side: 'UP', entry: '78', live: '85', delta_text: '+7' },
     exits: { tp: '84', sl: '72', fs: '0:00', fs_pnl: '-5%' },
-    activity: { text: 'Pozisyon kapandı | claim süreci başladı', severity: 'info' },
+    activity: { text: 'Pozisyon kapandı @85 | claim süreci başladı', severity: 'info' },
   },
 
   // ─── OPEN LIFECYCLE 13: TP geri çekildi (reevaluate) ───
@@ -300,7 +300,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'profit',
     live: { side: 'UP', entry: '80', live: '83', delta_text: '+3' },
     exits: { tp: '85', sl: '76', fs: '2:50', fs_pnl: '-5%' },
-    activity: { text: 'TP geri çekildi | pozisyon açık kalmaya devam ediyor', severity: 'warning' },
+    activity: { text: 'TP geri çekildi @83 | pozisyon açık kalmaya devam ediyor', severity: 'warning' },
   },
 
   // ─── CLAIM LIFECYCLE 1: pending RETRY ───
@@ -559,7 +559,7 @@ export const MOCK_SEARCH: SearchTileContract[] = [
     live: '6.88',
     delta: '$48',
     rules: allPass('1:55', '68', '$48', '1.6%'),
-    activity: { text: 'Emir reddedildi | tekrar denenecek', severity: 'warning' },
+    activity: { text: 'Emir reddedildi @68 | tekrar denenecek', severity: 'warning' },
     signal_ready: true,
     type: 'wait',
   },
@@ -577,7 +577,7 @@ export const MOCK_SEARCH: SearchTileContract[] = [
     live: '11.51',
     delta: '$62',
     rules: allPass('2:10', '115', '$62', '2.0%'),
-    activity: { text: 'Emir zaman aşımı | tekrar deneniyor', severity: 'pending' },
+    activity: { text: 'Emir zaman aşımı @115 | tekrar deneniyor', severity: 'pending' },
     signal_ready: true,
     type: 'wait',
   },
