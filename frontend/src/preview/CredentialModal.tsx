@@ -119,25 +119,34 @@ ensureStyles('credential-modal-v1', `
   color: ${COLOR.text};
 }
 .cred-btn.secondary:not([disabled]):hover { background: ${COLOR.surfaceHover}; }
-.cred-spinner {
+.cred-loading-wrap {
   display: flex;
+  flex-direction: column;
+  gap: 14px;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border-radius: ${SIZE.radius}px;
+  padding: 24px 12px;
+}
+.cred-loading-bar {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
   background: ${COLOR.surface};
-  border: 1px solid ${COLOR.border};
+  overflow: hidden;
+}
+.cred-loading-bar-inner {
+  height: 100%;
+  width: 40%;
+  border-radius: 2px;
+  background: ${COLOR.green};
+  animation: cred-slide 1.2s ease-in-out infinite;
+}
+@keyframes cred-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+.cred-loading-text {
   font-size: 13px;
   color: ${COLOR.textMuted};
-}
-.cred-spinner-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: ${COLOR.cyan};
-  animation: cred-pulse 1.2s ease-in-out infinite;
-}
-@keyframes cred-pulse {
-  0%,100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.3; transform: scale(0.7); }
 }
 .cred-checks {
   display: flex;
@@ -426,28 +435,23 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
     </div>
   );
 
-  // Başarılıysa otomatik kapat (1.5s sonra), başarısızsa otomatik form'a dön (2s sonra)
-  useEffect(() => {
-    if (phase !== 'result' || !validateResult) return;
+  const handleResultAction = useCallback(() => {
+    if (!validateResult) return;
     if (validateResult.is_fully_ready) {
-      const t = setTimeout(() => onClose(), 1500);
-      return () => clearTimeout(t);
+      onClose();
     } else {
-      const t = setTimeout(() => {
-        // Failed field'ları vurgula, form'a dön
-        const failFields = new Set<string>();
-        for (const c of validateResult.checks) {
-          if (c.status === 'failed') {
-            for (const rf of c.related_fields) failFields.add(rf);
-          }
+      // Başarısız — form'a dön, failed alanlar kırmızı kalsın
+      const failFields = new Set<string>();
+      for (const c of validateResult.checks) {
+        if (c.status === 'failed') {
+          for (const rf of c.related_fields) failFields.add(rf);
         }
-        setErrorFields(failFields);
-        setErrorMsg(validateResult.message);
-        setPhase('form');
-      }, 2500);
-      return () => clearTimeout(t);
+      }
+      setErrorFields(failFields);
+      setErrorMsg('Sorunlu alanlar var, lütfen işaretli alanları kontrol edin.');
+      setPhase('form');
     }
-  }, [phase, validateResult, onClose]);
+  }, [validateResult, onClose]);
 
   const renderResult = () => {
     if (!validateResult) return null;
@@ -457,11 +461,17 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
       <>
         {renderChecks(checks)}
         <div className={`cred-result-msg ${tone}`}>{message}</div>
-        {is_fully_ready && (
-          <div style={{ fontSize: '12px', color: '#a8a8b8', textAlign: 'center', marginTop: '4px' }}>
-            Otomatik kapanıyor...
-          </div>
-        )}
+        <div className="cred-actions">
+          {is_fully_ready ? (
+            <button type="button" className="cred-btn primary" onClick={handleResultAction}>
+              Devam Et
+            </button>
+          ) : (
+            <button type="button" className="cred-btn secondary" onClick={handleResultAction}>
+              Düzelt
+            </button>
+          )}
+        </div>
       </>
     );
   };
@@ -514,11 +524,13 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
           </>
         )}
 
-        {/* Validating spinner */}
+        {/* Validating — indeterminate loading bar */}
         {phase === 'validating' && (
-          <div className="cred-spinner">
-            <span className="cred-spinner-dot" />
-            Bilgiler kontrol ediliyor...
+          <div className="cred-loading-wrap">
+            <div className="cred-loading-bar">
+              <div className="cred-loading-bar-inner" />
+            </div>
+            <span className="cred-loading-text">Bilgiler kontrol ediliyor...</span>
           </div>
         )}
 
