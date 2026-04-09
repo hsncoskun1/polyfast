@@ -290,7 +290,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
   {
     ...baseClaim('mock-pos-10', 'MATIC'),
     net_realized_pnl: -2.0,
-    pnl_big: 'MAX RETRY',
+    pnl_big: 'MAX DENEME',
     pnl_amount: '-2.00$',
     pnl_tone: 'loss',
     activity: { text: 'Max retry | manuel müdahale gerek', severity: 'error' },

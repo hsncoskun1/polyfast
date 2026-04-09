@@ -630,11 +630,11 @@ function ClaimCard({
     COLOR.yellow;
   const label =
     status === 'OK'   ? 'CLAIM BAŞARILI' :
-    status === 'FAIL' ? 'MAX RETRY' :
+    status === 'FAIL' ? 'MAX DENEME' :
     'CLAIM BEKLİYOR';
 
   const retryText = claim
-    ? `${claim.retry ?? claim.retry_count ?? 0}/${claim.max_retry ?? 5}`
+    ? `${claim.retry ?? claim.retry_count ?? 0}/${claim.max_retry ?? 20}`
     : '—';
   const nextText = claim?.next_sec != null ? `${claim.next_sec}s` : '—';
   const payout = claim?.payout ?? (status === 'OK' ? position.pnl_amount ?? '—' : '—');
