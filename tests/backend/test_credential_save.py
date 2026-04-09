@@ -91,36 +91,34 @@ class TestCapabilityFlags:
 # ║  Missing fields tests                                         ║
 # ╚══════════════════════════════════════════════════════════════╝
 
-class TestMissingFields:
+class TestMissingInput:
+    """2-alan modeli: kullanıcı sadece private_key + relayer_key girer."""
 
     def test_no_missing(self):
-        """6 alan dolu → missing_fields boş."""
-        from backend.api.credential import _compute_missing
-        missing = _compute_missing(_full_creds())
+        """İki alan da dolu → missing boş."""
+        from backend.api.credential import _compute_missing_input
+        missing = _compute_missing_input("0x" + "ab" * 32, "rlk_test")
         assert missing == []
 
     def test_all_missing(self):
-        """Boş credential → 6 alan eksik."""
-        from backend.api.credential import _compute_missing
-        missing = _compute_missing(Credentials())
-        assert len(missing) == 6
-        assert "api_key" in missing
+        """İki alan da boş → 2 eksik."""
+        from backend.api.credential import _compute_missing_input
+        missing = _compute_missing_input("", "")
+        assert len(missing) == 2
+        assert "private_key" in missing
         assert "relayer_key" in missing
 
     def test_relayer_missing(self):
-        """Trading + signing dolu, relayer eksik."""
-        from backend.api.credential import _compute_missing
-        missing = _compute_missing(_trading_signing())
+        """private_key var, relayer yok."""
+        from backend.api.credential import _compute_missing_input
+        missing = _compute_missing_input("0x" + "ab" * 32, "")
         assert missing == ["relayer_key"]
 
-    def test_signing_missing(self):
-        """Trading dolu, signing + relayer eksik."""
-        from backend.api.credential import _compute_missing
-        missing = _compute_missing(_trading_only())
-        assert "private_key" in missing
-        assert "funder_address" in missing
-        assert "relayer_key" in missing
-        assert len(missing) == 3
+    def test_pk_missing(self):
+        """relayer var, private_key yok."""
+        from backend.api.credential import _compute_missing_input
+        missing = _compute_missing_input("", "rlk_test")
+        assert missing == ["private_key"]
 
 
 # ╔══════════════════════════════════════════════════════════════╗
@@ -131,22 +129,19 @@ class TestIsFullyReady:
 
     def test_save_always_not_ready(self):
         """Save endpoint'te is_fully_ready her zaman false (validate not_run)."""
-        from backend.api.credential import _build_response, _compute_missing
+        from backend.api.credential import _build_response
         creds = _full_creds()
-        missing = _compute_missing(creds)
-        resp = _build_response(creds, missing, "test")
+        resp = _build_response(creds, [], "test")
         assert resp.is_fully_ready is False
         assert resp.validated is False
         assert resp.validation_status == "not_run"
 
     def test_save_partial_not_ready(self):
-        """Eksik alanlarla save → is_fully_ready=false."""
-        from backend.api.credential import _build_response, _compute_missing
-        creds = _trading_only()
-        missing = _compute_missing(creds)
-        resp = _build_response(creds, missing, "test")
+        """Eksik relayer → is_fully_ready=false."""
+        from backend.api.credential import _build_response
+        creds = _trading_signing()  # relayer yok
+        resp = _build_response(creds, ["relayer_key"], "test")
         assert resp.is_fully_ready is False
-        assert resp.can_place_orders is False  # signing eksik
         assert resp.can_auto_claim is False
 
 
@@ -224,12 +219,11 @@ class TestCredentialEndpoint:
         paths = [r.path for r in router.routes]
         assert "/credential/status" in paths
 
-    def test_request_model_has_6_fields(self):
-        """Request model 6 alan içerir."""
+    def test_request_model_has_2_fields(self):
+        """Request model 2 alan içerir (sade model)."""
         from backend.api.credential import CredentialUpdateRequest
         fields = set(CredentialUpdateRequest.model_fields.keys())
-        expected = {"api_key", "api_secret", "api_passphrase",
-                    "private_key", "funder_address", "relayer_key"}
+        expected = {"private_key", "relayer_key"}
         assert expected == fields
 
 
@@ -647,119 +641,58 @@ class TestTradingApiErrorClassification:
         assert "eksik" in result.message.lower() or "Private" in result.message
 
 
-class TestPartialUpdate:
-    """credential/update partial update semantiği:
-    None = dokunulmadı → mevcut korunur
-    "" = bilinçli boşaltıldı
-    "val" = yeni değer
-    """
+class TestDeriveHelpers:
+    """Funder address + API credential derive testleri."""
 
-    def test_none_preserves_existing(self):
-        """None gönderilen alanlar mevcut değeri korur."""
-        store = CredentialStore()
-        store.load(Credentials(
-            api_key="existing_key",
-            api_secret="existing_secret",
-            api_passphrase="existing_pass",
-            private_key="0xabc",
-            funder_address="0xfunder",
-            relayer_key="rlk_old",
-        ))
-        existing = store.credentials
+    def test_derive_funder_address(self):
+        """Private key'den funder address derive edilir."""
+        from backend.api.credential import _derive_funder_address
+        pk = "0x" + "ab" * 32
+        addr = _derive_funder_address(pk)
+        assert addr.startswith("0x")
+        assert len(addr) == 42
 
-        # Partial merge simülasyonu (endpoint mantığı)
+    def test_derive_funder_no_prefix(self):
+        """0x prefix'siz pk'den de derive çalışır."""
+        from backend.api.credential import _derive_funder_address
+        pk = "ab" * 32
+        addr = _derive_funder_address(pk)
+        assert addr.startswith("0x")
+        assert len(addr) == 42
+
+    def test_derive_funder_invalid_pk(self):
+        """Geçersiz pk → exception."""
+        from backend.api.credential import _derive_funder_address
+        with pytest.raises(Exception):
+            _derive_funder_address("not_valid_hex")
+
+
+class TestPartialUpdate2Field:
+    """2-alan modeli partial update semantiği."""
+
+    def test_request_model_2_fields(self):
+        """Request model'de sadece 2 alan var."""
         from backend.api.credential import CredentialUpdateRequest
-        body = CredentialUpdateRequest(api_key="new_key")  # sadece api_key
+        fields = set(CredentialUpdateRequest.model_fields.keys())
+        assert fields == {"private_key", "relayer_key"}
 
-        merged = Credentials(
-            api_key=body.api_key if body.api_key is not None else existing.api_key,
-            api_secret=body.api_secret if body.api_secret is not None else existing.api_secret,
-            api_passphrase=body.api_passphrase if body.api_passphrase is not None else existing.api_passphrase,
-            private_key=body.private_key if body.private_key is not None else existing.private_key,
-            funder_address=body.funder_address if body.funder_address is not None else existing.funder_address,
-            relayer_key=body.relayer_key if body.relayer_key is not None else existing.relayer_key,
-        )
-
-        assert merged.api_key == "new_key"           # güncellendi
-        assert merged.api_secret == "existing_secret"  # korundu
-        assert merged.api_passphrase == "existing_pass"  # korundu
-        assert merged.private_key == "0xabc"           # korundu
-        assert merged.relayer_key == "rlk_old"         # korundu
-
-    def test_empty_string_clears_field(self):
-        """Boş string gönderilen alan bilinçli boşaltılır."""
-        store = CredentialStore()
-        store.load(Credentials(api_key="existing_key", api_secret="existing_secret"))
-        existing = store.credentials
-
-        from backend.api.credential import CredentialUpdateRequest
-        body = CredentialUpdateRequest(api_key="")  # bilinçli boşalt
-
-        merged_key = body.api_key if body.api_key is not None else existing.api_key
-        assert merged_key == ""  # boşaltıldı
-
-    def test_full_update_overwrites_all(self):
-        """Tüm alanlar gönderilirse tümü güncellenir."""
-        store = CredentialStore()
-        store.load(_full_creds())
-        existing = store.credentials
-
-        from backend.api.credential import CredentialUpdateRequest
-        body = CredentialUpdateRequest(
-            api_key="new_k", api_secret="new_s", api_passphrase="new_p",
-            private_key="0xnew", funder_address="0xnewfunder", relayer_key="rlk_new",
-        )
-
-        merged = Credentials(
-            api_key=body.api_key if body.api_key is not None else existing.api_key,
-            api_secret=body.api_secret if body.api_secret is not None else existing.api_secret,
-            api_passphrase=body.api_passphrase if body.api_passphrase is not None else existing.api_passphrase,
-            private_key=body.private_key if body.private_key is not None else existing.private_key,
-            funder_address=body.funder_address if body.funder_address is not None else existing.funder_address,
-            relayer_key=body.relayer_key if body.relayer_key is not None else existing.relayer_key,
-        )
-
-        assert merged.api_key == "new_k"
-        assert merged.api_secret == "new_s"
-        assert merged.relayer_key == "rlk_new"
-
-    def test_no_fields_sent_preserves_all(self):
-        """Hiç alan gönderilmezse tümü korunur."""
-        store = CredentialStore()
-        store.load(_full_creds())
-        existing = store.credentials
-
-        from backend.api.credential import CredentialUpdateRequest
-        body = CredentialUpdateRequest()  # hiçbir alan yok (tümü None)
-
-        merged = Credentials(
-            api_key=body.api_key if body.api_key is not None else existing.api_key,
-            api_secret=body.api_secret if body.api_secret is not None else existing.api_secret,
-            api_passphrase=body.api_passphrase if body.api_passphrase is not None else existing.api_passphrase,
-            private_key=body.private_key if body.private_key is not None else existing.private_key,
-            funder_address=body.funder_address if body.funder_address is not None else existing.funder_address,
-            relayer_key=body.relayer_key if body.relayer_key is not None else existing.relayer_key,
-        )
-
-        assert merged.api_key == "pk_test_123"
-        assert merged.api_secret == "sk_test_456"
-        assert merged.relayer_key == "rlk_test_001"
-
-    def test_request_model_defaults_none(self):
-        """Request model'de tüm alanlar default None."""
+    def test_request_defaults_none(self):
+        """Boş body → iki alan da None."""
         from backend.api.credential import CredentialUpdateRequest
         body = CredentialUpdateRequest()
-        assert body.api_key is None
-        assert body.api_secret is None
-        assert body.api_passphrase is None
         assert body.private_key is None
-        assert body.funder_address is None
         assert body.relayer_key is None
 
-    def test_single_field_update(self):
-        """Tek alan güncelleme — diğerleri None kalır."""
+    def test_partial_pk_only(self):
+        """Sadece pk gönderilirse relayer None kalır."""
         from backend.api.credential import CredentialUpdateRequest
-        body = CredentialUpdateRequest(relayer_key="new_rlk")
-        assert body.relayer_key == "new_rlk"
-        assert body.api_key is None  # dokunulmadı
-        assert body.private_key is None  # dokunulmadı
+        body = CredentialUpdateRequest(private_key="0x" + "ab" * 32)
+        assert body.private_key is not None
+        assert body.relayer_key is None
+
+    def test_partial_relayer_only(self):
+        """Sadece relayer gönderilirse pk None kalır."""
+        from backend.api.credential import CredentialUpdateRequest
+        body = CredentialUpdateRequest(relayer_key="rlk_new")
+        assert body.relayer_key == "rlk_new"
+        assert body.private_key is None

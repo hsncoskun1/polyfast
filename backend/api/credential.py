@@ -34,20 +34,14 @@ router = APIRouter()
 # ╚══════════════════════════════════════════════════════════════╝
 
 class CredentialUpdateRequest(BaseModel):
-    """Credential güncelleme — partial update.
+    """Credential güncelleme — sade 2-alan modeli.
 
-    Semantik:
-    - None  = alan gönderilmedi → mevcut değer korunur
-    - ""    = alan bilinçli boşaltıldı → boş yazılır
-    - "val" = yeni değer → güncellenir
+    Kullanıcı sadece private_key + relayer_key girer.
+    Backend derive eder: funder_address, api_key, api_secret, api_passphrase.
 
-    Frontend sadece değiştirilen alanları gönderir.
+    Partial update: None = mevcut korunur.
     """
-    api_key: str | None = None
-    api_secret: str | None = None
-    api_passphrase: str | None = None
     private_key: str | None = None
-    funder_address: str | None = None
     relayer_key: str | None = None
 
 
@@ -80,22 +74,50 @@ def _get_orchestrator():
     return get_orchestrator()
 
 
-def _compute_missing(creds: Credentials) -> list[str]:
-    """Boş credential alanlarını bul."""
+def _compute_missing_input(private_key: str, relayer_key: str) -> list[str]:
+    """Kullanıcının girmesi gereken alanlardan eksik olanları bul."""
     missing = []
-    if not creds.api_key:
-        missing.append("api_key")
-    if not creds.api_secret:
-        missing.append("api_secret")
-    if not creds.api_passphrase:
-        missing.append("api_passphrase")
-    if not creds.private_key:
+    if not private_key:
         missing.append("private_key")
-    if not creds.funder_address:
-        missing.append("funder_address")
-    if not creds.relayer_key:
+    if not relayer_key:
         missing.append("relayer_key")
     return missing
+
+
+def _derive_funder_address(private_key: str) -> str:
+    """Private key'den Ethereum cüzdan adresi derive et.
+
+    EOA-only: address = Account.from_key(pk).address
+    Proxy/Safe wallet bu sürümde desteklenmiyor.
+    """
+    from eth_account import Account
+    pk = private_key
+    if not pk.startswith("0x"):
+        pk = "0x" + pk
+    account = Account.from_key(pk)
+    return account.address
+
+
+def _derive_api_creds(private_key: str, funder_address: str):
+    """Private key'den Polymarket CLOB API credential'larını derive et.
+
+    Returns: (api_key, api_secret, api_passphrase) tuple veya hata.
+    """
+    from py_clob_client.client import ClobClient
+
+    pk = private_key
+    if not pk.startswith("0x"):
+        pk = "0x" + pk
+
+    client = ClobClient(
+        host="https://clob.polymarket.com",
+        key=pk,
+        chain_id=137,
+        signature_type=2,
+        funder=funder_address,
+    )
+    derived = client.create_or_derive_api_creds()
+    return derived.api_key, derived.api_secret, derived.api_passphrase
 
 
 def _build_response(creds: Credentials, missing: list[str], message: str) -> CredentialUpdateResponse:
@@ -127,55 +149,98 @@ def _build_response(creds: Credentials, missing: list[str], message: str) -> Cre
 
 @router.post("/credential/update", response_model=CredentialUpdateResponse)
 async def credential_update(body: CredentialUpdateRequest):
-    """Credential kaydet — partial update + presence check + capability özeti.
+    """Credential kaydet — 2 alan + derive akışı.
 
-    Partial update semantiği:
-    - None  = alan gönderilmedi → mevcut değer korunur
-    - ""    = alan bilinçli boşaltıldı → boş yazılır
-    - "val" = yeni değer → güncellenir
+    Kullanıcı girer: private_key, relayer_key
+    Backend derive eder: funder_address, api_key, api_secret, api_passphrase
 
-    - In-memory only — restart sonrası credential kaybolur
-    - Plaintext LOGLANMAZ, response'ta DÖNMEZ
+    EOA-only: proxy/safe wallet bu sürümde desteklenmiyor.
+    Plaintext LOGLANMAZ, response'ta DÖNMEZ.
     """
     orch = _get_orchestrator()
     if orch is None:
         raise HTTPException(status_code=503, detail="Orchestrator not initialized")
 
-    # Mevcut credential'ı al (partial update için)
+    # Partial merge: None = mevcut korunsun
     existing = orch.credential_store.credentials
+    pk = body.private_key if body.private_key is not None else existing.private_key
+    rk = body.relayer_key if body.relayer_key is not None else existing.relayer_key
 
-    # Partial merge: None = mevcut korunsun, değer varsa güncelle
+    # Input validation — missing fields
+    missing = _compute_missing_input(pk, rk)
+    if not pk:
+        return _build_response(
+            existing, missing,
+            "Private key gerekli",
+        )
+
+    # Adım 1: pk hex format check
+    pk_clean = pk
+    if not pk_clean.startswith("0x"):
+        pk_clean = "0x" + pk_clean
+    try:
+        int(pk_clean[2:], 16)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Private key geçersiz hex formatı")
+    if len(pk_clean) != 66:
+        raise HTTPException(status_code=422, detail="Private key 64 hex karakter olmalı")
+
+    # Adım 2: Funder address derive
+    try:
+        funder = _derive_funder_address(pk)
+    except Exception:
+        raise HTTPException(status_code=422, detail="Private key'den cüzdan adresi türetilemedi")
+
+    # Adım 3: API credential derive
+    try:
+        api_key, api_secret, api_passphrase = _derive_api_creds(pk, funder)
+    except Exception as e:
+        log_event(
+            logger, logging.WARNING,
+            f"API credential derive failed: {type(e).__name__}",
+            entity_type="credential",
+            entity_id="derive_error",
+        )
+        # Derive başarısız — sadece pk + relayer kaydet, api creds boş
+        creds = Credentials(
+            private_key=pk,
+            funder_address=funder,
+            relayer_key=rk,
+        )
+        orch.credential_store.load(creds)
+        return _build_response(
+            creds, missing,
+            "Cüzdan adresi türetildi ama API anahtarları oluşturulamadı — tekrar deneyin",
+        )
+
+    # Adım 4: Tam credential oluştur + kaydet
     creds = Credentials(
-        api_key=body.api_key if body.api_key is not None else existing.api_key,
-        api_secret=body.api_secret if body.api_secret is not None else existing.api_secret,
-        api_passphrase=body.api_passphrase if body.api_passphrase is not None else existing.api_passphrase,
-        private_key=body.private_key if body.private_key is not None else existing.private_key,
-        funder_address=body.funder_address if body.funder_address is not None else existing.funder_address,
-        relayer_key=body.relayer_key if body.relayer_key is not None else existing.relayer_key,
+        api_key=api_key,
+        api_secret=api_secret,
+        api_passphrase=api_passphrase,
+        private_key=pk,
+        funder_address=funder,
+        relayer_key=rk,
     )
-
-    # CredentialStore'a yükle — version artar
     orch.credential_store.load(creds)
 
-    # Missing fields
-    missing = _compute_missing(creds)
-
-    # Log — plaintext YOK, sadece capability durumu
+    # Log — plaintext YOK
     log_event(
         logger, logging.INFO,
-        f"Credential updated: trading={creds.has_trading_credentials()}, "
+        f"Credential updated: derive=OK, "
+        f"trading={creds.has_trading_credentials()}, "
         f"signing={creds.has_signing_credentials()}, "
         f"relayer={creds.has_relayer_credentials()}, "
-        f"missing={len(missing)}, version={orch.credential_store.version}",
+        f"funder={funder[:6]}****, "
+        f"version={orch.credential_store.version}",
         entity_type="credential",
         entity_id="update",
     )
 
-    # Mesaj — dürüst, "doğrulandı" DEMİYORUZ
     if not missing:
         msg = "Credential kaydedildi — doğrulama bekleniyor"
     else:
-        msg = f"Credential kaydedildi — {len(missing)} eksik alan: {', '.join(missing)}"
+        msg = f"Credential kaydedildi — {', '.join(missing)} eksik"
 
     return _build_response(creds, missing, msg)
 
