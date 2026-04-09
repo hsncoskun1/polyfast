@@ -15,7 +15,7 @@
  * Mock fallback: YOK (durust empty state)
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { COLOR, FONT, SIZE, SECTION_TONE, ensureStyles, type SectionKey } from './styles';
 import Sidebar, { type BotMode } from './Sidebar';
@@ -23,6 +23,7 @@ import TopBar from './TopBar';
 import OpenRail from './OpenRail';
 import SearchRail from './SearchRail';
 import IdleRail from './IdleRail';
+import CredentialModal from './CredentialModal';
 import { MOCK_DATA } from './mockData';
 import type {
   PositionSummary,
@@ -778,6 +779,37 @@ export default function DashboardSidebarPreview({
   const showAlert = (icon: string, title: string, body: string) =>
     setAlertModal({ icon, title, body });
 
+  // Credential modal — otomatik açılış mantığı
+  const [credModalOpen, setCredModalOpen] = useState(false);
+  const [credClosable, setCredClosable] = useState(true);
+  const credCheckedRef = useRef(false);
+  useEffect(() => {
+    if (credCheckedRef.current || mockMode) return;
+    credCheckedRef.current = true;
+    (async () => {
+      try {
+        const { credentialStatus } = await import('../api/credential');
+        const status = await credentialStatus();
+        if (!status.has_any) {
+          // İlk giriş: modal zorunlu, kapatılamaz
+          setCredClosable(false);
+          setCredModalOpen(true);
+        } else if (!status.is_fully_ready) {
+          // Credential var ama eksik/başarısız: modal açık, kapatılabilir
+          setCredClosable(true);
+          setCredModalOpen(true);
+        }
+        // is_fully_ready=true → modal açılmaz
+      } catch {
+        // Status fetch başarısız — modal açılmaz, dashboard normal çalışır
+      }
+    })();
+  }, [mockMode]);
+
+  const handleCredClose = useCallback(() => {
+    setCredModalOpen(false);
+  }, []);
+
   // FAZ4-4: coin toggle — fetch sırasında disable + loading hissi
   const [toggling, setToggling] = useState<Set<string>>(new Set());
   const handleCoinToggle = async (symbol: string) => {
@@ -992,6 +1024,13 @@ export default function DashboardSidebarPreview({
           title={alertModal.title}
           body={alertModal.body}
           onClose={() => setAlertModal(null)}
+        />
+      )}
+      {credModalOpen && (
+        <CredentialModal
+          closable={credClosable}
+          onClose={handleCredClose}
+          mockMode={mockMode}
         />
       )}
     </div>
