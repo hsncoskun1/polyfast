@@ -704,7 +704,7 @@ function HealthIndicator({
     const lat = latency ?? '—';
     if (health === 'healthy')  return `Backend bağlantısı sağlıklı — ${lat} gecikme`;
     if (health === 'degraded') return `Backend bağlantısı yavaş — ${lat} gecikme`;
-    if (health === 'unhealthy') return 'Backend yanıt vermiyor — bağlantı koptu';
+    if (health === 'critical') return 'Backend yanıt vermiyor — bağlantı koptu';
     return 'Backend durumu bilinmiyor — henüz veri alınmadı';
   })();
   return (
