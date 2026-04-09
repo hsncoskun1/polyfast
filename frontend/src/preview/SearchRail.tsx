@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v17',
+  'searchrail-v18',
   `
 .dsp-srail-list {
   display: grid;
@@ -271,7 +271,14 @@ ensureStyles(
 .dsp-scard-rule.pass .dsp-scard-rule-val, .dsp-scard-rule.pass .dsp-scard-rule-lbl { color: ${COLOR.green}; }
 .dsp-scard-rule.fail { background: ${COLOR.redSoft}; border-color: ${COLOR.redSoft}; }
 .dsp-scard-rule.fail .dsp-scard-rule-val, .dsp-scard-rule.fail .dsp-scard-rule-lbl { color: ${COLOR.red}; }
-.dsp-scard-rule.disabled { opacity: 0.5; }
+/* BEKLIYOR — henüz değerlendirilmedi, eşik görünür, value -- */
+.dsp-scard-rule.waiting { background: transparent; border-color: ${COLOR.divider}; }
+.dsp-scard-rule.waiting .dsp-scard-rule-val { color: ${COLOR.textMuted}; }
+.dsp-scard-rule.waiting .dsp-scard-rule-lbl { color: ${COLOR.textMuted}; }
+/* KAPALI — kullanıcı kapattı */
+.dsp-scard-rule.disabled { background: rgba(126,126,146,0.08); border-color: ${COLOR.divider}; }
+.dsp-scard-rule.disabled .dsp-scard-rule-val { color: ${COLOR.textDim}; }
+.dsp-scard-rule.disabled .dsp-scard-rule-lbl { color: ${COLOR.textDim}; }
 `
 );
 
@@ -412,19 +419,30 @@ function SearchCard({ tile, onAlert }: { tile: SearchTileContract; onAlert?: Ale
           }
           const noThreshold = label === 'EvMax' || label === 'BotMax';
           const { min, max, cmp } = noThreshold ? { min: undefined, max: undefined, cmp: undefined } : parseThreshold(rule.threshold_text);
-          const stateKlass = rule.state === 'pass' ? 'pass' : rule.state === 'fail' ? 'fail' : 'disabled';
+          const stateKlass = rule.state;
+          // BEKLIYOR → value `--`, KAPALI → value `KAPALI`
+          const displayVal =
+            rule.state === 'waiting'  ? '--' :
+            rule.state === 'disabled' ? 'KAPALI' :
+            rule.live_value;
           return (
             <div key={label} className={`dsp-scard-rule ${stateKlass}`}>
               <span className="dsp-scard-rule-lbl">{display}</span>
               <div className="dsp-scard-rule-expr">
-                {min && <span className="dsp-scard-rule-min">{min}</span>}
-                {min && <span className="dsp-scard-rule-cmp">{'<'}</span>}
-                <span className="dsp-scard-rule-val">{rule.live_value}</span>
-                {min && <span className="dsp-scard-rule-cmp">{'<'}</span>}
-                {min && max && <span className="dsp-scard-rule-max">{max}</span>}
-                {!min && cmp && <span className="dsp-scard-rule-cmp">{cmp}</span>}
-                {!min && cmp && max && <span className="dsp-scard-rule-max">{max}</span>}
-                {!min && !cmp && max && <span className="dsp-scard-rule-max">{max}</span>}
+                {rule.state === 'disabled' ? (
+                  <span className="dsp-scard-rule-val">{displayVal}</span>
+                ) : (
+                  <>
+                    {min && <span className="dsp-scard-rule-min">{min}</span>}
+                    {min && <span className="dsp-scard-rule-cmp">{'<'}</span>}
+                    <span className="dsp-scard-rule-val">{displayVal}</span>
+                    {rule.state !== 'waiting' && min && <span className="dsp-scard-rule-cmp">{'<'}</span>}
+                    {rule.state !== 'waiting' && min && max && <span className="dsp-scard-rule-max">{max}</span>}
+                    {!min && cmp && <span className="dsp-scard-rule-cmp">{cmp}</span>}
+                    {!min && cmp && max && <span className="dsp-scard-rule-max">{max}</span>}
+                    {!min && !cmp && max && <span className="dsp-scard-rule-max">{max}</span>}
+                  </>
+                )}
               </div>
             </div>
           );

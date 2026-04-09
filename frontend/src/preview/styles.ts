@@ -168,8 +168,12 @@ export const PNL_TONE: Record<
 };
 
 /**
- * Rule visual state — pass/fail/waiting/disabled → COLOR.
- * RuleBlock kullanir.
+ * Rule visual state — PASS/FAIL/BEKLIYOR/KAPALI.
+ *
+ * pass     → yeşil (kural sağlandı)
+ * fail     → kırmızı (kural sağlanmadı)
+ * waiting  → gri (henüz değerlendirilmedi, value `--`)
+ * disabled → koyu arka plan + açık KAPALI metni (kullanıcı kapattı)
  */
 export const RULE_TONE: Record<
   RuleStateContract,
@@ -177,12 +181,8 @@ export const RULE_TONE: Record<
 > = {
   pass: { fg: COLOR.green, bg: COLOR.greenSoft, border: COLOR.greenSoft },
   fail: { fg: COLOR.red, bg: COLOR.redSoft, border: COLOR.redSoft },
-  waiting: {
-    fg: COLOR.yellow,
-    bg: COLOR.yellowSoft,
-    border: COLOR.yellowSoft,
-  },
-  disabled: { fg: COLOR.textDim, bg: 'transparent', border: COLOR.divider },
+  waiting: { fg: COLOR.textMuted, bg: 'transparent', border: COLOR.divider },
+  disabled: { fg: COLOR.textDim, bg: 'rgba(126,126,146,0.08)', border: COLOR.divider },
 };
 
 /**
