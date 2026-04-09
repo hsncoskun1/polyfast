@@ -540,6 +540,30 @@ export const MOCK_IDLE: IdleTileContract[] = [
     rules: null,
     event_url: null,
   },
+
+  // ─── IDLE 4: cooldown ───
+  // 20) ETH — Event cooldown (slot kullanıldı)
+  {
+    tile_id: 'mock-idle-4',
+    coin: 'ETH',
+    idle_kind: 'cooldown',
+    msg: 'Event slotu kullanıldı — cooldown süresi dolunca tekrar aranacak',
+    activity: { text: 'Cooldown | 45s kaldı', severity: 'pending' },
+    rules: null,
+    event_url: null,
+  },
+
+  // ─── IDLE 5: no_events ───
+  // 21) LINK — Henüz uygun event yok
+  {
+    tile_id: 'mock-idle-5',
+    coin: 'LINK',
+    idle_kind: 'no_events',
+    msg: 'Uygun 5M event bulunamadı — discovery tarama devam ediyor',
+    activity: { text: 'Event aranıyor | son tarama: 12s önce', severity: 'info' },
+    rules: null,
+    event_url: null,
+  },
 ];
 
 // ╔══════════════════════════════════════════════════════════════╗
@@ -547,8 +571,8 @@ export const MOCK_IDLE: IdleTileContract[] = [
 // ╚══════════════════════════════════════════════════════════════╝
 
 /**
- * Toplam: 19 tile, 19 ayri activity senaryosu, tum severity/state/kind
- * varyantlarini kapsar.
+ * Toplam: 21 tile (10 open/claim + 6 search + 5 idle),
+ * tum severity/state/kind varyantlarini kapsar.
  *
  * Section dagilimi:
  *  - ACIK ISLEMLER : 7 open + 3 claim = 10

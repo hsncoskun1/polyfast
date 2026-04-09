@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v12',
+  'idlerail-v13',
   `
 .dsp-irail-list {
   display: grid;
@@ -174,11 +174,12 @@ ensureStyles(
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  animation: dsp-icard-act-pulse 1.8s ease-in-out infinite;
+  animation: dsp-icard-act-pulse 1.5s ease-out both;
 }
 @keyframes dsp-icard-act-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
-  50%      { opacity: 0.78; box-shadow: 0 0 10px 1px currentColor; }
+  0%   { opacity: 0; box-shadow: 0 0 12px 2px currentColor; transform: scaleY(0.9); }
+  30%  { opacity: 1; box-shadow: 0 0 8px 1px currentColor; transform: scaleY(1); }
+  100% { opacity: 0.85; box-shadow: none; transform: scaleY(1); }
 }
 
 /* Row 3 — açıklama / sebep (msg) */
@@ -203,7 +204,7 @@ ensureStyles(
 );
 
 const KIND_LABEL: Record<string, string> = {
-  no_events: 'EVENT YOK',
+  no_events: 'UYGUN EVENT YOK',
   waiting_rules: 'İŞLEM AÇMAK İÇİN AYARLARI YAPIN',
   bot_stopped: 'İŞLEM ARANMIYOR',
   cooldown: 'COOLDOWN',

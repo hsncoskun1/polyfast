@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v18',
+  'searchrail-v19',
   `
 .dsp-srail-list {
   display: grid;
@@ -205,11 +205,12 @@ ensureStyles(
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  animation: dsp-scard-act-pulse 1.8s ease-in-out infinite;
+  animation: dsp-scard-act-pulse 1.5s ease-out both;
 }
 @keyframes dsp-scard-act-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
-  50%      { opacity: 0.78; box-shadow: 0 0 10px 1px currentColor; }
+  0%   { opacity: 0; box-shadow: 0 0 12px 2px currentColor; transform: scaleY(0.9); }
+  30%  { opacity: 1; box-shadow: 0 0 8px 1px currentColor; transform: scaleY(1); }
+  100% { opacity: 0.85; box-shadow: none; transform: scaleY(1); }
 }
 
 /* Row 4 — rules 3x2 (6 rule) */

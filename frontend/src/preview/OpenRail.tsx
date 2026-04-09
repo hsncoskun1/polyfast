@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary, ClaimSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v47',
+  'openrail-v48',
   `
 .dsp-orail {
   width: 100%;
@@ -321,7 +321,7 @@ ensureStyles(
   text-overflow: ellipsis;
   z-index: 3;
   transform-origin: bottom center;
-  animation: dsp-ocard-pop 3s cubic-bezier(0.2, 0.8, 0.25, 1) infinite;
+  animation: dsp-ocard-pop 0.5s cubic-bezier(0.2, 0.8, 0.25, 1) both;
   box-shadow: 0 -3px 14px rgba(0,0,0,0.35);
 }
 /* TP cell 1. slot → 4 col span - cell's own slot = 3 slot sağa. Margin-based full-width. */
@@ -356,10 +356,8 @@ ensureStyles(
 }
 @keyframes dsp-ocard-pop {
   0%   { transform: translateY(8px) scaleY(0); opacity: 0; }
-  18%  { transform: translateY(-2px) scaleY(1.06); opacity: 1; }
-  25%  { transform: translateY(0) scaleY(1); opacity: 1; }
-  82%  { transform: translateY(0) scaleY(1); opacity: 1; }
-  100% { transform: translateY(8px) scaleY(0); opacity: 0; }
+  70%  { transform: translateY(-1px) scaleY(1.04); opacity: 1; }
+  100% { transform: translateY(0) scaleY(1); opacity: 1; }
 }
 .dsp-ocard-exit-lbl {
   font-size: 13px;
@@ -420,7 +418,7 @@ ensureStyles(
   text-overflow: ellipsis;
   z-index: 3;
   transform-origin: bottom center;
-  animation: dsp-ocard-pop 3s cubic-bezier(0.2, 0.8, 0.25, 1) infinite;
+  animation: dsp-ocard-pop 0.5s cubic-bezier(0.2, 0.8, 0.25, 1) both;
   box-shadow: 0 -3px 14px rgba(0,0,0,0.35);
 }
 .dsp-ocard-claim-pop.fail {

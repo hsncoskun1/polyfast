@@ -880,8 +880,8 @@ export default function DashboardSidebarPreview({
             <EmptyState
               sectionKey="search"
               icon="search"
-              title="Sinyal aranıyor"
-              description="Kuralların tüm coinler için oluşmasını bekliyoruz — eligible olanlar burada listelenecek"
+              title="Coin ayarlayın"
+              description="Ayarlanan coinler burada görünür — coin ayarlarını tamamlayın ve aktif edin"
               online={online}
               statusText={statusText}
             />
