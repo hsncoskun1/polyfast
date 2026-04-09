@@ -203,7 +203,7 @@ ensureStyles(
 const KIND_LABEL: Record<string, string> = {
   no_events: 'EVENT YOK',
   waiting_rules: 'İŞLEM AÇMAK İÇİN AYARLARI YAPIN',
-  bot_stopped: 'BOT DURDURULDU',
+  bot_stopped: 'İŞLEM ARANMIYOR',
   cooldown: 'COOLDOWN',
   error: 'HATA',
 };
