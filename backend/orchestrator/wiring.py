@@ -135,6 +135,7 @@ class Orchestrator:
         # ── Trading mode ──
         self.trading_enabled: bool = True  # False = degraded mode
         self.paper_mode: bool = True       # True = paper trade, False = live trade
+        self.paused: bool = False          # True = entry/order durur, monitoring devam
         self._verify_retry_task: asyncio.Task | None = None
         self._verify_retry_running: bool = False
 
@@ -236,6 +237,11 @@ class Orchestrator:
 
         Zincir: events → eligibility → subscription diff → subscribe/unsubscribe
         """
+        # Pause guard — yeni entry üretimi durdurulur
+        # NOT: Exit cycle (TP/SL/FS) DEVAM EDER — açık pozisyon koruması
+        if self.paused:
+            return
+
         # 1. Eligibility kontrol
         result = self.eligibility_gate.filter(events)
 
@@ -413,13 +419,34 @@ class Orchestrator:
         )
 
     async def start(self) -> None:
-        """Tum loop'lari baslat."""
+        """Tum loop'lari baslat.
+
+        Idempotent — zaten calisiyorsa duplicate task acilmaz.
+        discovery/evaluation loop'lari kendi iclerinde guard var.
+        Exit cycle icin burada guard eklendi.
+        """
+        # Idempotency: exit cycle zaten calisiyorsa skip
+        if self._exit_cycle_running:
+            log_event(
+                logger, logging.WARNING,
+                "Orchestrator start() called but already running — skipping",
+                entity_type="orchestrator",
+                entity_id="start_skip",
+            )
+            # Paused ise sadece resume et
+            self.paused = False
+            self.trading_enabled = True
+            return
+
         log_event(
             logger, logging.INFO,
             "Orchestrator starting all loops",
             entity_type="orchestrator",
             entity_id="start",
         )
+
+        self.trading_enabled = True
+        self.paused = False
 
         # State restore (7/24 — restart sonrasi kaldigi yerden devam)
         await self.restore_state()
@@ -452,6 +479,9 @@ class Orchestrator:
 
         SIGTERM, kontrollu kapanis, normal stop — hepsinde calisir.
         """
+        self.trading_enabled = False
+        self.paused = False
+
         log_event(
             logger, logging.INFO,
             "Orchestrator stopping — graceful shutdown",
