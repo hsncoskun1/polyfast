@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v14',
+  'sidebar-v15',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -169,6 +169,19 @@ ensureStyles(
 @keyframes dsp-sb-bot-pulse {
   0%, 100% { opacity: 1;    transform: scale(1); }
   50%      { opacity: 0.6;  transform: scale(0.85); }
+}
+.dsp-sb-bot-paper {
+  font-family: ${FONT.mono};
+  font-size: 10px;
+  font-weight: ${FONT.weight.bold};
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: ${SIZE.radius}px;
+  background: ${COLOR.cyanSoft};
+  color: ${COLOR.cyan};
+  border: 1px solid ${COLOR.cyan};
+  text-align: left;
 }
 .dsp-sb-bot-status-label {
   font-size: 13px;
@@ -590,6 +603,7 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
         </span>
         <span className="dsp-sb-bot-status-time">{statusTime}</span>
       </div>
+      <div className="dsp-sb-bot-paper">📋 PAPER MODE</div>
 
       {/* Segmented control — 3 aksiyon */}
       <div className="dsp-sb-bot-seg">

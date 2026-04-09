@@ -264,6 +264,45 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     activity: { text: 'Pozisyon açık | dalgalanıyor', severity: 'info' },
   },
 
+  // ─── OPEN LIFECYCLE 11: Manuel SAT emir yolda ───
+  // 11) DOGE-2 — Manuel satış emri gönderildi
+  {
+    ...baseOpen('mock-pos-11', 'DOGE', 'UP'),
+    fill_price: 0.65,
+    pnl_big: '-3.2%',
+    pnl_amount: '-0.06$',
+    pnl_tone: 'loss',
+    live: { side: 'UP', entry: '65', live: '60', delta_text: '-5' },
+    exits: { tp: '72', sl: '58', fs: '1:22', fs_pnl: '-5%' },
+    activity: { text: 'Manuel satış | kapatma emri gönderildi', severity: 'warning' },
+  },
+
+  // ─── OPEN LIFECYCLE 12: Open → Claim geçişi (showcase) ───
+  // 12) AVAX-2 — Pozisyon kapandı, claim süreci başladı
+  {
+    ...baseOpen('mock-pos-12', 'AVAX', 'UP'),
+    fill_price: 0.78,
+    pnl_big: '+8.4%',
+    pnl_amount: '+0.84$',
+    pnl_tone: 'profit',
+    live: { side: 'UP', entry: '78', live: '85', delta_text: '+7' },
+    exits: { tp: '84', sl: '72', fs: '0:00', fs_pnl: '-5%' },
+    activity: { text: 'Pozisyon kapandı | claim süreci başladı', severity: 'info' },
+  },
+
+  // ─── OPEN LIFECYCLE 13: TP geri çekildi (reevaluate) ───
+  // 13) ETH-2 — TP tetiklendi ama fiyat düştü, pozisyon açık kaldı
+  {
+    ...baseOpen('mock-pos-13', 'ETH', 'UP'),
+    fill_price: 0.80,
+    pnl_big: '+3.8%',
+    pnl_amount: '+0.38$',
+    pnl_tone: 'profit',
+    live: { side: 'UP', entry: '80', live: '83', delta_text: '+3' },
+    exits: { tp: '85', sl: '76', fs: '2:50', fs_pnl: '-5%' },
+    activity: { text: 'TP geri çekildi | pozisyon açık kalmaya devam ediyor', severity: 'warning' },
+  },
+
   // ─── CLAIM LIFECYCLE 1: pending RETRY ───
   // 8) XRP — Claim bekliyor (RETRY)
   {
@@ -347,10 +386,25 @@ export const MOCK_CLAIMS: ClaimSummary[] = [
     next_sec: null,
     payout: null,
   },
+  // AVAX claim (open→claim geçişi showcase)
+  {
+    claim_id: 'mock-claim-4',
+    asset: 'AVAX',
+    position_id: 'mock-pos-12',
+    claim_status: 'pending',
+    outcome: 'pending',
+    claimed_amount_usdc: 0,
+    retry_count: 1,
+    status: 'RETRY',
+    retry: 1,
+    max_retry: 20,
+    next_sec: 15,
+    payout: null,
+  },
 ];
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  Search — 6 tile (sinyal lifecycle)                          ║
+// ║  Search — 8 tile (sinyal lifecycle)                          ║
 // ╚══════════════════════════════════════════════════════════════╝
 
 const allPass = (zaman = '3:15', fiyat = '83', delta = '$55', spread = '1.8%'): RuleSpecContract[] => [
@@ -491,10 +545,46 @@ export const MOCK_SEARCH: SearchTileContract[] = [
     signal_ready: false,
     type: 'wait',
   },
+
+  // ─── SEARCH 7: FOK reject ───
+  // 22) DOT — Emir reddedildi
+  {
+    tile_id: 'mock-search-7',
+    coin: 'DOT',
+    event_url: 'https://polymarket.com/event/dot-search',
+    pnl_big: '6/6',
+    pnl_amount: 'RED',
+    pnl_tone: 'loss',
+    ptb: '6.82',
+    live: '6.88',
+    delta: '$48',
+    rules: allPass('1:55', '68', '$48', '1.6%'),
+    activity: { text: 'Emir reddedildi | tekrar denenecek', severity: 'warning' },
+    signal_ready: true,
+    type: 'wait',
+  },
+
+  // ─── SEARCH 8: Timeout retry ───
+  // 23) UNI — Emir zaman aşımı
+  {
+    tile_id: 'mock-search-8',
+    coin: 'UNI',
+    event_url: 'https://polymarket.com/event/uni-search',
+    pnl_big: '6/6',
+    pnl_amount: 'TEKRAR',
+    pnl_tone: 'pending',
+    ptb: '11.42',
+    live: '11.51',
+    delta: '$62',
+    rules: allPass('2:10', '115', '$62', '2.0%'),
+    activity: { text: 'Emir zaman aşımı | tekrar deneniyor', severity: 'pending' },
+    signal_ready: true,
+    type: 'wait',
+  },
 ];
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  Idle — 3 tile                                               ║
+// ║  Idle — 5 tile                                               ║
 // ╚══════════════════════════════════════════════════════════════╝
 
 export const MOCK_IDLE: IdleTileContract[] = [
@@ -517,7 +607,7 @@ export const MOCK_IDLE: IdleTileContract[] = [
     coin: 'BNB',
     idle_kind: 'waiting_rules',
     msg: 'Ayarlar tamamlanmadan coinde işlem açılamaz',
-    activity: { text: 'Ayar girmek için {GEAR} butonuna bas', severity: 'off' },
+    activity: { text: 'Ayar girmek için {GEAR} butonuna bas', severity: 'error' },
     rules: [
       { label: 'Zaman',  live_value: '—', state: 'disabled' },
       { label: 'Fiyat',  live_value: '—', state: 'disabled' },
@@ -571,7 +661,7 @@ export const MOCK_IDLE: IdleTileContract[] = [
 // ╚══════════════════════════════════════════════════════════════╝
 
 /**
- * Toplam: 21 tile (10 open/claim + 6 search + 5 idle),
+ * Toplam: 27 tile (13 open + 4 claim + 8 search + 5 idle),
  * tum severity/state/kind varyantlarini kapsar.
  *
  * Section dagilimi:
