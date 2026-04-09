@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v36',
+  'openrail-v37',
   `
 .dsp-orail {
   width: 100%;
@@ -503,6 +503,11 @@ function OpenCard({ position }: { position: PositionSummary }) {
           className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
           disabled={sellDisabled}
           title={sellTitle(sellState)}
+          onClick={() => {
+            // Direkt satış — confirm yok, Phase 2'de backend wiring
+            // eslint-disable-next-line no-console
+            console.log(`[preview] Market FOK sell → ${position.asset}`);
+          }}
         >
           {sellLabel(sellState)}
         </button>
