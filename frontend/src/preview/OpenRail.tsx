@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary, ClaimSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v43',
+  'openrail-v44',
   `
 .dsp-orail {
   width: 100%;
@@ -399,7 +399,7 @@ ensureStyles(
 /* Claim variant — OpenCard iskeleti, sarı sol border */
 .dsp-ocard.claim { border-left-color: ${COLOR.yellow}; }
 .dsp-ocard.claim:hover { box-shadow: 0 4px 14px rgba(234, 179, 8, 0.18); border-color: ${COLOR.yellow}; }
-.dsp-ocard.claim .dsp-ocard-cells { grid-template-columns: 1fr 1fr; }
+.dsp-ocard.claim .dsp-ocard-bottom { grid-template-columns: 1fr 1fr; }
 /* Claim popover — deneme cell'den yukarı açılan bildirim */
 .dsp-ocard-cell.claim-pop { position: relative; }
 .dsp-ocard-claim-pop {
@@ -713,10 +713,10 @@ function ClaimCard({
         </span>
       </div>
 
-      <div className="dsp-ocard-cells">
-        <div className={`dsp-ocard-cell${status === 'FAIL' || status === 'RETRY' ? ' claim-pop' : ''}`}>
-          <span className="dsp-ocard-cell-lbl">Deneme</span>
-          <span className="dsp-ocard-cell-val" style={{ color: toneColor }}>{retryText}</span>
+      <div className="dsp-ocard-bottom">
+        <div className={`dsp-ocard-exit tp${status === 'FAIL' || status === 'RETRY' ? ' active claim-pop' : ''}`}>
+          <span className="dsp-ocard-exit-lbl">Deneme</span>
+          <span className="dsp-ocard-exit-val" style={{ color: toneColor }}>{retryText}</span>
           {status === 'FAIL' && (
             <div className="dsp-ocard-claim-pop fail">Max deneme | elle claim yapınız</div>
           )}
@@ -724,9 +724,9 @@ function ClaimCard({
             <div className="dsp-ocard-claim-pop retry">{`Deneme ${retryText} | ${nextText} sonra tekrar`}</div>
           )}
         </div>
-        <div className="dsp-ocard-cell">
-          <span className="dsp-ocard-cell-lbl">Sonraki</span>
-          <span className="dsp-ocard-cell-val">{nextText}</span>
+        <div className="dsp-ocard-exit sl">
+          <span className="dsp-ocard-exit-lbl">Sonraki</span>
+          <span className="dsp-ocard-exit-val">{nextText}</span>
         </div>
       </div>
     </div>
