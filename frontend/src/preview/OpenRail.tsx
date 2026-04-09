@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary, ClaimSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v42',
+  'openrail-v43',
   `
 .dsp-orail {
   width: 100%;
@@ -400,6 +400,38 @@ ensureStyles(
 .dsp-ocard.claim { border-left-color: ${COLOR.yellow}; }
 .dsp-ocard.claim:hover { box-shadow: 0 4px 14px rgba(234, 179, 8, 0.18); border-color: ${COLOR.yellow}; }
 .dsp-ocard.claim .dsp-ocard-cells { grid-template-columns: 1fr 1fr; }
+/* Claim popover — deneme cell'den yukarı açılan bildirim */
+.dsp-ocard-cell.claim-pop { position: relative; }
+.dsp-ocard-claim-pop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 4px);
+  padding: 6px 10px;
+  border-radius: 7px 7px 0 0;
+  font-family: ${FONT.sans};
+  font-size: 12px;
+  font-weight: ${FONT.weight.bold};
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 3;
+  transform-origin: bottom center;
+  animation: dsp-ocard-pop 3s cubic-bezier(0.2, 0.8, 0.25, 1) infinite;
+  box-shadow: 0 -3px 14px rgba(0,0,0,0.35);
+}
+.dsp-ocard-claim-pop.fail {
+  background: ${COLOR.red};
+  border: 1px solid ${COLOR.red};
+  color: #fff;
+}
+.dsp-ocard-claim-pop.retry {
+  background: ${COLOR.yellow};
+  border: 1px solid ${COLOR.yellow};
+  color: #1a1505;
+}
 `
 );
 
@@ -682,9 +714,15 @@ function ClaimCard({
       </div>
 
       <div className="dsp-ocard-cells">
-        <div className="dsp-ocard-cell">
+        <div className={`dsp-ocard-cell${status === 'FAIL' || status === 'RETRY' ? ' claim-pop' : ''}`}>
           <span className="dsp-ocard-cell-lbl">Deneme</span>
           <span className="dsp-ocard-cell-val" style={{ color: toneColor }}>{retryText}</span>
+          {status === 'FAIL' && (
+            <div className="dsp-ocard-claim-pop fail">Max deneme | elle claim yapınız</div>
+          )}
+          {status === 'RETRY' && (
+            <div className="dsp-ocard-claim-pop retry">{`Deneme ${retryText} | ${nextText} sonra tekrar`}</div>
+          )}
         </div>
         <div className="dsp-ocard-cell">
           <span className="dsp-ocard-cell-lbl">Sonraki</span>
