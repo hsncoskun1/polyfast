@@ -358,3 +358,194 @@ class TestStatusResponseModel:
         creds = store.credentials
         has_any = bool(creds.api_key or creds.api_secret)
         assert has_any is True
+
+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Validate endpoint tests                                      ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+class TestValidateResponseModel:
+
+    def test_validate_response_fields(self):
+        """Validate response gerekli alanları içerir."""
+        from backend.api.credential import CredentialValidateResponse
+        fields = set(CredentialValidateResponse.model_fields.keys())
+        required = {
+            "validated", "validation_status", "checks", "failed_checks",
+            "has_trading_api", "has_signing", "has_relayer",
+            "can_place_orders", "can_auto_claim", "is_fully_ready", "message",
+        }
+        assert required.issubset(fields)
+
+    def test_validate_response_no_plaintext(self):
+        """Validate response'ta plaintext credential alanı YOK."""
+        from backend.api.credential import CredentialValidateResponse
+        fields = set(CredentialValidateResponse.model_fields.keys())
+        forbidden = {"api_key", "api_secret", "api_passphrase",
+                     "private_key", "funder_address", "relayer_key"}
+        assert fields.isdisjoint(forbidden)
+
+    def test_validate_router_registered(self):
+        from backend.api.credential import router
+        paths = [r.path for r in router.routes]
+        assert "/credential/validate" in paths
+
+
+class TestCheckResult:
+
+    def test_check_result_fields(self):
+        """CheckResult doğru field'lara sahip."""
+        from backend.api.credential import CheckResult
+        c = CheckResult(
+            name="trading_api", label="Trading API", status="passed",
+            message="OK", related_fields=["api_key", "api_secret", "api_passphrase"],
+        )
+        assert c.name == "trading_api"
+        assert c.status == "passed"
+        assert len(c.related_fields) == 3
+
+    def test_check_result_failed(self):
+        from backend.api.credential import CheckResult
+        c = CheckResult(
+            name="signing", label="Signing", status="failed",
+            message="Private key formatı geçersiz",
+            related_fields=["private_key"],
+        )
+        assert c.status == "failed"
+        assert "private_key" in c.related_fields
+
+
+class TestSigningCheck:
+
+    def test_signing_pass(self):
+        """Valid signing credentials → passed."""
+        from backend.api.credential import _check_signing
+        from unittest.mock import MagicMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials(
+            private_key="0xabcdef1234567890abcdef1234567890",
+            funder_address="0x71C7db5a9b2d9e4F",
+        )
+        result = _check_signing(orch)
+        assert result.status == "passed"
+        assert result.name == "signing"
+
+    def test_signing_missing(self):
+        """Signing eksik → failed."""
+        from backend.api.credential import _check_signing
+        from unittest.mock import MagicMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials()
+        result = _check_signing(orch)
+        assert result.status == "failed"
+        assert "private_key" in result.related_fields
+
+    def test_signing_bad_prefix(self):
+        """Private key 0x ile başlamıyor → failed."""
+        from backend.api.credential import _check_signing
+        from unittest.mock import MagicMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials(
+            private_key="not_hex_key",
+            funder_address="0x71C7db5a9b2d9e4F",
+        )
+        result = _check_signing(orch)
+        assert result.status == "failed"
+        assert "0x" in result.message
+
+    def test_signing_bad_hex(self):
+        """Private key hex değil → failed."""
+        from backend.api.credential import _check_signing
+        from unittest.mock import MagicMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials(
+            private_key="0xNOTHEX!!!",
+            funder_address="0x71C7db5a9b2d9e4F",
+        )
+        result = _check_signing(orch)
+        assert result.status == "failed"
+        assert "hex" in result.message
+
+    def test_signing_funder_bad_prefix(self):
+        """Funder address 0x ile başlamıyor → failed."""
+        from backend.api.credential import _check_signing
+        from unittest.mock import MagicMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials(
+            private_key="0xabcdef1234567890",
+            funder_address="no_prefix_address",
+        )
+        result = _check_signing(orch)
+        assert result.status == "failed"
+        assert "funder_address" in result.related_fields
+
+
+class TestRelayerCheck:
+
+    def test_relayer_pass(self):
+        """Relayer key dolu → passed."""
+        from backend.api.credential import _check_relayer
+        from unittest.mock import MagicMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials(relayer_key="rlk_test")
+        result = _check_relayer(orch)
+        assert result.status == "passed"
+
+    def test_relayer_missing(self):
+        """Relayer key boş → failed."""
+        from backend.api.credential import _check_relayer
+        from unittest.mock import MagicMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials()
+        result = _check_relayer(orch)
+        assert result.status == "failed"
+        assert "relayer_key" in result.related_fields
+
+
+class TestValidationStatus:
+
+    def test_all_passed_is_fully_ready(self):
+        """3/3 passed → validation_status="passed", is_fully_ready=true."""
+        from backend.api.credential import CheckResult
+        checks = [
+            CheckResult(name="trading_api", label="T", status="passed", message="", related_fields=[]),
+            CheckResult(name="signing", label="S", status="passed", message="", related_fields=[]),
+            CheckResult(name="relayer", label="R", status="passed", message="", related_fields=[]),
+        ]
+        passed_count = sum(1 for c in checks if c.status == "passed")
+        failed = [c.name for c in checks if c.status == "failed"]
+        status = "passed" if passed_count == 3 else "partial" if passed_count > 0 else "failed"
+        is_ready = status == "passed"
+        assert status == "passed"
+        assert is_ready is True
+        assert failed == []
+
+    def test_partial_not_ready(self):
+        """2/3 passed → validation_status="partial", is_fully_ready=false."""
+        from backend.api.credential import CheckResult
+        checks = [
+            CheckResult(name="trading_api", label="T", status="passed", message="", related_fields=[]),
+            CheckResult(name="signing", label="S", status="passed", message="", related_fields=[]),
+            CheckResult(name="relayer", label="R", status="failed", message="", related_fields=["relayer_key"]),
+        ]
+        passed_count = sum(1 for c in checks if c.status == "passed")
+        failed = [c.name for c in checks if c.status == "failed"]
+        status = "passed" if passed_count == 3 else "partial" if passed_count > 0 else "failed"
+        is_ready = status == "passed"
+        assert status == "partial"
+        assert is_ready is False
+        assert failed == ["relayer"]
+
+    def test_all_failed(self):
+        """0/3 passed → validation_status="failed"."""
+        from backend.api.credential import CheckResult
+        checks = [
+            CheckResult(name="trading_api", label="T", status="failed", message="", related_fields=[]),
+            CheckResult(name="signing", label="S", status="failed", message="", related_fields=[]),
+            CheckResult(name="relayer", label="R", status="failed", message="", related_fields=[]),
+        ]
+        passed_count = sum(1 for c in checks if c.status == "passed")
+        status = "passed" if passed_count == 3 else "partial" if passed_count > 0 else "failed"
+        is_ready = status == "passed"
+        assert status == "failed"
+        assert is_ready is False

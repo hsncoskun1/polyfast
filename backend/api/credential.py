@@ -248,9 +248,206 @@ async def credential_status():
         has_relayer=has_relayer,
         can_place_orders=can_place_orders,
         can_auto_claim=can_auto_claim,
-        validated=False,              # validate endpoint henüz yok
+        validated=False,              # status endpoint validate çalıştırmaz
         validation_status="not_run",
-        failed_checks=[],             # validate endpoint sonrası dolacak
+        failed_checks=[],
         is_fully_ready=False,         # validate passed olmadan false
         masked_fields=_mask_credentials(creds),
+    )
+
+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Validate endpoint                                            ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+class CheckResult(BaseModel):
+    """Tek validation adımının sonucu."""
+    name: str                      # "trading_api" | "signing" | "relayer"
+    label: str                     # "Trading API" | "Signing" | "Relayer"
+    status: str                    # "passed" | "failed" | "skipped"
+    message: str                   # insana okunur açıklama
+    related_fields: list[str]      # ["api_key", "api_secret", "api_passphrase"]
+
+
+class CredentialValidateResponse(BaseModel):
+    """Validate sonucu — gerçek API check + capability özeti."""
+    validated: bool
+    validation_status: str         # "passed" | "partial" | "failed"
+    checks: list[CheckResult]
+    failed_checks: list[str]       # kısayol: ["signing"]
+    has_trading_api: bool
+    has_signing: bool
+    has_relayer: bool
+    can_place_orders: bool
+    can_auto_claim: bool
+    is_fully_ready: bool           # sadece validation_status=="passed" ise true
+    message: str
+
+
+async def _check_trading_api(orch) -> CheckResult:
+    """Trading API doğrulaması — fetch_balance ile gerçek API call."""
+    creds = orch.credential_store.credentials
+    if not creds.has_trading_credentials():
+        return CheckResult(
+            name="trading_api", label="Trading API", status="failed",
+            message="Trading credential eksik (api_key, api_secret, api_passphrase)",
+            related_fields=["api_key", "api_secret", "api_passphrase"],
+        )
+    try:
+        from backend.auth_clients.trading_client import AuthenticatedTradingClient
+        client = AuthenticatedTradingClient(
+            credential_store=orch.credential_store,
+            timeout_seconds=10.0,
+            retry_max=1,
+        )
+        result = await client.fetch_balance()
+        if result is not None:
+            return CheckResult(
+                name="trading_api", label="Trading API", status="passed",
+                message="API bağlantısı başarılı",
+                related_fields=["api_key", "api_secret", "api_passphrase"],
+            )
+        return CheckResult(
+            name="trading_api", label="Trading API", status="failed",
+            message="API yanıt verdi ama veri boş",
+            related_fields=["api_key", "api_secret", "api_passphrase"],
+        )
+    except Exception as e:
+        # Plaintext credential LOGLANMAZ — sadece hata türü
+        err_type = type(e).__name__
+        return CheckResult(
+            name="trading_api", label="Trading API", status="failed",
+            message=f"API bağlantısı başarısız: {err_type}",
+            related_fields=["api_key", "api_secret", "api_passphrase"],
+        )
+
+
+def _check_signing(orch) -> CheckResult:
+    """Signing doğrulaması — private_key format + funder_address check."""
+    creds = orch.credential_store.credentials
+    if not creds.has_signing_credentials():
+        return CheckResult(
+            name="signing", label="Signing", status="failed",
+            message="Signing credential eksik (private_key, funder_address)",
+            related_fields=["private_key", "funder_address"],
+        )
+    # Format check: private_key should start with 0x and be hex
+    pk = creds.private_key
+    if not pk.startswith("0x"):
+        return CheckResult(
+            name="signing", label="Signing", status="failed",
+            message="Private key 0x ile başlamalı",
+            related_fields=["private_key"],
+        )
+    try:
+        int(pk[2:], 16)  # hex format check
+    except ValueError:
+        return CheckResult(
+            name="signing", label="Signing", status="failed",
+            message="Private key geçersiz hex formatı",
+            related_fields=["private_key"],
+        )
+    # funder_address format check
+    fa = creds.funder_address
+    if not fa.startswith("0x"):
+        return CheckResult(
+            name="signing", label="Signing", status="failed",
+            message="Funder address 0x ile başlamalı",
+            related_fields=["funder_address"],
+        )
+    return CheckResult(
+        name="signing", label="Signing", status="passed",
+        message="İmza bilgileri doğru formatta",
+        related_fields=["private_key", "funder_address"],
+    )
+
+
+def _check_relayer(orch) -> CheckResult:
+    """Relayer doğrulaması — presence check (gerçek API call ileride)."""
+    creds = orch.credential_store.credentials
+    if not creds.has_relayer_credentials():
+        return CheckResult(
+            name="relayer", label="Relayer", status="failed",
+            message="Relayer key eksik",
+            related_fields=["relayer_key"],
+        )
+    # Presence check yeterli — gerçek relayer API call ileride eklenecek
+    return CheckResult(
+        name="relayer", label="Relayer", status="passed",
+        message="Relayer key mevcut",
+        related_fields=["relayer_key"],
+    )
+
+
+@router.post("/credential/validate", response_model=CredentialValidateResponse)
+async def credential_validate():
+    """Credential doğrulama — gerçek API check + capability özeti.
+
+    3 adım:
+    1. Trading API — fetch_balance ile gerçek API call
+    2. Signing — private_key + funder_address format check
+    3. Relayer — relayer_key presence check
+
+    Plaintext LOGLANMAZ, response'ta DÖNMEZ.
+    """
+    orch = _get_orchestrator()
+    if orch is None:
+        raise HTTPException(status_code=503, detail="Orchestrator not initialized")
+
+    # 3 check çalıştır
+    trading_check = await _check_trading_api(orch)
+    signing_check = _check_signing(orch)
+    relayer_check = _check_relayer(orch)
+
+    checks = [trading_check, signing_check, relayer_check]
+    failed = [c.name for c in checks if c.status == "failed"]
+    passed_count = sum(1 for c in checks if c.status == "passed")
+
+    # validation_status semantiği
+    if passed_count == 3:
+        validation_status = "passed"
+    elif passed_count == 0:
+        validation_status = "failed"
+    else:
+        validation_status = "partial"
+
+    is_fully_ready = validation_status == "passed"
+
+    # Capability flags
+    creds = orch.credential_store.credentials
+    has_trading_api = creds.has_trading_credentials()
+    has_signing = creds.has_signing_credentials()
+    has_relayer = creds.has_relayer_credentials()
+    can_place_orders = has_trading_api and has_signing and trading_check.status == "passed" and signing_check.status == "passed"
+    can_auto_claim = can_place_orders and has_relayer and relayer_check.status == "passed"
+
+    # Mesaj
+    if is_fully_ready:
+        msg = "Tüm bilgiler doğrulandı"
+    elif validation_status == "partial":
+        msg = f"Kısmi doğrulama: {', '.join(failed)} başarısız"
+    else:
+        msg = "Doğrulama başarısız — bilgileri kontrol edin"
+
+    # Log — plaintext YOK
+    log_event(
+        logger, logging.INFO,
+        f"Credential validate: status={validation_status}, "
+        f"failed={failed}, is_fully_ready={is_fully_ready}",
+        entity_type="credential",
+        entity_id="validate",
+    )
+
+    return CredentialValidateResponse(
+        validated=True,
+        validation_status=validation_status,
+        checks=checks,
+        failed_checks=failed,
+        has_trading_api=has_trading_api,
+        has_signing=has_signing,
+        has_relayer=has_relayer,
+        can_place_orders=can_place_orders,
+        can_auto_claim=can_auto_claim,
+        is_fully_ready=is_fully_ready,
+        message=msg,
     )
