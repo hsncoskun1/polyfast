@@ -294,7 +294,7 @@ class CredentialValidateResponse(BaseModel):
 
 
 async def _check_trading_api(orch) -> CheckResult:
-    """Trading API doğrulaması — fetch_balance ile gerçek API call."""
+    """Trading API doğrulaması — CLOB API auth check ile gerçek HTTP call."""
     creds = orch.credential_store.credentials
     if not creds.has_trading_credentials():
         return CheckResult(
@@ -303,24 +303,37 @@ async def _check_trading_api(orch) -> CheckResult:
             related_fields=["api_key", "api_secret", "api_passphrase"],
         )
     try:
-        from backend.auth_clients.trading_client import AuthenticatedTradingClient
-        client = AuthenticatedTradingClient(
-            credential_store=orch.credential_store,
-            timeout_seconds=10.0,
-            retry_max=1,
-        )
-        result = await client.fetch_balance()
-        if result is not None:
+        import httpx
+        headers = orch.credential_store.get_trading_headers()
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://clob.polymarket.com/auth/api-keys",
+                headers=headers,
+            )
+        if resp.status_code == 200:
             return CheckResult(
                 name="trading_api", label="Trading API", status="passed",
                 message="API bağlantısı başarılı",
                 related_fields=["api_key", "api_secret", "api_passphrase"],
             )
-        return CheckResult(
-            name="trading_api", label="Trading API", status="failed",
-            message="API yanıt verdi ama veri boş",
-            related_fields=["api_key", "api_secret", "api_passphrase"],
-        )
+        elif resp.status_code in (401, 403):
+            return CheckResult(
+                name="trading_api", label="Trading API", status="failed",
+                message="API anahtarları geçersiz — bilgileri kontrol edin",
+                related_fields=["api_key", "api_secret", "api_passphrase"],
+            )
+        elif resp.status_code == 429:
+            return CheckResult(
+                name="trading_api", label="Trading API", status="failed",
+                message="Çok fazla istek — biraz bekleyip tekrar deneyin",
+                related_fields=["api_key", "api_secret", "api_passphrase"],
+            )
+        else:
+            return CheckResult(
+                name="trading_api", label="Trading API", status="failed",
+                message=f"API yanıt kodu: {resp.status_code}",
+                related_fields=["api_key", "api_secret", "api_passphrase"],
+            )
     except Exception as e:
         # Plaintext credential LOGLANMAZ — sadece hata sınıfı
         from backend.auth_clients.errors import ClientError, ErrorCategory

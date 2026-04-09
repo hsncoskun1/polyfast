@@ -579,106 +579,97 @@ class TestValidationStatus:
 # ╚══════════════════════════════════════════════════════════════╝
 
 class TestTradingApiErrorClassification:
-    """Trading API error handling — category-based messages."""
+    """Trading API error handling — HTTP status-based messages."""
+
+    def _orch_with_creds(self):
+        from unittest.mock import MagicMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials(
+            api_key="k", api_secret="s", api_passphrase="p",
+        )
+        orch.credential_store.get_trading_headers.return_value = {
+            "POLY_API_KEY": "k", "POLY_SIGNATURE": "s", "POLY_PASSPHRASE": "p",
+        }
+        return orch
 
     @pytest.mark.asyncio
     async def test_trading_auth_error(self):
-        """Auth error → 'API anahtarları geçersiz'."""
+        """401 → 'API anahtarları geçersiz'."""
         from backend.api.credential import _check_trading_api
-        from backend.auth_clients.errors import ClientError, ErrorCategory
-        from unittest.mock import MagicMock, AsyncMock
-        orch = MagicMock()
-        orch.credential_store.credentials = Credentials(
-            api_key="k", api_secret="s", api_passphrase="p",
-        )
-        # Mock trading client to raise auth error
-        import backend.api.credential as cred_mod
-        original = cred_mod.__dict__.get('_check_trading_api')
-
-        # Direct test: mock the import path
-        mock_client_cls = MagicMock()
-        mock_client_cls.return_value.fetch_balance = AsyncMock(
-            side_effect=ClientError("auth fail", category=ErrorCategory.AUTH)
-        )
-        import backend.auth_clients.trading_client as tc_mod
-        old_cls = tc_mod.AuthenticatedTradingClient
-        tc_mod.AuthenticatedTradingClient = mock_client_cls
-        try:
+        from unittest.mock import patch, AsyncMock, MagicMock
+        orch = self._orch_with_creds()
+        mock_resp = MagicMock(status_code=401)
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        with patch('httpx.AsyncClient', return_value=mock_client):
             result = await _check_trading_api(orch)
-            assert result.status == "failed"
-            assert "geçersiz" in result.message
-        finally:
-            tc_mod.AuthenticatedTradingClient = old_cls
+        assert result.status == "failed"
+        assert "geçersiz" in result.message
 
     @pytest.mark.asyncio
     async def test_trading_network_error(self):
-        """Network error → 'Bağlantı kurulamadı'."""
+        """ConnectionError → 'Bağlantı kurulamadı'."""
         from backend.api.credential import _check_trading_api
-        from unittest.mock import MagicMock, AsyncMock
-        orch = MagicMock()
-        orch.credential_store.credentials = Credentials(
-            api_key="k", api_secret="s", api_passphrase="p",
-        )
-        mock_client_cls = MagicMock()
-        mock_client_cls.return_value.fetch_balance = AsyncMock(
-            side_effect=ConnectionError("connection refused")
-        )
-        import backend.auth_clients.trading_client as tc_mod
-        old_cls = tc_mod.AuthenticatedTradingClient
-        tc_mod.AuthenticatedTradingClient = mock_client_cls
-        try:
+        from unittest.mock import patch, AsyncMock
+        orch = self._orch_with_creds()
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(side_effect=ConnectionError("refused"))
+        with patch('httpx.AsyncClient', return_value=mock_client):
             result = await _check_trading_api(orch)
-            assert result.status == "failed"
-            assert "Bağlantı" in result.message
-        finally:
-            tc_mod.AuthenticatedTradingClient = old_cls
+        assert result.status == "failed"
+        assert "Bağlantı" in result.message
 
     @pytest.mark.asyncio
     async def test_trading_timeout_error(self):
-        """Timeout → 'zaman aşımı'."""
+        """TimeoutError → 'zaman aşımı'."""
         from backend.api.credential import _check_trading_api
-        from unittest.mock import MagicMock, AsyncMock
+        from unittest.mock import patch, AsyncMock
         import asyncio as aio
-        orch = MagicMock()
-        orch.credential_store.credentials = Credentials(
-            api_key="k", api_secret="s", api_passphrase="p",
-        )
-        mock_client_cls = MagicMock()
-        mock_client_cls.return_value.fetch_balance = AsyncMock(
-            side_effect=aio.TimeoutError()
-        )
-        import backend.auth_clients.trading_client as tc_mod
-        old_cls = tc_mod.AuthenticatedTradingClient
-        tc_mod.AuthenticatedTradingClient = mock_client_cls
-        try:
+        orch = self._orch_with_creds()
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(side_effect=aio.TimeoutError())
+        with patch('httpx.AsyncClient', return_value=mock_client):
             result = await _check_trading_api(orch)
-            assert result.status == "failed"
-            assert "zaman aşımı" in result.message.lower()
-        finally:
-            tc_mod.AuthenticatedTradingClient = old_cls
+        assert result.status == "failed"
+        assert "zaman aşımı" in result.message.lower()
 
     @pytest.mark.asyncio
     async def test_trading_success(self):
-        """Başarılı balance fetch → passed."""
+        """200 → passed."""
         from backend.api.credential import _check_trading_api
-        from unittest.mock import MagicMock, AsyncMock
-        orch = MagicMock()
-        orch.credential_store.credentials = Credentials(
-            api_key="k", api_secret="s", api_passphrase="p",
-        )
-        mock_client_cls = MagicMock()
-        mock_client_cls.return_value.fetch_balance = AsyncMock(
-            return_value={"balance": "100.00"}
-        )
-        import backend.auth_clients.trading_client as tc_mod
-        old_cls = tc_mod.AuthenticatedTradingClient
-        tc_mod.AuthenticatedTradingClient = mock_client_cls
-        try:
+        from unittest.mock import patch, AsyncMock, MagicMock
+        orch = self._orch_with_creds()
+        mock_resp = MagicMock(status_code=200)
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        with patch('httpx.AsyncClient', return_value=mock_client):
             result = await _check_trading_api(orch)
-            assert result.status == "passed"
-            assert "başarılı" in result.message
-        finally:
-            tc_mod.AuthenticatedTradingClient = old_cls
+        assert result.status == "passed"
+        assert "başarılı" in result.message
+
+    @pytest.mark.asyncio
+    async def test_trading_rate_limit(self):
+        """429 → 'Çok fazla istek'."""
+        from backend.api.credential import _check_trading_api
+        from unittest.mock import patch, AsyncMock, MagicMock
+        orch = self._orch_with_creds()
+        mock_resp = MagicMock(status_code=429)
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        with patch('httpx.AsyncClient', return_value=mock_client):
+            result = await _check_trading_api(orch)
+        assert result.status == "failed"
+        assert "fazla istek" in result.message
 
     @pytest.mark.asyncio
     async def test_trading_missing_creds(self):
