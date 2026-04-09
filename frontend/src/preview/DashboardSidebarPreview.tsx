@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v49',
+  'composition-v50',
   `
 .dsp-root {
   display: flex;
@@ -399,11 +399,31 @@ ensureStyles(
 
 .dsp-loading-banner {
   padding: 8px 18px;
-  background: ${COLOR.brandSoft};
-  border-bottom: 1px solid ${COLOR.borderStrong};
+  background: ${COLOR.cyanSoft};
+  border-bottom: 1px solid ${COLOR.cyan};
   font-size: ${FONT.size.sm};
-  color: ${COLOR.text};
+  color: ${COLOR.cyan};
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: ${FONT.weight.semibold};
+}
+.dsp-loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid ${COLOR.cyan};
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: dsp-loading-spin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes dsp-loading-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dsp-loading-spinner { animation: none !important; }
 }
 .dsp-error-banner {
   padding: 8px 18px;
@@ -713,7 +733,10 @@ export default function DashboardSidebarPreview({
       <div className={`dsp-main tab-${mainTab}`}>
 
         {data.loading && (
-          <div className="dsp-loading-banner">Veri yükleniyor…</div>
+          <div className="dsp-loading-banner">
+            <span className="dsp-loading-spinner" aria-hidden />
+            <span>Veri yükleniyor…</span>
+          </div>
         )}
         {!data.loading && data.errorStreak >= 3 && (
           <div className="dsp-error-banner">
