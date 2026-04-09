@@ -56,6 +56,29 @@ class SettingsStore:
         self.set(settings)  # in-memory + _persist() → SQLite
         return settings
 
+    def update_settings(self, symbol: str, **fields) -> CoinSettings:
+        """Partial update — sadece gelen field'ları güncelle, coin_enabled dokunma.
+
+        Coin yoksa yeni CoinSettings oluşturur (coin_enabled=false default).
+        coin_enabled fields'ta gelse bile ignore edilir.
+        set() çağrısı ile in-memory + persist zinciri otomatik tetiklenir.
+        """
+        sym = symbol.upper()
+        existing = self.get(sym)
+        if existing is None:
+            existing = CoinSettings(coin=sym)
+
+        # coin_enabled asla bu endpoint'ten değişmez
+        fields.pop('coin_enabled', None)
+        fields.pop('coin', None)
+
+        for key, value in fields.items():
+            if hasattr(existing, key):
+                setattr(existing, key, value)
+
+        self.set(existing)  # in-memory + _persist() → SQLite
+        return existing
+
     @property
     def total_count(self) -> int:
         return len(self._settings)
