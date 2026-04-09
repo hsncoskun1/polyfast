@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary, ClaimSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v40',
+  'openrail-v41',
   `
 .dsp-orail {
   width: 100%;
@@ -675,6 +675,9 @@ function ClaimCard({
         <span className="dsp-ocard-pct" style={{ color: toneColor }}>
           {label}
         </span>
+        <span className="dsp-ocard-usd" style={{ color: toneColor }}>
+          {payout}
+        </span>
       </div>
 
       <div className="dsp-ocard-cells">
@@ -685,10 +688,6 @@ function ClaimCard({
         <div className="dsp-ocard-cell">
           <span className="dsp-ocard-cell-lbl">Sonraki</span>
           <span className="dsp-ocard-cell-val">{nextText}</span>
-        </div>
-        <div className="dsp-ocard-cell">
-          <span className="dsp-ocard-cell-lbl">Tahsil</span>
-          <span className="dsp-ocard-cell-val" style={{ color: toneColor }}>{payout}</span>
         </div>
       </div>
     </div>
