@@ -1,6 +1,7 @@
-"""Credential action API — save/update credentials.
+"""Credential action API — save/update + status.
 
-POST /api/credential/update → 6 alan kaydet + presence check + capability özeti
+POST /api/credential/update  → 6 alan kaydet + presence check + capability özeti
+GET  /api/credential/status  → maskeli alanlar + capability + validation durumu
 
 Güvenlik kuralları (CLAUDE.md):
 - Credential plaintext LOGLANMAZ
@@ -168,3 +169,88 @@ async def credential_update(body: CredentialUpdateRequest):
         msg = f"Credential kaydedildi — {len(missing)} eksik alan: {', '.join(missing)}"
 
     return _build_response(creds, missing, msg)
+
+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Status endpoint                                              ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+class CredentialStatusResponse(BaseModel):
+    """Credential durumu — maskeli alanlar + capability + validation."""
+    has_any: bool                       # herhangi bir alan dolu mu
+    has_trading_api: bool
+    has_signing: bool
+    has_relayer: bool
+    can_place_orders: bool
+    can_auto_claim: bool
+    validated: bool
+    validation_status: str              # "not_run" | "passed" | "partial" | "failed"
+    failed_checks: list[str]            # ["signing", "relayer"] — validate sonrası dolar
+    is_fully_ready: bool
+    masked_fields: dict[str, str]       # alan adı → maskeli değer
+
+
+def _mask(value: str, prefix: int = 4, suffix: int = 4) -> str:
+    """Credential alanını maskele — plaintext DÖNMEZ.
+
+    Boş alan → "" (doldurulmamış).
+    Kısa alan → "****" (prefix+suffix sığmıyorsa).
+    Normal alan → ilk N + **** + son N.
+    """
+    if not value:
+        return ""
+    if len(value) <= prefix + suffix + 4:
+        return "****"
+    return value[:prefix] + "****" + value[-suffix:]
+
+
+def _mask_credentials(creds: Credentials) -> dict[str, str]:
+    """Tüm credential alanlarını maskele."""
+    return {
+        "api_key": _mask(creds.api_key),
+        "api_secret": _mask(creds.api_secret, prefix=0, suffix=0) if creds.api_secret else "",
+        "api_passphrase": "****" if creds.api_passphrase else "",
+        "private_key": _mask(creds.private_key),
+        "funder_address": _mask(creds.funder_address, prefix=6, suffix=4),
+        "relayer_key": _mask(creds.relayer_key),
+    }
+
+
+@router.get("/credential/status", response_model=CredentialStatusResponse)
+async def credential_status():
+    """Credential durumu — maskeli gösterim + capability özeti.
+
+    - Plaintext credential DÖNMEZ — sadece maskeli versiyon
+    - Frontend Kaydet/Güncelle kararı için has_any kullanır
+    - Maskeli alanlar input placeholder'ı olarak gösterilir
+    """
+    orch = _get_orchestrator()
+    if orch is None:
+        raise HTTPException(status_code=503, detail="Orchestrator not initialized")
+
+    creds = orch.credential_store.credentials
+    has_trading_api = creds.has_trading_credentials()
+    has_signing = creds.has_signing_credentials()
+    has_relayer = creds.has_relayer_credentials()
+    can_place_orders = has_trading_api and has_signing
+    can_auto_claim = can_place_orders and has_relayer
+
+    # has_any: herhangi bir alan dolu mu
+    has_any = bool(
+        creds.api_key or creds.api_secret or creds.api_passphrase
+        or creds.private_key or creds.funder_address or creds.relayer_key
+    )
+
+    return CredentialStatusResponse(
+        has_any=has_any,
+        has_trading_api=has_trading_api,
+        has_signing=has_signing,
+        has_relayer=has_relayer,
+        can_place_orders=can_place_orders,
+        can_auto_claim=can_auto_claim,
+        validated=False,              # validate endpoint henüz yok
+        validation_status="not_run",
+        failed_checks=[],             # validate endpoint sonrası dolacak
+        is_fully_ready=False,         # validate passed olmadan false
+        masked_fields=_mask_credentials(creds),
+    )

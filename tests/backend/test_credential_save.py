@@ -1,8 +1,9 @@
-"""Tests for credential save/update endpoint.
+"""Tests for credential save/update + status endpoints.
 
 Coverage:
 - 6 alan modeli (trading + signing + relayer)
 - missing_fields hesabı
+- status endpoint: maskeli gösterim, has_any, capability
 - capability flags (has_trading_api, has_signing, has_relayer, can_place_orders, can_auto_claim)
 - is_fully_ready semantiği (save sonrası: false)
 - version increment
@@ -218,6 +219,11 @@ class TestCredentialEndpoint:
         paths = [r.path for r in router.routes]
         assert "/credential/update" in paths
 
+    def test_status_router_registered(self):
+        from backend.api.credential import router
+        paths = [r.path for r in router.routes]
+        assert "/credential/status" in paths
+
     def test_request_model_has_6_fields(self):
         """Request model 6 alan içerir."""
         from backend.api.credential import CredentialUpdateRequest
@@ -225,3 +231,130 @@ class TestCredentialEndpoint:
         expected = {"api_key", "api_secret", "api_passphrase",
                     "private_key", "funder_address", "relayer_key"}
         assert expected == fields
+
+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Masking tests                                                ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+class TestMasking:
+
+    def test_mask_normal_string(self):
+        """Normal uzunluk → ilk 4 + **** + son 4."""
+        from backend.api.credential import _mask
+        result = _mask("pk_test_1234567890abcdef")
+        assert result.startswith("pk_t")
+        assert result.endswith("cdef")
+        assert "****" in result
+        assert "1234567890" not in result  # plaintext yok
+
+    def test_mask_short_string(self):
+        """Kısa string → ****."""
+        from backend.api.credential import _mask
+        assert _mask("abc") == "****"
+        assert _mask("12345678") == "****"
+
+    def test_mask_empty_string(self):
+        """Boş string → ""."""
+        from backend.api.credential import _mask
+        assert _mask("") == ""
+
+    def test_mask_custom_prefix_suffix(self):
+        """Custom prefix/suffix."""
+        from backend.api.credential import _mask
+        result = _mask("0x71C7db5a9b2d9e4F", prefix=6, suffix=4)
+        assert result.startswith("0x71C7")
+        assert result.endswith("9e4F")
+        assert "****" in result
+
+    def test_mask_credentials_full(self):
+        """Tam credential → tüm alanlar maskeli."""
+        from backend.api.credential import _mask_credentials
+        masked = _mask_credentials(_full_creds())
+        # Hiçbir alan plaintext olmamalı
+        assert masked["api_key"] != "pk_test_123"
+        assert masked["api_key"] != ""
+        assert masked["private_key"] != "0xabc123def456"
+        assert masked["private_key"] != ""
+        assert masked["api_passphrase"] == "****"  # her zaman ****
+        assert masked["relayer_key"] != "rlk_test_001"
+        assert masked["relayer_key"] != ""
+
+    def test_mask_credentials_empty(self):
+        """Boş credential → tüm alanlar ""."""
+        from backend.api.credential import _mask_credentials
+        masked = _mask_credentials(Credentials())
+        for field_name, value in masked.items():
+            assert value == "", f"{field_name} should be empty, got: {value}"
+
+    def test_mask_credentials_partial(self):
+        """Kısmi credential → dolu alanlar maskeli, boş alanlar ""."""
+        from backend.api.credential import _mask_credentials
+        masked = _mask_credentials(_trading_only())
+        assert masked["api_key"] != ""  # dolu → maskeli
+        assert masked["private_key"] == ""  # boş → ""
+        assert masked["relayer_key"] == ""  # boş → ""
+
+    def test_mask_never_returns_plaintext(self):
+        """Maskeli değer orijinal değeri İÇERMEZ (güvenlik)."""
+        from backend.api.credential import _mask
+        original = "super_secret_key_1234567890"
+        masked = _mask(original)
+        # Masked value should not contain the full original
+        assert original not in masked
+
+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Status response model tests                                  ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+class TestStatusResponseModel:
+
+    def test_status_response_fields(self):
+        """Status response gerekli alanları içerir."""
+        from backend.api.credential import CredentialStatusResponse
+        fields = set(CredentialStatusResponse.model_fields.keys())
+        required = {
+            "has_any", "has_trading_api", "has_signing", "has_relayer",
+            "can_place_orders", "can_auto_claim", "validated",
+            "validation_status", "failed_checks", "is_fully_ready",
+            "masked_fields",
+        }
+        assert required.issubset(fields)
+
+    def test_status_response_no_plaintext(self):
+        """Status response'ta plaintext credential alanı YOK."""
+        from backend.api.credential import CredentialStatusResponse
+        fields = set(CredentialStatusResponse.model_fields.keys())
+        forbidden = {"api_key", "api_secret", "api_passphrase",
+                     "private_key", "funder_address", "relayer_key"}
+        assert fields.isdisjoint(forbidden)
+
+    def test_has_any_false_when_empty(self):
+        """Boş store → has_any=false."""
+        store = CredentialStore()
+        creds = store.credentials
+        has_any = bool(
+            creds.api_key or creds.api_secret or creds.api_passphrase
+            or creds.private_key or creds.funder_address or creds.relayer_key
+        )
+        assert has_any is False
+
+    def test_has_any_true_when_loaded(self):
+        """Credential yüklenmiş → has_any=true."""
+        store = CredentialStore()
+        store.load(_full_creds())
+        creds = store.credentials
+        has_any = bool(
+            creds.api_key or creds.api_secret or creds.api_passphrase
+            or creds.private_key or creds.funder_address or creds.relayer_key
+        )
+        assert has_any is True
+
+    def test_has_any_true_partial(self):
+        """Kısmi credential → has_any=true."""
+        store = CredentialStore()
+        store.load(Credentials(api_key="only_key"))
+        creds = store.credentials
+        has_any = bool(creds.api_key or creds.api_secret)
+        assert has_any is True
