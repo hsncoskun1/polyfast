@@ -18,6 +18,7 @@ from backend.orchestrator.subscription_manager import SubscriptionManager, Subsc
 from backend.orchestrator.evaluation_loop import EvaluationLoop
 from backend.settings.settings_store import SettingsStore
 from backend.settings.coin_settings import CoinSettings, SideMode
+from backend.auth_clients.credential_store import CredentialStore
 from backend.market_data.coin_price_client import CoinPriceClient, CoinPriceStatus
 from backend.market_data.live_price import LivePricePipeline, PriceStatus
 from backend.strategy.engine import RuleEngine
@@ -85,6 +86,38 @@ class TestEligibilityGate:
         result = gate.filter([{"asset": "BTC"}, {"asset": "ETH"}])
         assert len(result.eligible) == 1
         assert len(result.ineligible) == 1
+
+    def test_no_credentials_all_ineligible(self):
+        """Credential yoksa tüm coinler ineligible (no_credentials)."""
+        store = self._make_store_with_btc(enabled=True, configured=True)
+        cred_store = CredentialStore()
+        # Credential yüklenmiyor → has_trading_credentials() = False
+        gate = EligibilityGate(store, credential_store=cred_store)
+        result = gate.filter([{"asset": "BTC"}])
+        assert len(result.eligible) == 0
+        assert len(result.ineligible) == 1
+        assert result.reasons["BTC"] == "no_credentials"
+
+    def test_with_credentials_eligible(self):
+        """Credential varsa normal akış çalışır."""
+        store = self._make_store_with_btc(enabled=True, configured=True)
+        cred_store = CredentialStore()
+        cred_store.load_from_dict({
+            "API_KEY": "test_key",
+            "SECRET": "test_secret",
+            "PASSPHRASE": "test_pass",
+        })
+        gate = EligibilityGate(store, credential_store=cred_store)
+        result = gate.filter([{"asset": "BTC"}])
+        assert len(result.eligible) == 1
+        assert len(result.ineligible) == 0
+
+    def test_no_credential_store_backward_compatible(self):
+        """credential_store=None (eski kullanım) — credential check atlanır."""
+        store = self._make_store_with_btc(enabled=True, configured=True)
+        gate = EligibilityGate(store)  # credential_store yok
+        result = gate.filter([{"asset": "BTC"}])
+        assert len(result.eligible) == 1  # eski davranış korunur
 
 
 # ═══════════════════════════════════════════════════════════════

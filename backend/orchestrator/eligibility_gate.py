@@ -6,6 +6,7 @@ Trade-eligible olmayan event için:
 - Gereksiz kaynak tüketimi YOK
 
 Eligible koşul:
+- Trading credential'lar mevcut (API key + secret + passphrase)
 - CoinSettings mevcut
 - coin_enabled = True
 - is_configured = True (tüm zorunlu alanlar doldurulmuş)
@@ -13,9 +14,11 @@ Eligible koşul:
 
 import logging
 from dataclasses import dataclass
+from typing import Optional
 
 from backend.settings.settings_store import SettingsStore
 from backend.settings.coin_settings import CoinSettings
+from backend.auth_clients.credential_store import CredentialStore
 from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("orchestrator.eligibility")
@@ -32,11 +35,20 @@ class EligibilityResult:
 class EligibilityGate:
     """Trade-eligible event filtreleyici.
 
-    Discovery sonuçlarını alır, CoinSettings'e göre eligible/ineligible ayırır.
+    Discovery sonuçlarını alır, credential + CoinSettings'e göre
+    eligible/ineligible ayırır.
+
+    Credential gate: trading credential yoksa hiçbir coin eligible olamaz.
+    Bu kontrol coin bazlı kontrollerden ÖNCE çalışır.
     """
 
-    def __init__(self, store: SettingsStore):
+    def __init__(
+        self,
+        store: SettingsStore,
+        credential_store: Optional[CredentialStore] = None,
+    ):
         self._store = store
+        self._credential_store = credential_store
 
     def filter(self, discovered_events: list[dict]) -> EligibilityResult:
         """Discovery sonuçlarını eligible/ineligible olarak ayır.
@@ -48,6 +60,26 @@ class EligibilityGate:
         Returns:
             EligibilityResult with eligible/ineligible lists.
         """
+        # Credential gate — trading credential yoksa tüm coinler ineligible
+        if self._credential_store is not None:
+            if not self._credential_store.credentials.has_trading_credentials():
+                reasons = {}
+                for event in discovered_events:
+                    asset = self._extract_asset(event) or str(event)
+                    reasons[asset] = "no_credentials"
+                log_event(
+                    logger, logging.WARNING,
+                    "Credential gate: trading credentials eksik — tüm coinler ineligible",
+                    entity_type="orchestrator",
+                    entity_id="eligibility",
+                    payload={"reason": "no_credentials", "count": len(discovered_events)},
+                )
+                return EligibilityResult(
+                    eligible=[],
+                    ineligible=list(discovered_events),
+                    reasons=reasons,
+                )
+
         eligible = []
         ineligible = []
         reasons = {}

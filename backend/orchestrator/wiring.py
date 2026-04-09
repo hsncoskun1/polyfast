@@ -197,7 +197,10 @@ class Orchestrator:
         )
 
         # ── Orchestrator components ──
-        self.eligibility_gate = EligibilityGate(self.settings_store)
+        self.eligibility_gate = EligibilityGate(
+            self.settings_store,
+            credential_store=self.credential_store,
+        )
         self.subscription_manager = SubscriptionManager(
             self.bridge, self.coin_client, self.ptb_fetcher,
         )
