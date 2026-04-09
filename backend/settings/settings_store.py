@@ -43,6 +43,19 @@ class SettingsStore:
         """Enabled coin listesi (configured olmayabilir)."""
         return [s.coin for s in self._settings.values() if s.coin_enabled]
 
+    def toggle_coin(self, symbol: str) -> CoinSettings | None:
+        """Coin enabled/disabled toggle. Yoksa None döner.
+
+        set() çağrısı ile in-memory + persist zinciri otomatik tetiklenir.
+        İleride explicit set endpoint'e geçişi engellemez.
+        """
+        settings = self.get(symbol)
+        if settings is None:
+            return None
+        settings.coin_enabled = not settings.coin_enabled
+        self.set(settings)  # in-memory + _persist() → SQLite
+        return settings
+
     @property
     def total_count(self) -> int:
         return len(self._settings)

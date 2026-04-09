@@ -106,8 +106,15 @@ class Orchestrator:
             delist_threshold=cfg.discovery.delist_threshold,
         )
 
-        # Settings
-        self.settings_store = SettingsStore()
+        # ── Persistence stores ── (settings_store_db önce, SettingsStore'a inject)
+        self.position_store = PositionStore()
+        self.claim_store = ClaimStore()
+        self.settings_store_db = SettingsStoreDB()
+        self.registry_store = RegistryStore()
+        self.ptb_store = PTBStore()
+
+        # Settings — db_store bağlı: set() çağrısında otomatik SQLite persist
+        self.settings_store = SettingsStore(db_store=self.settings_store_db)
 
         # Strategy
         self.rule_engine = RuleEngine()
@@ -124,13 +131,6 @@ class Orchestrator:
             retry_max=cfg.network.default_retry_max,
         )
         self.discovery_engine = DiscoveryEngine(self.public_client)
-
-        # ── Persistence stores ──
-        self.position_store = PositionStore()
-        self.claim_store = ClaimStore()
-        self.settings_store_db = SettingsStoreDB()
-        self.registry_store = RegistryStore()
-        self.ptb_store = PTBStore()
 
         # ── Trading mode ──
         self.trading_enabled: bool = True  # False = degraded mode
