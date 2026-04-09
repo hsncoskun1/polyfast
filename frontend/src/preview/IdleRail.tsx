@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v9',
+  'idlerail-v10',
   `
 .dsp-irail-list {
   display: grid;
@@ -268,8 +268,34 @@ function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'sett
         ) : (
           <span className="dsp-icard-ticker">SİSTEM</span>
         )}
-        <button type="button" className="dsp-icard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
-        <button type="button" className="dsp-icard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
+        <button
+          type="button"
+          className="dsp-icard-icbtn dollar"
+          title={
+            tile.idle_kind === 'waiting_rules' || tile.idle_kind === 'error'
+              ? 'Önce ayarları tamamla'
+              : 'Coini aktif et'
+          }
+          aria-label="Aktif"
+          onClick={() => {
+            if (tile.idle_kind === 'waiting_rules' || tile.idle_kind === 'error') {
+              window.alert(
+                `${tile.coin ?? 'Coin'} için önce ayarları tamamlaman gerekiyor.\n\nAyarlar tamamlanmadan işlem açılamaz.`
+              );
+              return;
+            }
+            window.alert(`${tile.coin ?? 'Coin'} aktif edilecek — Phase 2`);
+          }}
+        >$</button>
+        <button
+          type="button"
+          className="dsp-icard-icbtn"
+          title="Coin ayarları (yakında)"
+          aria-label="Ayarlar"
+          onClick={() =>
+            window.alert(`${tile.coin ?? 'Coin'} ayarları — modal Phase 2'de eklenecek`)
+          }
+        >⚙</button>
       </div>
 
       <div className="dsp-icard-kind">{KIND_LABEL[tile.idle_kind] ?? tile.idle_kind}</div>

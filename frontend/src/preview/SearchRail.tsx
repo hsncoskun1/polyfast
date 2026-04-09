@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v14',
+  'searchrail-v15',
   `
 .dsp-srail-list {
   display: grid;
@@ -344,8 +344,20 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
             <span>{tile.coin}</span>
             <span className="dsp-scard-ticker-ico" aria-hidden>🔗</span>
           </a>
-          <button type="button" className="dsp-scard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
-          <button type="button" className="dsp-scard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
+          <button
+            type="button"
+            className="dsp-scard-icbtn dollar"
+            title="Coin aktif — aramadan çıkar"
+            aria-label="Aktif"
+            onClick={() => window.alert(`${tile.coin} coinini pasif etmek istiyor musun? — Phase 2`)}
+          >$</button>
+          <button
+            type="button"
+            className="dsp-scard-icbtn"
+            title="Coin ayarları (yakında)"
+            aria-label="Ayarlar"
+            onClick={() => window.alert(`${tile.coin} ayarları — modal Phase 2'de eklenecek`)}
+          >⚙</button>
         </div>
       </div>
 

@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v35',
+  'openrail-v36',
   `
 .dsp-orail {
   width: 100%;
@@ -472,8 +472,20 @@ function OpenCard({ position }: { position: PositionSummary }) {
             <span>{position.asset}</span>
             <span className="dsp-ocard-ticker-ico" aria-hidden>🔗</span>
           </a>
-          <button type="button" className="dsp-ocard-icbtn dollar" title="Aktif" aria-label="Aktif">$</button>
-          <button type="button" className="dsp-ocard-icbtn" title="Ayarlar" aria-label="Ayarlar">⚙</button>
+          <button
+            type="button"
+            className="dsp-ocard-icbtn dollar"
+            title="Pozisyon aktif — kapatmak için SAT"
+            aria-label="Aktif"
+            onClick={() => window.alert(`${position.asset} zaten aktif. Kapatmak için SAT butonunu kullan.`)}
+          >$</button>
+          <button
+            type="button"
+            className="dsp-ocard-icbtn"
+            title="Coin ayarları (yakında)"
+            aria-label="Ayarlar"
+            onClick={() => window.alert(`${position.asset} ayarları — modal Phase 2'de eklenecek`)}
+          >⚙</button>
         </div>
         <div className="dsp-ocard-id-lbl">Tutar</div>
         <div className="dsp-ocard-id-val">{cost}</div>
