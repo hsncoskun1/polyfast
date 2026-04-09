@@ -659,6 +659,35 @@ function sortPositions(positions: PositionSummary[]): PositionSummary[] {
 
 // (Mock cap kaldirildi — tum 19 senaryo gozukuyor, kullanici talebi)
 
+/** Reusable bildirim modal — StopConfirmModal ile aynı stil */
+interface AlertModalProps {
+  icon: string;
+  title: string;
+  body: string;
+  onClose: () => void;
+}
+function AlertModal({ icon, title, body, onClose }: AlertModalProps) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="dsp-modal-overlay" role="presentation">
+      <div className="dsp-modal" role="dialog" aria-modal="true" aria-labelledby="dsp-alert-title">
+        <div className="dsp-modal-header">
+          <div className="dsp-modal-icon">{icon}</div>
+          <div className="dsp-modal-title" id="dsp-alert-title">{title}</div>
+        </div>
+        <div className="dsp-modal-body">{body}</div>
+        <div className="dsp-modal-actions">
+          <button type="button" className="dsp-modal-btn cancel" onClick={onClose}>Tamam</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface StopConfirmModalProps {
   openPositionCount: number;
   onCancel: () => void;
@@ -736,6 +765,9 @@ export default function DashboardSidebarPreview({
   const [mainTab, setMainTab] = useState<'search' | 'idle' | 'settings'>('search');
   // Madde 1.4: stop confirmation modal
   const [stopModalOpen, setStopModalOpen] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ icon: string; title: string; body: string } | null>(null);
+  const showAlert = (icon: string, title: string, body: string) =>
+    setAlertModal({ icon, title, body });
 
   // Mock cap kaldirildi — tum 19 senaryo gosterilir (kullanici talebi)
   const positions: PositionSummary[] = data.positions ?? [];
@@ -854,7 +886,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <SearchRail tiles={search} />
+            <SearchRail tiles={search} onAlert={showAlert} />
           ))}
           {mainTab === 'idle' && (idleOnly.length === 0 ? (
             <EmptyState
@@ -866,7 +898,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <IdleRail tiles={idleOnly} tone="idle" />
+            <IdleRail tiles={idleOnly} tone="idle" onAlert={showAlert} />
           ))}
           {mainTab === 'settings' && (idleSettings.length === 0 ? (
             <EmptyState
@@ -878,7 +910,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <IdleRail tiles={idleSettings} tone="settings" />
+            <IdleRail tiles={idleSettings} tone="settings" onAlert={showAlert} />
           ))}
         </div>
       </div>
@@ -889,6 +921,14 @@ export default function DashboardSidebarPreview({
           openPositionCount={positions.length}
           onCancel={cancelStop}
           onConfirm={confirmStop}
+        />
+      )}
+      {alertModal && (
+        <AlertModal
+          icon={alertModal.icon}
+          title={alertModal.title}
+          body={alertModal.body}
+          onClose={() => setAlertModal(null)}
         />
       )}
     </div>

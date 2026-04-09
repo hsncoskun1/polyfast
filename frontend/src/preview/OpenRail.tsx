@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary, ClaimSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v46',
+  'openrail-v47',
   `
 .dsp-orail {
   width: 100%;
@@ -515,18 +515,16 @@ function OpenCard({ position }: { position: PositionSummary }) {
           </a>
           <button
             type="button"
-            className="dsp-ocard-icbtn dollar"
-            title="Pozisyon aktif — kapatmak için SAT"
-            aria-label="Aktif"
-            onClick={() => window.alert(`${position.asset} zaten aktif. Kapatmak için SAT butonunu kullan.`)}
-          >$</button>
-          <button
-            type="button"
-            className="dsp-ocard-icbtn"
-            title="Coin ayarları (yakında)"
-            aria-label="Ayarlar"
-            onClick={() => window.alert(`${position.asset} ayarları — modal Phase 2'de eklenecek`)}
-          >⚙</button>
+            className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
+            disabled={sellDisabled}
+            title={sellTitle(sellState)}
+            onClick={() => {
+              // eslint-disable-next-line no-console
+              console.log(`[preview] Market FOK sell → ${position.asset}`);
+            }}
+          >
+            {sellLabel(sellState)}
+          </button>
         </div>
         <div className="dsp-ocard-id-lbl">Tutar</div>
         <div className="dsp-ocard-id-val">{cost}</div>
@@ -539,19 +537,6 @@ function OpenCard({ position }: { position: PositionSummary }) {
         <span className="dsp-ocard-usd" style={{ color: pnlFg }}>
           {position.pnl_amount ?? ''}
         </span>
-        <button
-          type="button"
-          className={`dsp-ocard-sell${sellDisabled ? ' disabled' : ''}`}
-          disabled={sellDisabled}
-          title={sellTitle(sellState)}
-          onClick={() => {
-            // Direkt satış — confirm yok, Phase 2'de backend wiring
-            // eslint-disable-next-line no-console
-            console.log(`[preview] Market FOK sell → ${position.asset}`);
-          }}
-        >
-          {sellLabel(sellState)}
-        </button>
       </div>
 
 

@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v11',
+  'idlerail-v12',
   `
 .dsp-irail-list {
   display: grid;
@@ -230,7 +230,7 @@ function renderActivityText(text: string): React.ReactNode[] {
   return parts;
 }
 
-function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'settings' }) {
+function IdleCard({ tile, tone, onAlert }: { tile: IdleTileContract; tone: 'idle' | 'settings'; onAlert?: AlertFn }) {
   const coin = tile.coin ? COIN_FALLBACK[tile.coin] : undefined;
   const coinTone = coin?.tone;
   const bgStyle = coinTone
@@ -279,8 +279,10 @@ function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'sett
           aria-label="Aktif"
           onClick={() => {
             if (tile.idle_kind === 'waiting_rules' || tile.idle_kind === 'error') {
-              window.alert(
-                `${tile.coin ?? 'Coin'} için önce ayarları tamamlaman gerekiyor.\n\nAyarlar tamamlanmadan işlem açılamaz.`
+              onAlert?.(
+                '⚠',
+                `${tile.coin ?? 'Coin'} Aktif Edilemez`,
+                `${tile.coin ?? 'Coin'} için önce ayarları tamamlaman gerekiyor. Ayarlar tamamlanmadan işlem açılamaz.`
               );
               return;
             }
@@ -291,10 +293,10 @@ function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'sett
         <button
           type="button"
           className="dsp-icard-icbtn"
-          title="Coin ayarları (yakında)"
+          title="Coin ayarları"
           aria-label="Ayarlar"
           onClick={() =>
-            window.alert(`${tile.coin ?? 'Coin'} ayarları — modal Phase 2'de eklenecek`)
+            onAlert?.('⚙', `${tile.coin ?? 'Coin'} Ayarları`, `${tile.coin ?? 'Coin'} coin ayarları — modal Phase 2'de eklenecek`)
           }
         >⚙</button>
       </div>
@@ -318,17 +320,21 @@ function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'sett
   );
 }
 
+type AlertFn = (icon: string, title: string, body: string) => void;
+
 export default function IdleRail({
   tiles,
   tone = 'idle',
+  onAlert,
 }: {
   tiles: IdleTileContract[];
   tone?: 'idle' | 'settings';
+  onAlert?: AlertFn;
 }) {
   return (
     <div className="dsp-irail-list">
       {tiles.map((t) => (
-        <IdleCard key={t.tile_id} tile={t} tone={tone} />
+        <IdleCard key={t.tile_id} tile={t} tone={tone} onAlert={onAlert} />
       ))}
     </div>
   );

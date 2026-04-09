@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v16',
+  'searchrail-v17',
   `
 .dsp-srail-list {
   display: grid;
@@ -303,7 +303,7 @@ function pickRule(rules: RuleSpecContract[], label: string): RuleSpecContract | 
   return rules.find((r) => r.label.toLowerCase() === label.toLowerCase().replace(' ', ''));
 }
 
-function SearchCard({ tile }: { tile: SearchTileContract }) {
+function SearchCard({ tile, onAlert }: { tile: SearchTileContract; onAlert?: AlertFn }) {
   const coin = COIN_FALLBACK[tile.coin];
   const passN = tile.rules.filter((r) => r.state === 'pass').length;
   const pnlFg = passN >= 6 ? COLOR.green : passN === 5 ? COLOR.yellow : COLOR.red;
@@ -357,9 +357,9 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
           <button
             type="button"
             className="dsp-scard-icbtn"
-            title="Coin ayarları (yakında)"
+            title="Coin ayarları"
             aria-label="Ayarlar"
-            onClick={() => window.alert(`${tile.coin} ayarları — modal Phase 2'de eklenecek`)}
+            onClick={() => onAlert?.('⚙', `${tile.coin} Ayarları`, `${tile.coin} coin ayarları — modal Phase 2'de eklenecek`)}
           >⚙</button>
         </div>
       </div>
@@ -436,7 +436,9 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
 function passCount(t: SearchTileContract): number {
   return t.rules.filter((r) => r.state === 'pass').length;
 }
-export default function SearchRail({ tiles }: { tiles: SearchTileContract[] }) {
+type AlertFn = (icon: string, title: string, body: string) => void;
+
+export default function SearchRail({ tiles, onAlert }: { tiles: SearchTileContract[]; onAlert?: AlertFn }) {
   const sorted = useMemo(
     () =>
       tiles
@@ -452,7 +454,7 @@ export default function SearchRail({ tiles }: { tiles: SearchTileContract[] }) {
   return (
     <div className="dsp-srail-list">
       {sorted.map((t) => (
-        <SearchCard key={t.tile_id} tile={t} />
+        <SearchCard key={t.tile_id} tile={t} onAlert={onAlert} />
       ))}
     </div>
   );
