@@ -793,26 +793,48 @@ export default function DashboardSidebarPreview({
     ? 'Backend bağlı · 3s polling'
     : `Bağlantı sorunlu · ${data.errorStreak} retry`;
 
-  // Bot action handler — Pause/Stop/Start semantik (madde 1.3)
-  // Stop iken acik pozisyon varsa modal ac (madde 1.4)
-  const handleBotAction = (action: 'start' | 'pause' | 'stop') => {
-    if (action === 'start') {
-      setBotLocalMode('running');
+  // Bot action handler — backend fetch (gerçek mod) veya local sim (mock mod)
+  const handleBotAction = async (action: 'start' | 'pause' | 'stop') => {
+    // Stop iken acik pozisyon varsa modal ac (madde 1.4)
+    if (action === 'stop' && positions.length > 0 && botLocalMode !== 'stopped') {
+      setStopModalOpen(true);
       return;
     }
-    if (action === 'pause') {
-      setBotLocalMode('paused');
+
+    if (mockMode) {
+      // Mock mode — local simulate (backend yok)
+      if (action === 'start') setBotLocalMode('running');
+      else if (action === 'pause') setBotLocalMode('paused');
+      else setBotLocalMode('stopped');
       return;
     }
-    if (action === 'stop') {
-      if (positions.length > 0 && botLocalMode !== 'stopped') {
-        setStopModalOpen(true);
-        return;
-      }
-      setBotLocalMode('stopped');
+
+    // Gerçek backend mode — fetch
+    try {
+      const { botStart, botPause, botStop } = await import('../api/bot');
+      if (action === 'start') await botStart();
+      else if (action === 'pause') await botPause();
+      else await botStop();
+      // State güncelleme: sonraki health poll (3s) otomatik alacak
+      // Ama hızlı feedback için local state de güncelle
+      if (action === 'start') setBotLocalMode('running');
+      else if (action === 'pause') setBotLocalMode('paused');
+      else setBotLocalMode('stopped');
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`Bot ${action} failed:`, err);
     }
   };
-  const confirmStop = () => {
+  const confirmStop = async () => {
+    if (!mockMode) {
+      try {
+        const { botStop } = await import('../api/bot');
+        await botStop();
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Bot stop failed:', err);
+      }
+    }
     setBotLocalMode('stopped');
     setStopModalOpen(false);
   };
