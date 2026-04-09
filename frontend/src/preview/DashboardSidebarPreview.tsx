@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v50',
+  'composition-v51',
   `
 .dsp-root {
   display: flex;
@@ -157,13 +157,16 @@ ensureStyles(
   display: flex;
   flex-direction: column;
   gap: 6px;
-  scrollbar-color: ${COLOR.cyan} transparent;
+  scrollbar-color: var(--dsp-main-tone, ${COLOR.cyan}) transparent;
   scrollbar-width: thin;
 }
 .dsp-content::-webkit-scrollbar { width: 8px; }
 .dsp-content::-webkit-scrollbar-track { background: transparent; }
-.dsp-content::-webkit-scrollbar-thumb { background: ${COLOR.cyan}; border-radius: 4px; }
-.dsp-content::-webkit-scrollbar-thumb:hover { background: #0891b2; }
+.dsp-content::-webkit-scrollbar-thumb {
+  background: var(--dsp-main-tone, ${COLOR.cyan});
+  border-radius: 4px;
+}
+.dsp-content::-webkit-scrollbar-thumb:hover { filter: brightness(0.85); }
 
 /* Section — header + rows (defensive 8 tile fit) */
 .dsp-section {
