@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v13',
+  'searchrail-v14',
   `
 .dsp-srail-list {
   display: grid;
@@ -75,6 +75,8 @@ ensureStyles(
   flex-shrink: 0;
 }
 .dsp-scard-logo img { width: 124%; height: 124%; object-fit: contain; }
+.dsp-scard-link { display: inline-flex; text-decoration: none; cursor: pointer; }
+.dsp-scard-link:hover .dsp-scard-logo { filter: brightness(1.15); }
 
 .dsp-scard-ticker {
   display: inline-flex;
@@ -320,9 +322,17 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
   return (
     <div className={`dsp-scard ${klass}`} style={bgStyle}>
       <div className="dsp-scard-id">
-        <div className="dsp-scard-logo">
-          {coin?.logo_url ? <img src={coin.logo_url} alt={tile.coin} /> : null}
-        </div>
+        <a
+          className="dsp-scard-link"
+          href={tile.event_url ?? '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`${tile.coin} Polymarket event'i aç`}
+        >
+          <div className="dsp-scard-logo">
+            {coin?.logo_url ? <img src={coin.logo_url} alt={tile.coin} /> : null}
+          </div>
+        </a>
         <div className="dsp-scard-id-row">
           <a
             className="dsp-scard-ticker"

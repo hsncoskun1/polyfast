@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v8',
+  'idlerail-v9',
   `
 .dsp-irail-list {
   display: grid;
@@ -74,6 +74,8 @@ ensureStyles(
   flex-shrink: 0;
 }
 .dsp-icard-logo img { width: 124%; height: 124%; object-fit: contain; }
+.dsp-icard-link { display: inline-flex; text-decoration: none; cursor: pointer; }
+.dsp-icard-link:hover .dsp-icard-logo { filter: brightness(1.15); }
 .dsp-icard-ticker {
   display: inline-flex;
   align-items: center;
@@ -237,16 +239,28 @@ function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'sett
   return (
     <div className={`dsp-icard tone-${tone} kind-${tile.idle_kind}`} style={bgStyle}>
       <div className="dsp-icard-id">
-        <div className="dsp-icard-logo">
-          {coin?.logo_url ? <img src={coin.logo_url} alt={tile.coin ?? ''} /> : null}
-        </div>
+        {tile.coin ? (
+          <a
+            className="dsp-icard-link"
+            href={tile.event_url ?? '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`${tile.coin} Polymarket event'i aç`}
+          >
+            <div className="dsp-icard-logo">
+              {coin?.logo_url ? <img src={coin.logo_url} alt={tile.coin} /> : null}
+            </div>
+          </a>
+        ) : (
+          <div className="dsp-icard-logo" />
+        )}
         {tile.coin ? (
           <a
             className="dsp-icard-ticker"
             href={tile.event_url ?? '#'}
             target="_blank"
             rel="noopener noreferrer"
-            title={`${tile.coin} aç`}
+            title={`${tile.coin} Polymarket event'i aç`}
           >
             <span>{tile.coin}</span>
             <span className="dsp-icard-ticker-ico" aria-hidden>🔗</span>

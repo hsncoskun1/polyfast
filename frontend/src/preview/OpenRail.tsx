@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v34',
+  'openrail-v35',
   `
 .dsp-orail {
   width: 100%;
@@ -248,6 +248,8 @@ ensureStyles(
 .dsp-ocard.tone-pending { border-left-color: ${COLOR.yellow}; }
 
 .dsp-ocard-logo img { width: 124%; height: 124%; object-fit: contain; }
+.dsp-ocard-link { display: inline-flex; text-decoration: none; cursor: pointer; }
+.dsp-ocard-link:hover .dsp-ocard-logo { filter: brightness(1.15); }
 .dsp-ocard-cell {
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
@@ -448,9 +450,17 @@ function OpenCard({ position }: { position: PositionSummary }) {
   return (
     <div className={`dsp-ocard tone-${tone}`} style={bgStyle}>
       <div className="dsp-ocard-id">
-        <div className="dsp-ocard-logo">
-          {coin?.logo_url ? <img src={coin.logo_url} alt={position.asset ?? ''} /> : null}
-        </div>
+        <a
+          className="dsp-ocard-link"
+          href={position.event_url ?? '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`${position.asset} Polymarket event'i aç`}
+        >
+          <div className="dsp-ocard-logo">
+            {coin?.logo_url ? <img src={coin.logo_url} alt={position.asset ?? ''} /> : null}
+          </div>
+        </a>
         <div className="dsp-ocard-id-row">
           <a
             className="dsp-ocard-ticker"
