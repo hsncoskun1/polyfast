@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary, ClaimSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v39',
+  'openrail-v40',
   `
 .dsp-orail {
   width: 100%;
@@ -675,9 +675,6 @@ function ClaimCard({
         <span className="dsp-ocard-pct" style={{ color: toneColor }}>
           {label}
         </span>
-        <span className="dsp-ocard-usd" style={{ color: toneColor }}>
-          {payout}
-        </span>
       </div>
 
       <div className="dsp-ocard-cells">
@@ -690,33 +687,8 @@ function ClaimCard({
           <span className="dsp-ocard-cell-val">{nextText}</span>
         </div>
         <div className="dsp-ocard-cell">
-          <span className="dsp-ocard-cell-lbl">Durum</span>
-          <span className="dsp-ocard-cell-val" style={{ color: toneColor }}>{status}</span>
-        </div>
-      </div>
-
-      <div className="dsp-ocard-bottom">
-        <div className="dsp-ocard-exit tp">
-          <span className="dsp-ocard-exit-lbl">Sonuç</span>
-          <span className="dsp-ocard-exit-val" style={{ color: toneColor }}>
-            {status === 'OK' ? 'KAZANÇ' : status === 'FAIL' ? 'KAYIP' : 'BEKLİYOR'}
-          </span>
-        </div>
-        <div className="dsp-ocard-exit sl">
-          <span className="dsp-ocard-exit-lbl">Giriş</span>
-          <span className="dsp-ocard-exit-val">
-            {Math.round((position.fill_price ?? 0) * 100)}
-          </span>
-        </div>
-        <div className="dsp-ocard-exit fs">
-          <span className="dsp-ocard-exit-lbl">Kapanış</span>
-          <span className="dsp-ocard-exit-val">
-            {position.close_reason ? position.close_reason.toUpperCase() : '—'}
-          </span>
-        </div>
-        <div className="dsp-ocard-exit fsp">
-          <span className="dsp-ocard-exit-lbl">Tahsil</span>
-          <span className="dsp-ocard-exit-val" style={{ color: toneColor }}>{payout}</span>
+          <span className="dsp-ocard-cell-lbl">Tahsil</span>
+          <span className="dsp-ocard-cell-val" style={{ color: toneColor }}>{payout}</span>
         </div>
       </div>
     </div>
