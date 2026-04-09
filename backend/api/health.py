@@ -38,6 +38,7 @@ class BotStatusContract(BaseModel):
       paused                → Orchestrator.paused
       uptime_sec            → backend.main.get_uptime()
       latency_ms            → RTDS WS ping metrik
+      paper_mode            → Orchestrator.paper_mode
     """
 
     running: Optional[bool] = None
@@ -48,6 +49,7 @@ class BotStatusContract(BaseModel):
     paused: Optional[bool] = None
     uptime_sec: Optional[int] = None
     latency_ms: Optional[int] = None
+    paper_mode: Optional[bool] = None
 
 
 class HealthResponse(BaseModel):
@@ -86,6 +88,7 @@ def _build_bot_status(uptime_sec: float) -> BotStatusContract:
     restore_phase = getattr(orch, "restore_phase", None)
     shutdown_in_progress = getattr(orch, "shutdown_flag", None)
     paused = getattr(orch, "paused", None)
+    paper_mode = getattr(orch, "paper_mode", None)
 
     # Health: healthy default, orchestrator degraded flag varsa onu kullan
     degraded = getattr(orch, "degraded_mode", False)
@@ -106,6 +109,7 @@ def _build_bot_status(uptime_sec: float) -> BotStatusContract:
         paused=paused,
         uptime_sec=int(uptime_sec),
         latency_ms=None,  # WS latency metrik sonraki adimda
+        paper_mode=paper_mode,
     )
 
 

@@ -98,6 +98,7 @@ export interface BotStatusContract {
   paused?: boolean;
   uptime_sec?: number;
   latency_ms?: number;
+  paper_mode?: boolean;
 }
 
 /** Tek bir rule'un UI ozeti — RuleGrid/RuleBlock kullanir. */

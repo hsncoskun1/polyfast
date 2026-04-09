@@ -134,6 +134,7 @@ class Orchestrator:
 
         # ── Trading mode ──
         self.trading_enabled: bool = True  # False = degraded mode
+        self.paper_mode: bool = True       # True = paper trade, False = live trade
         self._verify_retry_task: asyncio.Task | None = None
         self._verify_retry_running: bool = False
 

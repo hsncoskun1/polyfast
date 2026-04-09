@@ -47,6 +47,7 @@ export const MOCK_HEALTH: HealthResponse = {
     paused: false,
     uptime_sec: 18367,
     latency_ms: 47,
+    paper_mode: true,
   },
 };
 

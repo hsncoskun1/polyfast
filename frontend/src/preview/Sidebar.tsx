@@ -566,7 +566,6 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
     const elapsed = Math.floor((Date.now() - sessionRef.current.startAt) / 1000);
     return sessionRef.current.base + elapsed;
   })();
-  void bot;
 
   // Buton disabled mantigi
   const startDisabled = localMode === 'running';
@@ -603,7 +602,7 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
         </span>
         <span className="dsp-sb-bot-status-time">{statusTime}</span>
       </div>
-      <div className="dsp-sb-bot-paper">📋 PAPER MODE</div>
+      {bot?.paper_mode && <div className="dsp-sb-bot-paper">📋 PAPER MODE</div>}
 
       {/* Segmented control — 3 aksiyon */}
       <div className="dsp-sb-bot-seg">
