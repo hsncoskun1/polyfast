@@ -778,6 +778,34 @@ export default function DashboardSidebarPreview({
   const showAlert = (icon: string, title: string, body: string) =>
     setAlertModal({ icon, title, body });
 
+  // FAZ4-4: coin toggle — fetch sırasında disable + loading hissi
+  const [toggling, setToggling] = useState<Set<string>>(new Set());
+  const handleCoinToggle = async (symbol: string) => {
+    if (mockMode) {
+      // eslint-disable-next-line no-console
+      console.log(`[mock] ${symbol} toggle`);
+      showAlert('$', `${symbol}`, `Mock: ${symbol} toggle — backend yok`);
+      return;
+    }
+    // Fetch sırasında buton disable
+    setToggling((prev) => new Set(prev).add(symbol));
+    try {
+      const { coinToggle } = await import('../api/coin');
+      await coinToggle(symbol);
+      // Başarılı — sonraki poll (3s) tile'ı güncelleyecek
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`Coin toggle failed: ${symbol}`, err);
+      showAlert('⚠', `${symbol} Toggle Hatası`, `${symbol} durumu değiştirilemedi. Tekrar dene.`);
+    } finally {
+      setToggling((prev) => {
+        const next = new Set(prev);
+        next.delete(symbol);
+        return next;
+      });
+    }
+  };
+
   // Mock cap kaldirildi — tum 19 senaryo gosterilir (kullanici talebi)
   const positions: PositionSummary[] = data.positions ?? [];
   const search: SearchTileContract[] = data.search ?? [];
@@ -921,7 +949,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <SearchRail tiles={search} onAlert={showAlert} />
+            <SearchRail tiles={search} onAlert={showAlert} onToggle={handleCoinToggle} toggling={toggling} />
           ))}
           {mainTab === 'idle' && (idleOnly.length === 0 ? (
             <EmptyState
@@ -933,7 +961,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <IdleRail tiles={idleOnly} tone="idle" onAlert={showAlert} />
+            <IdleRail tiles={idleOnly} tone="idle" onAlert={showAlert} onToggle={handleCoinToggle} toggling={toggling} />
           ))}
           {mainTab === 'settings' && (idleSettings.length === 0 ? (
             <EmptyState
@@ -945,7 +973,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <IdleRail tiles={idleSettings} tone="settings" onAlert={showAlert} />
+            <IdleRail tiles={idleSettings} tone="settings" onAlert={showAlert} onToggle={handleCoinToggle} toggling={toggling} />
           ))}
         </div>
       </div>

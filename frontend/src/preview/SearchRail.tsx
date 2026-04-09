@@ -116,6 +116,8 @@ ensureStyles(
 .dsp-scard-icbtn.dollar { background: ${COLOR.greenSoft}; color: ${COLOR.green}; }
 .dsp-scard-icbtn:hover { filter: brightness(1.25); }
 .dsp-scard-icbtn:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
+.dsp-scard-icbtn[disabled] { opacity: 0.4; cursor: default; filter: none; }
+.dsp-scard-icbtn.loading { opacity: 0.4; cursor: wait; }
 .dsp-scard-ticker:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; border-radius: 3px; }
 
 /* Row 1 col 2 — pnl hero (Rule pass 6/6) + status label */
@@ -313,7 +315,7 @@ function pickRule(rules: RuleSpecContract[], label: string): RuleSpecContract | 
   return rules.find((r) => r.label.toLowerCase() === label.toLowerCase().replace(' ', ''));
 }
 
-function SearchCard({ tile, onAlert }: { tile: SearchTileContract; onAlert?: AlertFn }) {
+function SearchCard({ tile, onAlert, onToggle, toggling }: { tile: SearchTileContract; onAlert?: AlertFn; onToggle?: (symbol: string) => void; toggling?: Set<string> }) {
   const coin = COIN_FALLBACK[tile.coin];
   const passN = tile.rules.filter((r) => r.state === 'pass').length;
   const pnlFg = passN >= 6 ? COLOR.green : passN === 5 ? COLOR.yellow : COLOR.red;
@@ -356,13 +358,11 @@ function SearchCard({ tile, onAlert }: { tile: SearchTileContract; onAlert?: Ale
           </a>
           <button
             type="button"
-            className="dsp-scard-icbtn dollar"
+            className={`dsp-scard-icbtn dollar${toggling?.has(tile.coin) ? ' loading' : ''}`}
             title="Coini pasif et (aramadan çıkar)"
             aria-label="Pasif et"
-            onClick={() => {
-              // eslint-disable-next-line no-console
-              console.log(`[preview] ${tile.coin} → pasif (Phase 2 backend)`);
-            }}
+            disabled={toggling?.has(tile.coin)}
+            onClick={() => onToggle?.(tile.coin)}
           >$</button>
           <button
             type="button"
@@ -459,7 +459,7 @@ function passCount(t: SearchTileContract): number {
 }
 type AlertFn = (icon: string, title: string, body: string) => void;
 
-export default function SearchRail({ tiles, onAlert }: { tiles: SearchTileContract[]; onAlert?: AlertFn }) {
+export default function SearchRail({ tiles, onAlert, onToggle, toggling }: { tiles: SearchTileContract[]; onAlert?: AlertFn; onToggle?: (symbol: string) => void; toggling?: Set<string> }) {
   const sorted = useMemo(
     () =>
       tiles
@@ -475,7 +475,7 @@ export default function SearchRail({ tiles, onAlert }: { tiles: SearchTileContra
   return (
     <div className="dsp-srail-list">
       {sorted.map((t) => (
-        <SearchCard key={t.tile_id} tile={t} onAlert={onAlert} />
+        <SearchCard key={t.tile_id} tile={t} onAlert={onAlert} onToggle={onToggle} toggling={toggling} />
       ))}
     </div>
   );

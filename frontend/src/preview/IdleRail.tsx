@@ -109,6 +109,8 @@ ensureStyles(
 }
 .dsp-icard-icbtn.dollar { background: rgba(126,126,146,0.16); color: ${COLOR.textMuted}; }
 .dsp-icard-icbtn:hover { filter: brightness(1.25); }
+.dsp-icard-icbtn[disabled] { opacity: 0.4; cursor: default; filter: none; }
+.dsp-icard-icbtn.loading { opacity: 0.4; cursor: wait; }
 
 /* Inline button pill — activity text içinde token yerine */
 .dsp-icard-inline-btn {
@@ -233,7 +235,7 @@ function renderActivityText(text: string): React.ReactNode[] {
   return parts;
 }
 
-function IdleCard({ tile, tone, onAlert }: { tile: IdleTileContract; tone: 'idle' | 'settings'; onAlert?: AlertFn }) {
+function IdleCard({ tile, tone, onAlert, onToggle, toggling }: { tile: IdleTileContract; tone: 'idle' | 'settings'; onAlert?: AlertFn; onToggle?: (symbol: string) => void; toggling?: Set<string> }) {
   const coin = tile.coin ? COIN_FALLBACK[tile.coin] : undefined;
   const coinTone = coin?.tone;
   const bgStyle = coinTone
@@ -273,24 +275,32 @@ function IdleCard({ tile, tone, onAlert }: { tile: IdleTileContract; tone: 'idle
         )}
         <button
           type="button"
-          className="dsp-icard-icbtn dollar"
+          className={`dsp-icard-icbtn dollar${toggling?.has(tile.coin ?? '') ? ' loading' : ''}`}
           title={
-            tile.idle_kind === 'waiting_rules' || tile.idle_kind === 'error'
-              ? 'Önce ayarları tamamla'
+            tile.idle_kind === 'waiting_rules' ? 'Önce ayarları tamamla'
+              : tile.idle_kind === 'error' ? 'Önce sorunu çöz'
               : 'Coini aktif et'
           }
           aria-label="Aktif"
+          disabled={!tile.coin || toggling?.has(tile.coin ?? '')}
           onClick={() => {
-            if (tile.idle_kind === 'waiting_rules' || tile.idle_kind === 'error') {
+            if (tile.idle_kind === 'waiting_rules') {
               onAlert?.(
                 '⚠',
                 `${tile.coin ?? 'Coin'} Aktif Edilemez`,
-                `${tile.coin ?? 'Coin'} için önce ayarları tamamlaman gerekiyor. Ayarlar tamamlanmadan işlem açılamaz.`
+                `${tile.coin ?? 'Coin'} için önce coin ayarlarını tamamla. Ayarlar tamamlanmadan işlem açılamaz.`
               );
               return;
             }
-            // eslint-disable-next-line no-console
-            console.log(`[preview] ${tile.coin} → aktif (Phase 2 backend)`);
+            if (tile.idle_kind === 'error') {
+              onAlert?.(
+                '⚠',
+                `${tile.coin ?? 'Coin'} Hata Durumunda`,
+                `${tile.coin ?? 'Coin'} şu an hata durumunda, önce sorunu çöz.`
+              );
+              return;
+            }
+            if (tile.coin) onToggle?.(tile.coin);
           }}
         >$</button>
         <button
@@ -329,15 +339,19 @@ export default function IdleRail({
   tiles,
   tone = 'idle',
   onAlert,
+  onToggle,
+  toggling,
 }: {
   tiles: IdleTileContract[];
   tone?: 'idle' | 'settings';
   onAlert?: AlertFn;
+  onToggle?: (symbol: string) => void;
+  toggling?: Set<string>;
 }) {
   return (
     <div className="dsp-irail-list">
       {tiles.map((t) => (
-        <IdleCard key={t.tile_id} tile={t} tone={tone} onAlert={onAlert} />
+        <IdleCard key={t.tile_id} tile={t} tone={tone} onAlert={onAlert} onToggle={onToggle} toggling={toggling} />
       ))}
     </div>
   );
