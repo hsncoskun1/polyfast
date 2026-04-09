@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v10',
+  'idlerail-v11',
   `
 .dsp-irail-list {
   display: grid;
@@ -284,7 +284,8 @@ function IdleCard({ tile, tone }: { tile: IdleTileContract; tone: 'idle' | 'sett
               );
               return;
             }
-            window.alert(`${tile.coin ?? 'Coin'} aktif edilecek — Phase 2`);
+            // eslint-disable-next-line no-console
+            console.log(`[preview] ${tile.coin} → aktif (Phase 2 backend)`);
           }}
         >$</button>
         <button

@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { SearchTileContract, RuleSpecContract } from '../api/dashboard';
 
 ensureStyles(
-  'searchrail-v15',
+  'searchrail-v16',
   `
 .dsp-srail-list {
   display: grid;
@@ -347,9 +347,12 @@ function SearchCard({ tile }: { tile: SearchTileContract }) {
           <button
             type="button"
             className="dsp-scard-icbtn dollar"
-            title="Coin aktif — aramadan çıkar"
-            aria-label="Aktif"
-            onClick={() => window.alert(`${tile.coin} coinini pasif etmek istiyor musun? — Phase 2`)}
+            title="Coini pasif et (aramadan çıkar)"
+            aria-label="Pasif et"
+            onClick={() => {
+              // eslint-disable-next-line no-console
+              console.log(`[preview] ${tile.coin} → pasif (Phase 2 backend)`);
+            }}
           >$</button>
           <button
             type="button"
