@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary, ClaimSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v44',
+  'openrail-v45',
   `
 .dsp-orail {
   width: 100%;
@@ -400,12 +400,11 @@ ensureStyles(
 .dsp-ocard.claim { border-left-color: ${COLOR.yellow}; }
 .dsp-ocard.claim:hover { box-shadow: 0 4px 14px rgba(234, 179, 8, 0.18); border-color: ${COLOR.yellow}; }
 .dsp-ocard.claim .dsp-ocard-bottom { grid-template-columns: 1fr 1fr; }
-/* Claim popover — deneme cell'den yukarı açılan bildirim */
-.dsp-ocard-cell.claim-pop { position: relative; }
+/* Claim popover — deneme exit'ten yukarı, bottom row boyunca */
 .dsp-ocard-claim-pop {
   position: absolute;
   left: 0;
-  right: 0;
+  right: calc(-100% - 6px);
   bottom: calc(100% + 4px);
   padding: 6px 10px;
   border-radius: 7px 7px 0 0;
@@ -714,7 +713,16 @@ function ClaimCard({
       </div>
 
       <div className="dsp-ocard-bottom">
-        <div className={`dsp-ocard-exit tp${status === 'FAIL' || status === 'RETRY' ? ' active claim-pop' : ''}`}>
+        <div
+          className="dsp-ocard-exit"
+          style={
+            status === 'FAIL'
+              ? { position: 'relative', background: COLOR.redSoft, borderColor: COLOR.red }
+              : status === 'RETRY'
+                ? { position: 'relative', background: COLOR.yellowSoft, borderColor: COLOR.yellow }
+                : undefined
+          }
+        >
           <span className="dsp-ocard-exit-lbl">Deneme</span>
           <span className="dsp-ocard-exit-val" style={{ color: toneColor }}>{retryText}</span>
           {status === 'FAIL' && (
