@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary, ClaimSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v41',
+  'openrail-v42',
   `
 .dsp-orail {
   width: 100%;
@@ -399,6 +399,7 @@ ensureStyles(
 /* Claim variant — OpenCard iskeleti, sarı sol border */
 .dsp-ocard.claim { border-left-color: ${COLOR.yellow}; }
 .dsp-ocard.claim:hover { box-shadow: 0 4px 14px rgba(234, 179, 8, 0.18); border-color: ${COLOR.yellow}; }
+.dsp-ocard.claim .dsp-ocard-cells { grid-template-columns: 1fr 1fr; }
 `
 );
 
@@ -682,7 +683,7 @@ function ClaimCard({
 
       <div className="dsp-ocard-cells">
         <div className="dsp-ocard-cell">
-          <span className="dsp-ocard-cell-lbl">Retry</span>
+          <span className="dsp-ocard-cell-lbl">Deneme</span>
           <span className="dsp-ocard-cell-val" style={{ color: toneColor }}>{retryText}</span>
         </div>
         <div className="dsp-ocard-cell">
