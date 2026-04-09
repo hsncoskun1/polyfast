@@ -27,7 +27,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'sidebar-v13',
+  'sidebar-v14',
   `
 .dsp-sidebar {
   width: ${SIZE.sidebarWidth}px;
@@ -113,14 +113,15 @@ ensureStyles(
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 9px 14px;
+  padding: 11px 14px;
   border-radius: ${SIZE.radius}px;
-  font-size: ${FONT.size.md};
+  font-size: ${FONT.size.lg};
   color: ${COLOR.textMuted};
   cursor: default;
   user-select: none;
   border: 1px solid transparent;
-  font-weight: ${FONT.weight.medium};
+  font-weight: ${FONT.weight.semibold};
+  letter-spacing: 0.02em;
 }
 .dsp-sb-nav-item.active {
   background: ${COLOR.cyanSoft};
@@ -131,9 +132,9 @@ ensureStyles(
   opacity: 0.42;
 }
 .dsp-sb-nav-icon {
-  width: 16px;
+  width: 18px;
   text-align: center;
-  font-size: ${FONT.size.lg};
+  font-size: ${FONT.size.xl};
 }
 
 .dsp-sb-spacer { flex: 1; min-height: 12px; }
@@ -170,7 +171,7 @@ ensureStyles(
   50%      { opacity: 0.6;  transform: scale(0.85); }
 }
 .dsp-sb-bot-status-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -178,7 +179,7 @@ ensureStyles(
 }
 .dsp-sb-bot-status-time {
   font-family: ${FONT.mono};
-  font-size: 12px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.textMuted};
   letter-spacing: 0.03em;
@@ -364,15 +365,15 @@ ensureStyles(
   flex-shrink: 0;
 }
 .dsp-sb-health-label {
-  font-size: ${FONT.size.sm};
-  font-weight: ${FONT.weight.semibold};
+  font-size: ${FONT.size.md};
+  font-weight: ${FONT.weight.bold};
   flex: 1;
 }
 .dsp-sb-health-lat {
   font-family: ${FONT.mono};
-  font-size: ${FONT.size.xs};
+  font-size: ${FONT.size.sm};
   color: ${COLOR.textMuted};
-  font-weight: ${FONT.weight.medium};
+  font-weight: ${FONT.weight.semibold};
 }
 `
 );
@@ -480,103 +481,14 @@ function NavList() {
   );
 }
 
-// Bot mode derive — 7 mode + sub text
-interface BotMode {
-  label: string;
-  sub: string; // hero alt satiri (uptime / aciklama)
-  dot: string;
-}
-function deriveBotMode(bot: BotStatusContract | null | undefined): BotMode {
-  if (!bot) {
-    return { label: 'BAĞLANTI YOK', sub: 'Backend yanıt vermiyor', dot: COLOR.textDim };
-  }
-  if (bot.shutdown_in_progress) {
-    return { label: 'KAPANIYOR', sub: 'Shutdown akışı sürüyor', dot: COLOR.red };
-  }
-  if (bot.startup_guard_blocked) {
-    return { label: 'BLOK', sub: 'Startup guard engelliyor', dot: COLOR.red };
-  }
-  if (bot.restore_phase) {
-    return { label: 'RESTORE', sub: 'Recovery devam ediyor', dot: COLOR.cyan };
-  }
-  if (bot.paused) {
-    return {
-      label: 'DURAKLATILDI',
-      sub: `Bekliyor · ${formatUptime(bot.uptime_sec)}`,
-      dot: COLOR.yellow,
-    };
-  }
-  if (bot.running === false) {
-    return { label: 'DURDU', sub: 'Bot başlatılmadı', dot: COLOR.textDim };
-  }
-  if (bot.health === 'degraded') {
-    return {
-      label: 'KISITLI',
-      sub: `Degraded mode · ${formatUptime(bot.uptime_sec)}`,
-      dot: COLOR.yellow,
-    };
-  }
-  if (bot.health === 'critical') {
-    return {
-      label: 'KRITIK',
-      sub: `Critical · ${formatUptime(bot.uptime_sec)}`,
-      dot: COLOR.red,
-    };
-  }
-  return {
-    label: 'NORMAL',
-    sub: `Çalışıyor · ${formatUptime(bot.uptime_sec)}`,
-    dot: COLOR.green,
-  };
-}
-
 function formatUptime(sec: number | null | undefined): string {
   if (sec == null || sec < 0) return '—';
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
-  // Saat:dakika:saniye, runtime tick (madde 1.2)
-  // Saat 3 haneye cikabilir (uzun session: 100sa+)
-  if (h > 0) {
-    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-/**
- * useLiveUptime — bot uptime'i lokal saniyede artir.
- *
- * Hook polling 3s'de yeni `uptime_sec` getirir; biz aralarda lokal
- * tick ile saniye saniye gosteririz. Hook her yeni deger getirdiginde
- * lokal saat sifirlanir ve yeni base'den ileriye gider.
- *
- * Dashboard "yasiyor" hissi icin kritik (madde 1.2).
- */
-function useLiveUptime(serverUptime: number | null | undefined): number | null {
-  const [tick, setTick] = useState<number>(0);
-  const baseRef = useRef<{ server: number; localStart: number } | null>(null);
-
-  // Server her yeni uptime getirdiginde base'i sifirla
-  useEffect(() => {
-    if (serverUptime == null) {
-      baseRef.current = null;
-      return;
-    }
-    baseRef.current = { server: serverUptime, localStart: Date.now() };
-    setTick((t) => t + 1); // ilk render tetikle
-  }, [serverUptime]);
-
-  // Tek sefer mount'ta interval kur — component lifecycle boyunca yasar
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  if (baseRef.current == null) return null;
-  // tick state'ini kullan — re-render trigger (lint memnun olsun)
-  void tick;
-  const elapsedLocal = Math.floor((Date.now() - baseRef.current.localStart) / 1000);
-  return baseRef.current.server + elapsedLocal;
+  if (h > 0) return `${h}sa ${m}dk ${s}sn`;
+  if (m > 0) return `${m}dk ${s}sn`;
+  return `${s}sn`;
 }
 
 /**
@@ -599,25 +511,49 @@ interface BotStatusPanelProps {
 }
 
 function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
-  // Live uptime tick — server polling arasinda saniye saniye artar
-  // PAUSED state: tick durur (lokal donmus uptime gosterilir)
-  // STOPPED state: uptime sifirlanmis gibi gozukmesi icin null verilir
-  const effectiveServerUptime =
-    localMode === 'stopped' ? null : bot?.uptime_sec;
-  const liveUptimeRaw = useLiveUptime(effectiveServerUptime);
-  // PAUSED iken liveUptime yerine son server degerinde sabit kal
-  const liveUptime =
-    localMode === 'paused' ? bot?.uptime_sec ?? null : liveUptimeRaw;
+  // Lokal session tracking — frontend-only lifecycle simülasyonu
+  // - stopped: session null, display '—'
+  // - running (stopped'dan): base=0, startAt=now → sıfırdan say
+  // - paused: base=mevcut elapsed, startAt=now → donmuş
+  // - running (paused'dan): base=donmuş değer, startAt=now → son değerden devam
+  const sessionRef = useRef<{ base: number; startAt: number } | null>(null);
+  const [tick, setTick] = useState(0);
 
-  // Lokal mode'u backend bot objesine ovrride et — deriveBotMode dogru sub uretsin
-  const tickedBot = (() => {
-    if (!bot) return bot;
-    const base = liveUptime != null ? { ...bot, uptime_sec: liveUptime } : { ...bot };
-    if (localMode === 'paused') return { ...base, paused: true, running: true };
-    if (localMode === 'stopped') return { ...base, running: false, paused: false, uptime_sec: 0 };
-    return base;
+  useEffect(() => {
+    if (localMode === 'stopped') {
+      sessionRef.current = null;
+    } else if (localMode === 'running') {
+      if (sessionRef.current == null) {
+        // Stopped → Running: sıfırdan başla
+        sessionRef.current = { base: 0, startAt: Date.now() };
+      } else {
+        // Paused → Running: donmuş base'den devam et
+        sessionRef.current = { base: sessionRef.current.base, startAt: Date.now() };
+      }
+    } else if (localMode === 'paused') {
+      if (sessionRef.current) {
+        const elapsed = Math.floor((Date.now() - sessionRef.current.startAt) / 1000);
+        sessionRef.current = { base: sessionRef.current.base + elapsed, startAt: Date.now() };
+      }
+    }
+    setTick((t) => t + 1);
+  }, [localMode]);
+
+  // Saniye tick — running iken re-render
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const liveUptime = (() => {
+    void tick;
+    if (sessionRef.current == null) return null;
+    if (localMode === 'paused') return sessionRef.current.base;
+    // running
+    const elapsed = Math.floor((Date.now() - sessionRef.current.startAt) / 1000);
+    return sessionRef.current.base + elapsed;
   })();
-  const mode = deriveBotMode(tickedBot);
+  void bot;
 
   // Buton disabled mantigi
   const startDisabled = localMode === 'running';
@@ -633,13 +569,13 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
     localMode === 'running' ? 'Çalışıyor' :
     localMode === 'paused'  ? 'Durakladı' :
     'Durdu';
+  // statusTime: stopped → '—', running/paused → liveUptime
   const statusTime =
-    localMode === 'running' && liveUptime != null
-      ? formatUptime(liveUptime)
-      : localMode === 'paused' && bot?.uptime_sec != null
-        ? formatUptime(bot.uptime_sec)
+    localMode === 'stopped'
+      ? '—'
+      : liveUptime != null
+        ? formatUptime(liveUptime)
         : '—';
-  void mode;
 
   return (
     <div className="dsp-sb-bot">
