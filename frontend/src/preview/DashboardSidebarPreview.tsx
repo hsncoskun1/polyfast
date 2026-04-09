@@ -784,24 +784,30 @@ export default function DashboardSidebarPreview({
   const [credClosable, setCredClosable] = useState(true);
   const credCheckedRef = useRef(false);
   useEffect(() => {
-    if (credCheckedRef.current || mockMode) return;
+    if (credCheckedRef.current) return;
     credCheckedRef.current = true;
+
+    if (mockMode) {
+      // Mock mode: credential yok simüle → modal zorunlu açılır
+      setCredClosable(false);
+      setCredModalOpen(true);
+      return;
+    }
+
     (async () => {
       try {
         const { credentialStatus } = await import('../api/credential');
         const status = await credentialStatus();
         if (!status.has_any) {
-          // İlk giriş: modal zorunlu, kapatılamaz
           setCredClosable(false);
           setCredModalOpen(true);
         } else if (!status.is_fully_ready) {
-          // Credential var ama eksik/başarısız: modal açık, kapatılabilir
           setCredClosable(true);
           setCredModalOpen(true);
         }
-        // is_fully_ready=true → modal açılmaz
       } catch {
         // Status fetch başarısız — modal açılmaz, dashboard normal çalışır
+        // NOT: backend yokken credential modal açılmaz (H-1, kabul edildi)
       }
     })();
   }, [mockMode]);

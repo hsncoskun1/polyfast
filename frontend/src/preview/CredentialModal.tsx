@@ -9,8 +9,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { COLOR, FONT, SIZE, ensureStyles } from './styles';
 import type {
-  CredentialStatusResponse,
-  CredentialUpdateResponse,
   CredentialValidateResponse,
   CheckResult,
 } from '../api/credential';
@@ -238,7 +236,6 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
   const [hasAny, setHasAny] = useState(false);
   const [phase, setPhase] = useState<Phase>('form');
   const [errorFields, setErrorFields] = useState<Set<string>>(new Set());
-  const [saveResult, setSaveResult] = useState<CredentialUpdateResponse | null>(null);
   const [validateResult, setValidateResult] = useState<CredentialValidateResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -307,7 +304,6 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
 
       const { credentialUpdate } = await import('../api/credential');
       const result = await credentialUpdate(body);
-      setSaveResult(result);
 
       if (result.missing_fields.length > 0) {
         setErrorFields(new Set(result.missing_fields));
