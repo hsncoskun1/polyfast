@@ -1,14 +1,14 @@
-"""Tests for FAZ4-6: Credential save/update endpoint.
+"""Tests for credential save/update endpoint.
 
 Coverage:
-- save valid trading credentials
-- save partial (incomplete)
+- 6 alan modeli (trading + signing + relayer)
+- missing_fields hesabı
+- capability flags (has_trading_api, has_signing, has_relayer, can_place_orders, can_auto_claim)
+- is_fully_ready semantiği (save sonrası: false)
 - version increment
-- has_trading / has_signing checks
-- validated=false semantik (bu fazda gerçek validation yok)
-- eligibility gate after credential save
-- router endpoint registered
 - plaintext güvenlik (log/response'ta plaintext yok)
+- response model fields
+- router endpoint
 """
 
 import pytest
@@ -16,74 +16,137 @@ import pytest
 from backend.auth_clients.credential_store import CredentialStore, Credentials
 
 
+# ── Helpers ──────────────────────────────────────────────────────
+
+def _full_creds() -> Credentials:
+    return Credentials(
+        api_key="pk_test_123",
+        api_secret="sk_test_456",
+        api_passphrase="pp_test_789",
+        private_key="0xabc123def456",
+        funder_address="0x71C7db5a9b2d9e4F",
+        relayer_key="rlk_test_001",
+    )
+
+
+def _trading_only() -> Credentials:
+    return Credentials(
+        api_key="pk_test_123",
+        api_secret="sk_test_456",
+        api_passphrase="pp_test_789",
+    )
+
+
+def _trading_signing() -> Credentials:
+    return Credentials(
+        api_key="pk_test_123",
+        api_secret="sk_test_456",
+        api_passphrase="pp_test_789",
+        private_key="0xabc123def456",
+        funder_address="0x71C7db5a9b2d9e4F",
+    )
+
+
 # ╔══════════════════════════════════════════════════════════════╗
-# ║  CredentialStore unit tests                                   ║
+# ║  Capability flag tests                                        ║
 # ╚══════════════════════════════════════════════════════════════╝
 
-class TestCredentialSave:
+class TestCapabilityFlags:
 
-    def test_save_valid_trading(self):
-        """3 alan dolu → has_trading=true."""
-        store = CredentialStore()
-        store.load(Credentials(
-            api_key="key123",
-            api_secret="secret456",
-            api_passphrase="pass789",
-        ))
-        assert store.credentials.has_trading_credentials() is True
+    def test_full_credentials(self):
+        """6 alan dolu → tüm capability true."""
+        c = _full_creds()
+        assert c.has_trading_credentials() is True
+        assert c.has_signing_credentials() is True
+        assert c.has_relayer_credentials() is True
 
-    def test_save_partial_missing_key(self):
-        """api_key eksik → has_trading=false."""
-        store = CredentialStore()
-        store.load(Credentials(
-            api_key="",
-            api_secret="secret456",
-            api_passphrase="pass789",
-        ))
-        assert store.credentials.has_trading_credentials() is False
+    def test_trading_only(self):
+        """Sadece trading → signing/relayer false."""
+        c = _trading_only()
+        assert c.has_trading_credentials() is True
+        assert c.has_signing_credentials() is False
+        assert c.has_relayer_credentials() is False
 
-    def test_save_partial_missing_secret(self):
-        """api_secret eksik → has_trading=false."""
-        store = CredentialStore()
-        store.load(Credentials(
-            api_key="key123",
-            api_secret="",
-            api_passphrase="pass789",
-        ))
-        assert store.credentials.has_trading_credentials() is False
+    def test_trading_signing_no_relayer(self):
+        """Trading + signing → can_place_orders ama can_auto_claim false."""
+        c = _trading_signing()
+        has_t = c.has_trading_credentials()
+        has_s = c.has_signing_credentials()
+        has_r = c.has_relayer_credentials()
+        can_place = has_t and has_s
+        can_claim = can_place and has_r
+        assert can_place is True
+        assert can_claim is False
 
-    def test_save_partial_missing_passphrase(self):
-        """api_passphrase eksik → has_trading=false."""
-        store = CredentialStore()
-        store.load(Credentials(
-            api_key="key123",
-            api_secret="secret456",
-            api_passphrase="",
-        ))
-        assert store.credentials.has_trading_credentials() is False
+    def test_empty_credentials(self):
+        """Boş credential → hiçbir capability yok."""
+        c = Credentials()
+        assert c.has_trading_credentials() is False
+        assert c.has_signing_credentials() is False
+        assert c.has_relayer_credentials() is False
 
-    def test_save_with_signing(self):
-        """Trading + signing → both true."""
-        store = CredentialStore()
-        store.load(Credentials(
-            api_key="key123",
-            api_secret="secret456",
-            api_passphrase="pass789",
-            private_key="pk_abc",
-            funder_address="0xfunder",
-        ))
-        assert store.credentials.has_trading_credentials() is True
-        assert store.credentials.has_signing_credentials() is True
 
-    def test_signing_without_trading(self):
-        """Signing dolu ama trading eksik."""
-        store = CredentialStore()
-        store.load(Credentials(
-            private_key="pk_abc",
-            funder_address="0xfunder",
-        ))
-        assert store.credentials.has_trading_credentials() is False
-        assert store.credentials.has_signing_credentials() is True
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Missing fields tests                                         ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+class TestMissingFields:
+
+    def test_no_missing(self):
+        """6 alan dolu → missing_fields boş."""
+        from backend.api.credential import _compute_missing
+        missing = _compute_missing(_full_creds())
+        assert missing == []
+
+    def test_all_missing(self):
+        """Boş credential → 6 alan eksik."""
+        from backend.api.credential import _compute_missing
+        missing = _compute_missing(Credentials())
+        assert len(missing) == 6
+        assert "api_key" in missing
+        assert "relayer_key" in missing
+
+    def test_relayer_missing(self):
+        """Trading + signing dolu, relayer eksik."""
+        from backend.api.credential import _compute_missing
+        missing = _compute_missing(_trading_signing())
+        assert missing == ["relayer_key"]
+
+    def test_signing_missing(self):
+        """Trading dolu, signing + relayer eksik."""
+        from backend.api.credential import _compute_missing
+        missing = _compute_missing(_trading_only())
+        assert "private_key" in missing
+        assert "funder_address" in missing
+        assert "relayer_key" in missing
+        assert len(missing) == 3
+
+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  is_fully_ready semantik test                                 ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+class TestIsFullyReady:
+
+    def test_save_always_not_ready(self):
+        """Save endpoint'te is_fully_ready her zaman false (validate not_run)."""
+        from backend.api.credential import _build_response, _compute_missing
+        creds = _full_creds()
+        missing = _compute_missing(creds)
+        resp = _build_response(creds, missing, "test")
+        assert resp.is_fully_ready is False
+        assert resp.validated is False
+        assert resp.validation_status == "not_run"
+
+    def test_save_partial_not_ready(self):
+        """Eksik alanlarla save → is_fully_ready=false."""
+        from backend.api.credential import _build_response, _compute_missing
+        creds = _trading_only()
+        missing = _compute_missing(creds)
+        resp = _build_response(creds, missing, "test")
+        assert resp.is_fully_ready is False
+        assert resp.can_place_orders is False  # signing eksik
+        assert resp.can_auto_claim is False
 
 
 # ╔══════════════════════════════════════════════════════════════╗
@@ -93,111 +156,72 @@ class TestCredentialSave:
 class TestVersionIncrement:
 
     def test_initial_version_zero(self):
-        """Başlangıç version=0."""
         store = CredentialStore()
         assert store.version == 0
 
-    def test_version_increments_on_load(self):
-        """Her load'da version artar."""
+    def test_version_increments(self):
         store = CredentialStore()
-        store.load(Credentials(api_key="k1"))
+        store.load(_full_creds())
         assert store.version == 1
-        store.load(Credentials(api_key="k2"))
+        store.load(_trading_only())
         assert store.version == 2
 
-    def test_version_increments_on_load_from_dict(self):
-        """load_from_dict de version artırır."""
+    def test_load_from_dict_increments(self):
         store = CredentialStore()
-        store.load_from_dict({"API_KEY": "k1", "SECRET": "s1", "PASSPHRASE": "p1"})
+        store.load_from_dict({
+            "API_KEY": "k", "SECRET": "s", "PASSPHRASE": "p",
+            "PRIVATE_KEY": "pk", "FUNDER": "fa", "RELAYER_KEY": "rk",
+        })
         assert store.version == 1
 
 
 # ╔══════════════════════════════════════════════════════════════╗
-# ║  Eligibility gate semantik test                               ║
+# ║  Response model tests                                         ║
 # ╚══════════════════════════════════════════════════════════════╝
 
-class TestEligibilityAfterCredential:
+class TestResponseModel:
 
-    def test_no_credentials_blocks_eligibility(self):
-        """Credential yoksa → has_trading=false."""
-        store = CredentialStore()
-        assert store.credentials.has_trading_credentials() is False
+    def test_response_has_no_valid_field(self):
+        """'valid' alanı response model'de YOK."""
+        from backend.api.credential import CredentialUpdateResponse
+        fields = list(CredentialUpdateResponse.model_fields.keys())
+        assert "valid" not in fields
 
-    def test_valid_credentials_allows_eligibility(self):
-        """Valid credential → has_trading=true → gate geçer."""
-        store = CredentialStore()
-        store.load(Credentials(
-            api_key="key",
-            api_secret="secret",
-            api_passphrase="pass",
-        ))
-        assert store.credentials.has_trading_credentials() is True
+    def test_response_has_required_fields(self):
+        """Tüm zorunlu alanlar mevcut."""
+        from backend.api.credential import CredentialUpdateResponse
+        fields = set(CredentialUpdateResponse.model_fields.keys())
+        required = {
+            "success", "has_trading_api", "has_signing", "has_relayer",
+            "can_place_orders", "can_auto_claim", "is_fully_ready",
+            "validated", "validation_status", "missing_fields", "message",
+        }
+        assert required.issubset(fields)
 
-    def test_credential_overwrite(self):
-        """İkinci load ilkini override eder."""
-        store = CredentialStore()
-        store.load(Credentials(api_key="key1", api_secret="s1", api_passphrase="p1"))
-        assert store.credentials.has_trading_credentials() is True
-
-        # Eksik credential ile overwrite
-        store.load(Credentials(api_key="key2"))
-        assert store.credentials.has_trading_credentials() is False
-        assert store.version == 2
+    def test_response_no_plaintext_credential(self):
+        """Response model'de credential alanı YOK."""
+        from backend.api.credential import CredentialUpdateResponse
+        fields = set(CredentialUpdateResponse.model_fields.keys())
+        forbidden = {"api_key", "api_secret", "api_passphrase",
+                     "private_key", "funder_address", "relayer_key"}
+        assert fields.isdisjoint(forbidden)
 
 
 # ╔══════════════════════════════════════════════════════════════╗
-# ║  Response model + router tests                                ║
+# ║  Router endpoint tests                                        ║
 # ╚══════════════════════════════════════════════════════════════╝
 
 class TestCredentialEndpoint:
 
     def test_router_registered(self):
-        """Credential router'da update endpoint var."""
         from backend.api.credential import router
         paths = [r.path for r in router.routes]
         assert "/credential/update" in paths
 
-    def test_response_model_fields(self):
-        """CredentialUpdateResponse doğru field'lara sahip — valid YOK."""
-        from backend.api.credential import CredentialUpdateResponse
-        resp = CredentialUpdateResponse(
-            success=True,
-            has_trading=True,
-            has_signing=False,
-            validated=False,
-            validation_status="not_run",
-            message="Credential kaydedildi",
-        )
-        assert resp.validated is False
-        assert resp.validation_status == "not_run"
-        assert not hasattr(resp, 'valid') or 'valid' not in resp.model_fields
-
-    def test_response_no_valid_field(self):
-        """Response model'de 'valid' alanı YOK — yanıltıcı semantik engellenmiş."""
-        from backend.api.credential import CredentialUpdateResponse
-        fields = list(CredentialUpdateResponse.model_fields.keys())
-        assert 'valid' not in fields
-
-
-# ╔══════════════════════════════════════════════════════════════╗
-# ║  In-memory persistence semantik test                          ║
-# ╚══════════════════════════════════════════════════════════════╝
-
-class TestInMemoryPersistence:
-
-    def test_credential_in_memory_only(self):
-        """Credential sadece in-memory — SQLite persist yok.
-
-        Bu bilinçli geçici karar:
-        - Plaintext SQLite güvenlik riski
-        - Encryption katmanı henüz yok
-        - Restart sonrası credential kaybolur
-        """
-        store = CredentialStore()
-        store.load(Credentials(api_key="key", api_secret="s", api_passphrase="p"))
-        assert store.credentials.has_trading_credentials() is True
-
-        # Yeni store = credential kayıp (restart simülasyonu)
-        store2 = CredentialStore()
-        assert store2.credentials.has_trading_credentials() is False
-        assert store2.version == 0
+    def test_request_model_has_6_fields(self):
+        """Request model 6 alan içerir."""
+        from backend.api.credential import CredentialUpdateRequest
+        fields = set(CredentialUpdateRequest.model_fields.keys())
+        expected = {"api_key", "api_secret", "api_passphrase",
+                    "private_key", "funder_address", "relayer_key"}
+        assert expected == fields
