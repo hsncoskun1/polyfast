@@ -209,7 +209,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'loss',
     live: { side: 'DOWN', entry: '62', live: '64', delta_text: '+2' },
     exits: { tp: '67', sl: '58', fs: '0:08', fs_pnl: '-5%' },
-    activity: { text: 'FS countdown @64 | süre 8s, zorunlu kapatma yaklaşıyor', severity: 'pending' },
+    activity: { text: 'FS countdown | süre 8s, zorunlu kapatma yaklaşıyor', severity: 'pending' },
   },
 
   // ─── OPEN LIFECYCLE 7: FSP (eşik) sebep — FS başladı ───
@@ -300,7 +300,7 @@ export const MOCK_POSITIONS: PositionSummary[] = [
     pnl_tone: 'profit',
     live: { side: 'UP', entry: '80', live: '83', delta_text: '+3' },
     exits: { tp: '85', sl: '76', fs: '2:50', fs_pnl: '-5%' },
-    activity: { text: 'TP geri çekildi @83 | pozisyon açık kalmaya devam ediyor', severity: 'warning' },
+    activity: { text: 'TP geri çekildi | pozisyon açık kalmaya devam ediyor', severity: 'warning' },
   },
 
   // ─── CLAIM LIFECYCLE 1: pending RETRY ───
