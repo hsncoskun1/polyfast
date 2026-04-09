@@ -76,6 +76,8 @@ ensureStyles(
 .dsp-icard-logo img { width: 124%; height: 124%; object-fit: contain; }
 .dsp-icard-link { display: inline-flex; text-decoration: none; cursor: pointer; }
 .dsp-icard-link:hover .dsp-icard-logo { filter: brightness(1.15); }
+.dsp-icard-icbtn:focus-visible,
+.dsp-icard-ticker:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; border-radius: 4px; }
 .dsp-icard-ticker {
   display: inline-flex;
   align-items: center;
@@ -105,7 +107,7 @@ ensureStyles(
   padding: 0;
   font-family: ${FONT.sans};
 }
-.dsp-icard-icbtn.dollar { background: ${COLOR.greenSoft}; color: ${COLOR.green}; }
+.dsp-icard-icbtn.dollar { background: rgba(126,126,146,0.16); color: ${COLOR.textMuted}; }
 .dsp-icard-icbtn:hover { filter: brightness(1.25); }
 
 /* Inline button pill — activity text içinde token yerine */

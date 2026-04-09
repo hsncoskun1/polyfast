@@ -77,6 +77,8 @@ ensureStyles(
 .dsp-scard-logo img { width: 124%; height: 124%; object-fit: contain; }
 .dsp-scard-link { display: inline-flex; text-decoration: none; cursor: pointer; }
 .dsp-scard-link:hover .dsp-scard-logo { filter: brightness(1.15); }
+.dsp-scard-icbtn:focus-visible,
+.dsp-scard-ticker:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; border-radius: 4px; }
 
 .dsp-scard-ticker {
   display: inline-flex;

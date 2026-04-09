@@ -250,6 +250,8 @@ ensureStyles(
 .dsp-ocard-logo img { width: 124%; height: 124%; object-fit: contain; }
 .dsp-ocard-link { display: inline-flex; text-decoration: none; cursor: pointer; }
 .dsp-ocard-link:hover .dsp-ocard-logo { filter: brightness(1.15); }
+.dsp-ocard-sell:focus-visible,
+.dsp-ocard-ticker:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; border-radius: 4px; }
 .dsp-ocard-cell {
   background: ${COLOR.bg};
   border: 1px solid ${COLOR.divider};
