@@ -2,7 +2,7 @@
 
 > **Bu dosya her anlamlı commit'te güncellenir** ve push edilir. Olası bir kayıpta GitHub'dan baktığında en son durumu ve devam edilmesi gereken adımı görürsün.
 >
-> **Son güncelleme:** 2026-04-08 (TR ceviriler + open status lifecycle + mid row swap + entry x100 fix)
+> **Son güncelleme:** 2026-04-09 (session 2 — cyan tema, bot segmented control, claim kartları, dead code temizlik, 40+ polish commit)
 > **Aktif branch:** `main`
 > **Aktif önizleme URL:** `localhost:5173/?preview=sidebar&mock=full`
 > **Çalışma dizini:** `C:\polyfast`
@@ -23,40 +23,95 @@
 - ✅ 836 / 836 backend test yeşil
 
 ### Frontend (sidebar preview — `frontend/src/preview/`)
-- ✅ `dashboard.ts` — backend v0.8.0 contract surface TypeScript karşılığı (legacy + extended)
+- ✅ `dashboard.ts` — backend v0.8.0 contract surface TypeScript karşılığı
 - ✅ `useDashboardData` hook (sane polling 3s, error backoff)
-- ✅ `?preview=sidebar` ile gerçek backend bağlı
 - ✅ `?preview=sidebar&mock=full` ile mock showcase mode
-- ✅ Sidebar — 252px, brand SVG hexagon logo, NavList, BotStatusPanel (uptime tick), HealthIndicator (latency yan)
-- ✅ Sidebar bot lifecycle: BotLocalMode (running/paused/stopped) + StopConfirmModal
-- ✅ TopBar — KPI strip 76px, 3 grup, ortalı yazılar, mor bell sidebar'da
-- ✅ SectionFilterStrip — 38px, görünür tab'lar, tone'lu dot
-- ✅ EventTile — 4 variant (open/claim/search/idle), vertical divider sol|orta|sağ
-- ✅ Sol kolon **3 eşit satır grid** (id/pnl/actions her biri ~37px)
-  - Row 1: kare logo (24px) + ticker (5 char yer) + **$ butonu** — 3 col grid
-  - Row 2: PnL big ortalı (veya 6/6 search)
-  - Row 3: ⚙ ayarlar tek buton (full width)
-- ✅ Gerçek coin logoları (jsdelivr CDN: atomiclabs/cryptocurrency-icons)
-- ✅ Mock 19 senaryo — **CAP KALDIRILDI**, hepsi gözüküyor (10 open/claim + 6 search + 3 idle, scrollable)
-- ✅ Tile h 138 (sabit), 8 tile defensive 800/820/850 viewport hepsinde sığar
-- ✅ Grid içi (ExitGrid cell, sol kolon row, RuleGrid) padding/gap **ferah**
-- ✅ Tile dış padding **az** (5/14 → 6/14)
-- ✅ Section header **count badge title yanında** (sağda uzakta değil)
-- ✅ ExitGrid cell padding 6/11, val 14px, gap 6 (TP/SL/FS/FS PnL)
-- ✅ **TR çeviriler tüm tile içerikleri:**
-  - Open status: YENİ / TP-YAKIN / TP-KAR / SL-YAKIN / STOPLOSS / F-RISK / FORCESELL / KAR / ZARAR
-  - Claim outcome: KAZANÇ / KAYIP / BEKLİYOR
-  - Claim status: BAŞARILI / BAŞARISIZ / TEKRAR
-  - Claim panel: DURUM / Ödeme / Sonuç / Giriş / Kapanış
-  - Close reason: SÜRE DOLDU
-- ✅ **Open variant mid panel** 3 satır:
-  - Row 1: Maliyet / Net % / Net USD
-  - Row 2: Giriş / Canlı / Delta
-  - Row 3: Activity
-- ✅ Sol kolon (open) PnL box artık **lifecycle status etiketi** (KAR/ZARAR yerine T-PROFIT/STOPLOSS gibi)
-- ✅ Entry display 0-100 cents (fill_price * 100, raw 0.65 → 65)
-- ✅ Mid cells kompakt (yüksek değer desteği — BTC $111,234 / DOGE delta sığar)
-- ✅ Status / Retry / Payout (claim) — wired claims listesinden lookup
+
+**Tema & Branding:**
+- ✅ **Cyan tema** — brand token mor→cyan (#06b6d4), tüm referanslar otomatik
+- ✅ **Polyfast wordmark SVG logo** (inline, cyan + lightning + zigzag underline)
+- ✅ Sidebar nav "Marketler" active cyan soft bg/border
+- ✅ Ambient bg — sol üst cyan radial %10 + sağ alt vignette
+
+**Sidebar:**
+- ✅ 252px, brand SVG logo, NavList (14px font, 16px icon), HealthIndicator (tooltip hover)
+- ✅ **Bot Segmented Control** — status line (● Çalışıyor 5sa 6dk 18sn) + 3 segment (Başlat/Duraklat/Durdur)
+  - Status line: running yeşil + dot pulse / paused sarı / stopped kırmızı
+  - Aktif segment: tone bg + border, inactive soluk
+  - Runtime format: `5sa 6dk 18sn` (TR okunur)
+  - Frontend-only session simülasyonu: stopped→running sıfırdan, paused→running son değerden
+- ✅ **Stop onay modalı** — overlay click dismiss kaldırıldı, Escape + Vazgeç ile çıkılır, aria-dialog
+- ✅ Health tooltip: state bazlı açıklama (healthy/degraded/critical/unknown)
+
+**TopBar:**
+- ✅ KPI chip'ler: 3 grup (Money cyan/Activity cyan/Outcome yellow), PnlCell tarzı soft bg
+- ✅ 10 chip title tooltip (açıklayıcı Türkçe)
+- ✅ mockMode dead prop temizlendi
+
+**Layout:**
+- ✅ **OpenRail** (sol panel) — Açık İşlemler chrome tab + 2×3 grid kartlar
+- ✅ **Main panel** (sağ) — 3 chrome tab: İşlem Arananlar (cyan) | Aranmayanlar (sarı) | Ayar Gerekli (kırmızı)
+  - Aktif sekme tonuna göre border + gradient bg + scrollbar rengi dinamik
+  - Tab header absolute üst -38px, aynı yükseklikte
+
+**OpenCard (Açık İşlem kartı):**
+- ✅ Grid: id (logo+ticker🔗+$+⚙+Tutar) | PNL% hero + USD + SAT | cells (Giriş▲/Canlı▲/Δ) | exits (TP/SL/FS/F-P)
+- ✅ **Exit popover** — tetiklenen exit'ten (TP/SL/FS/FSP) yukarı açılan renkli bildirim
+  - TP/SL/FS/FSP çoklu active (Set), primary popover ilk tetik
+  - FS/FSP öncelik: önce gelen kaynak, ikincil bastırılır
+- ✅ SAT butonu: aktif kırmızı / disabled gri (closing/closed/pending state), title tooltip, direkt aksiyon
+- ✅ deriveSellState regex: TP/SL/FS/FSP/zorunlu kapatma → closing state
+- ✅ $ butonu onClick: OpenCard "zaten aktif" alert, IdleCard "ayar tamamla" validation
+- ✅ ⚙ butonu onClick: stub alert (Phase 2)
+- ✅ Hover state: translateY -1 + cyan glow
+- ✅ Logo tıklanabilir link (Polymarket event URL)
+- ✅ Ticker hover underline + 🔗 opacity
+
+**ClaimCard (Claim variant):**
+- ✅ OpenCard ile aynı grid yapısı (id/pnl/cells/bottom)
+- ✅ Claim label: CLAIM BEKLİYOR (sarı) / CLAIM BAŞARILI (yeşil) / MAX DENEME (kırmızı)
+- ✅ Tahsil pnl-sub altında
+- ✅ Bottom row: Deneme (3/20) + Sonraki (20s), 2 kolon
+- ✅ **Claim popover** — deneme cell'den açılan bildirim:
+  - RETRY sarı: "Deneme 3/20 | 20s sonra tekrar"
+  - FAIL kırmızı: "Max deneme | elle claim yapınız"
+  - OK yeşil: "Claim doğrulandı | $4.21 bakiyeye eklendi"
+- ✅ Mock max_retry backend uyumlu (20)
+
+**SearchCard (İşlem Aranan):**
+- ✅ Grid: id (logo+ticker+Durum) | pass count hero (6/6) | cells (PTB/Canlı/Δ) | activity bar (pulse) | rules 3×2
+- ✅ Rule threshold expression: `30s < 3:15 < 270s`, `78 ≥ 80` format
+- ✅ Sort: pass count desc, tie → index desc (useMemo)
+- ✅ Pass count rengi: ≥6 yeşil / 5 sarı / ≤4 kırmızı
+- ✅ Activity bar pulse animasyonu (severity rengi)
+
+**IdleCard (İşlem Aranmayan / Ayar Gerekli):**
+- ✅ KIND_LABEL: İŞLEM ARANMIYOR / İŞLEM AÇMAK İÇİN AYARLARI YAPIN / COOLDOWN / HATA
+- ✅ Inline {DOLLAR}/{GEAR} token render (activity metinde buton pill)
+- ✅ Ayar Gerekli kind hero + hover kırmızı
+- ✅ $ butonu: waiting_rules/error → "ayarları tamamla" validation, bot_stopped → direkt aktif
+
+**Polish & Accessibility:**
+- ✅ prefers-reduced-motion: tüm pulse/loop/transition kapanır
+- ✅ :focus-visible outline (bot segment butonları)
+- ✅ Loading banner: cyan spinner (dönen daire)
+- ✅ Empty state SVG ikonlar (search lupa / idle çizgili daire / settings dişli)
+- ✅ text/textMuted renk düzeltmesi (#a8a8b8 muted, ana text baskın)
+- ✅ useCountFlash hook + flash dot (tab count değişince 2s yanıp söner)
+- ✅ Bot status dot running'de pulse animasyonu
+
+**Dead code temizlik (~1580 satır silindi):**
+- ✅ EventTile.tsx (~1215 satır, hiç import yok)
+- ✅ NotifRail.tsx (~204 satır, render yok)
+- ✅ SectionFilterStrip.tsx (~158 satır, chrome-tab ile değiştirildi)
+- ✅ useLiveUptime + deriveBotMode (sessionRef ile değiştirildi)
+
+**Mock data:**
+- ✅ 10 open (7 lifecycle + 3 sakin) + 3 claim + 6 search + 3 idle
+- ✅ session_pnl +12.34 (profit), DOGE gerçekçi değerler
+- ✅ SearchTile pnl_tone pass count ile uyumlu
+- ✅ Claim max_retry backend default 20
+
 - ✅ Ürün kararları kayıtlı: `~/.claude/projects/C--polyfast/memory/`
 
 ### Önemli ürün kararları (memory/)
