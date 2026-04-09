@@ -139,6 +139,11 @@ class Orchestrator:
         self._verify_retry_task: asyncio.Task | None = None
         self._verify_retry_running: bool = False
 
+        # ── Bot uptime (paused-aware) ──
+        self._bot_start_time: float | None = None
+        self._bot_paused_at: float | None = None
+        self._bot_accumulated: float = 0.0
+
         # ── Execution layer ──
         self.position_tracker = PositionTracker(position_store=self.position_store)
         self.balance_manager = BalanceManager(
@@ -434,7 +439,8 @@ class Orchestrator:
                 entity_id="start_skip",
             )
             # Paused ise sadece resume et
-            self.paused = False
+            if self.paused:
+                self.resume()
             self.trading_enabled = True
             return
 
@@ -447,6 +453,9 @@ class Orchestrator:
 
         self.trading_enabled = True
         self.paused = False
+        self._bot_start_time = _time.time()
+        self._bot_paused_at = None
+        self._bot_accumulated = 0.0
 
         # State restore (7/24 — restart sonrasi kaldigi yerden devam)
         await self.restore_state()
@@ -481,6 +490,9 @@ class Orchestrator:
         """
         self.trading_enabled = False
         self.paused = False
+        self._bot_start_time = None
+        self._bot_paused_at = None
+        self._bot_accumulated = 0.0
 
         log_event(
             logger, logging.INFO,
@@ -655,6 +667,32 @@ class Orchestrator:
 
             await asyncio.sleep(self._exit_cycle_interval_sec)
 
+    def pause(self) -> None:
+        """Bot'u duraklat — uptime donmuş olarak saklanır."""
+        if self.paused:
+            return
+        self.paused = True
+        if self._bot_start_time is not None:
+            self._bot_accumulated += _time.time() - self._bot_start_time
+            self._bot_paused_at = _time.time()
+
+    def resume(self) -> None:
+        """Bot'u devam ettir — uptime kaldığı yerden devam."""
+        if not self.paused:
+            return
+        self.paused = False
+        self._bot_start_time = _time.time()
+        self._bot_paused_at = None
+
+    @property
+    def bot_uptime_sec(self) -> int:
+        """Bot uptime — paused iken donmuş, stopped iken 0."""
+        if self._bot_start_time is None:
+            return 0
+        if self.paused and self._bot_paused_at is not None:
+            return int(self._bot_accumulated)
+        return int(self._bot_accumulated + (_time.time() - self._bot_start_time))
+
     def get_health(self):
         """Orchestrator sağlık durumu."""
         return self.health_aggregator.aggregate(
@@ -760,8 +798,21 @@ class Orchestrator:
         """Idle tile verileri — pasif / ayarsız / hatalı coinler.
 
         Evaluation YAPMAZ — sadece runtime state + settings'ten besler.
-        idle_kind öncelik sırası: bot_stopped → waiting_rules → error → no_events
+        Credential yoksa coin bazlı kartlar üretilmez, tek global kart döner.
+        idle_kind öncelik sırası: credential → bot_stopped → waiting_rules → error → no_events
         """
+        # Credential gate — yoksa tek global kart, coin bazlı kartlar üretilmez
+        if self.credential_store and not self.credential_store.credentials.has_trading_credentials():
+            return [{
+                "tile_id": "idle-global-credential",
+                "coin": None,
+                "idle_kind": "error",
+                "msg": "İşleme başlamak için credential bilgilerinizi girin",
+                "activity": None,
+                "rules": None,
+                "event_url": None,
+            }]
+
         tiles = []
         all_settings = self.settings_store.get_all()
         # Cache'te olan coinler search'te — idle'da gösterme

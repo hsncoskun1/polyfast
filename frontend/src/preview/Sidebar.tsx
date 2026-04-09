@@ -524,6 +524,7 @@ interface BotStatusPanelProps {
 }
 
 function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
+  void bot; // FAZ 4'te backend state tüketilecek, şimdilik localMode simülasyonu
   // Lokal session tracking — frontend-only lifecycle simülasyonu
   // - stopped: session null, display '—'
   // - running (stopped'dan): base=0, startAt=now → sıfırdan say
@@ -602,7 +603,7 @@ function BotStatusPanel({ bot, localMode, onAction }: BotStatusPanelProps) {
         </span>
         <span className="dsp-sb-bot-status-time">{statusTime}</span>
       </div>
-      {bot?.paper_mode && <div className="dsp-sb-bot-paper">📋 PAPER MODE</div>}
+      {/* Paper badge — admin surface gelene kadar gizli. bot?.paper_mode field hazır. */}
 
       {/* Segmented control — 3 aksiyon */}
       <div className="dsp-sb-bot-seg">

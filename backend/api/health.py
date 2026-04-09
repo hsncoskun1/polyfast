@@ -107,7 +107,7 @@ def _build_bot_status(uptime_sec: float) -> BotStatusContract:
         shutdown_in_progress=shutdown_in_progress,
         startup_guard_blocked=startup_guard_blocked,
         paused=paused,
-        uptime_sec=int(uptime_sec),
+        uptime_sec=getattr(orch, "bot_uptime_sec", int(uptime_sec)),
         latency_ms=None,  # WS latency metrik sonraki adimda
         paper_mode=paper_mode,
     )

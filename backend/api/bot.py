@@ -60,7 +60,7 @@ async def bot_start():
         )
 
     if prev == "paused":
-        orch.paused = False
+        orch.resume()
         log_event(logger, logging.INFO, "Bot resumed (paused → running)",
                   entity_type="bot", entity_id="lifecycle")
         return BotActionResponse(
@@ -115,7 +115,7 @@ async def bot_pause():
         )
 
     # running → paused
-    orch.paused = True
+    orch.pause()
     log_event(logger, logging.INFO, "Bot paused (running → paused)",
               entity_type="bot", entity_id="lifecycle")
     return BotActionResponse(
