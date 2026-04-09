@@ -700,8 +700,15 @@ function HealthIndicator({
   const health: HealthLiteral = bot?.health ?? 'unknown';
   const tone = HEALTH_TONE[health];
   const latency = bot?.latency_ms != null ? `${bot.latency_ms}ms` : null;
+  const tooltip = (() => {
+    const lat = latency ?? '—';
+    if (health === 'healthy')  return `Backend bağlantısı sağlıklı — ${lat} gecikme`;
+    if (health === 'degraded') return `Backend bağlantısı yavaş — ${lat} gecikme`;
+    if (health === 'unhealthy') return 'Backend yanıt vermiyor — bağlantı koptu';
+    return 'Backend durumu bilinmiyor — henüz veri alınmadı';
+  })();
   return (
-    <div className="dsp-sb-health">
+    <div className="dsp-sb-health" title={tooltip}>
       <span
         className="dsp-sb-health-dot"
         style={{ background: tone.dot, boxShadow: `0 0 6px ${tone.dot}88` }}
