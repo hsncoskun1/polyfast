@@ -87,7 +87,8 @@ ensureStyles(
   text-decoration: none;
   cursor: pointer;
 }
-.dsp-scard-ticker:hover { color: ${COLOR.cyan}; }
+.dsp-scard-ticker:hover { color: ${COLOR.cyan}; text-decoration: underline; text-decoration-color: ${COLOR.cyan}; text-underline-offset: 4px; }
+.dsp-scard-ticker:hover .dsp-scard-ticker-ico { opacity: 1; }
 .dsp-scard-ticker-ico { font-size: 13px; opacity: 0.75; line-height: 1; }
 
 .dsp-scard-icbtn {

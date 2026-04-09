@@ -13,7 +13,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { IdleTileContract } from '../api/dashboard';
 
 ensureStyles(
-  'idlerail-v7',
+  'idlerail-v8',
   `
 .dsp-irail-list {
   display: grid;
@@ -85,7 +85,8 @@ ensureStyles(
   text-decoration: none;
   cursor: pointer;
 }
-.dsp-icard-ticker:hover { color: ${COLOR.yellow}; }
+.dsp-icard-ticker:hover { color: ${COLOR.yellow}; text-decoration: underline; text-decoration-color: ${COLOR.yellow}; text-underline-offset: 4px; }
+.dsp-icard-ticker:hover .dsp-icard-ticker-ico { opacity: 1; }
 .dsp-icard-ticker-ico { font-size: 12px; opacity: 0.75; line-height: 1; }
 .dsp-icard-icbtn {
   width: 24px; height: 24px;

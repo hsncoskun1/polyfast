@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v33',
+  'openrail-v34',
   `
 .dsp-orail {
   width: 100%;
@@ -156,7 +156,8 @@ ensureStyles(
   text-decoration: none;
   cursor: pointer;
 }
-.dsp-ocard-ticker:hover { color: ${COLOR.cyan}; }
+.dsp-ocard-ticker:hover { color: ${COLOR.cyan}; text-decoration: underline; text-decoration-color: ${COLOR.cyan}; text-underline-offset: 4px; }
+.dsp-ocard-ticker:hover .dsp-ocard-ticker-ico { opacity: 1; }
 .dsp-ocard-ticker-ico {
   font-size: 13px;
   opacity: 0.75;
