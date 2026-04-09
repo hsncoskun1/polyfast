@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v51',
+  'composition-v52',
   `
 .dsp-root {
   display: flex;
@@ -357,16 +357,16 @@ ensureStyles(
   justify-content: center;
 }
 .dsp-empty-icon {
-  width: 38px;
-  height: 38px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  border: 1px solid;
+  border: 1.5px solid;
   flex-shrink: 0;
 }
+.dsp-empty-icon svg { width: 28px; height: 28px; }
 .dsp-empty-title {
   font-size: 13px;
   font-weight: ${FONT.weight.bold};
@@ -530,11 +530,38 @@ ensureStyles(
 // ╚══════════════════════════════════════════════════════════════╝
 
 
+/** Empty state için küçük inline SVG illüstrasyonlar */
+function EmptyIcon({ kind }: { kind: 'search' | 'idle' | 'settings' }) {
+  if (kind === 'search') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <line x1="21" y1="21" x2="15.2" y2="15.2" />
+      </svg>
+    );
+  }
+  if (kind === 'idle') {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" />
+        <line x1="8" y1="12" x2="16" y2="12" />
+      </svg>
+    );
+  }
+  // settings
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3h.1a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8v.1a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z" />
+    </svg>
+  );
+}
+
 interface EmptyStateProps {
   sectionKey: SectionKey;
   title: string;
   description: string;
-  icon: string;
+  icon: 'search' | 'idle' | 'settings';
   /** Backend canli mi (status chip rengi icin) */
   online: boolean;
   /** Status chip metni */
@@ -562,7 +589,7 @@ function EmptyState({
           background: tone.bg,
         }}
       >
-        {icon}
+        <EmptyIcon kind={icon} />
       </div>
       <div className="dsp-empty-title">{title}</div>
       <div className="dsp-empty-desc">{description}</div>
@@ -768,7 +795,7 @@ export default function DashboardSidebarPreview({
           {mainTab === 'search' && (search.length === 0 ? (
             <EmptyState
               sectionKey="search"
-              icon="⌕"
+              icon="search"
               title="Sinyal aranıyor"
               description="Kuralların tüm coinler için oluşmasını bekliyoruz — eligible olanlar burada listelenecek"
               online={online}
@@ -780,7 +807,7 @@ export default function DashboardSidebarPreview({
           {mainTab === 'idle' && (idleOnly.length === 0 ? (
             <EmptyState
               sectionKey="idle"
-              icon="⊙"
+              icon="idle"
               title="Pasif coin yok"
               description="Tüm coinler aktif ya da henüz kayıt yok — manuel kapatılan coinler burada görünür"
               online={online}
@@ -792,7 +819,7 @@ export default function DashboardSidebarPreview({
           {mainTab === 'settings' && (idleSettings.length === 0 ? (
             <EmptyState
               sectionKey="idle"
-              icon="⚙"
+              icon="settings"
               title="Ayar gerektiren coin yok"
               description="Bot çalışır durumda — hata/duraklamış coin olduğunda burada görünür"
               online={online}
