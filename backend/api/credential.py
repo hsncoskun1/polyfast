@@ -294,46 +294,55 @@ class CredentialValidateResponse(BaseModel):
 
 
 async def _check_trading_api(orch) -> CheckResult:
-    """Trading API doğrulaması — CLOB API auth check ile gerçek HTTP call."""
+    """Trading API doğrulaması — SDK derive + balance fetch ile gerçek check.
+
+    Private key'den API credential derive edip balance çekerek doğrular.
+    Kullanıcının manuel API key girmesine gerek yok.
+    """
     creds = orch.credential_store.credentials
-    if not creds.has_trading_credentials():
+    if not creds.private_key:
         return CheckResult(
             name="trading_api", label="Trading API", status="failed",
-            message="Trading credential eksik (api_key, api_secret, api_passphrase)",
-            related_fields=["api_key", "api_secret", "api_passphrase"],
+            message="Private key eksik",
+            related_fields=["private_key"],
         )
     try:
-        import httpx
-        headers = orch.credential_store.get_trading_headers()
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                "https://clob.polymarket.com/auth/api-keys",
-                headers=headers,
-            )
-        if resp.status_code == 200:
+        from py_clob_client.client import ClobClient
+        from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
+
+        pk = creds.private_key
+        if not pk.startswith("0x"):
+            pk = "0x" + pk
+
+        # SDK client oluştur + API key derive et
+        client = ClobClient(
+            host="https://clob.polymarket.com",
+            key=pk,
+            chain_id=137,
+            signature_type=2,
+            funder=creds.funder_address or None,
+        )
+        derived = client.create_or_derive_api_creds()
+        client.set_api_creds(derived)
+
+        # Balance çek — gerçek trading API test
+        params = BalanceAllowanceParams(
+            asset_type=AssetType.COLLATERAL,
+            signature_type=2,
+        )
+        result = client.get_balance_allowance(params)
+
+        if result and "balance" in result:
             return CheckResult(
                 name="trading_api", label="Trading API", status="passed",
-                message="API bağlantısı başarılı",
-                related_fields=["api_key", "api_secret", "api_passphrase"],
+                message="API bağlantısı başarılı — bakiye doğrulandı",
+                related_fields=["private_key"],
             )
-        elif resp.status_code in (401, 403):
-            return CheckResult(
-                name="trading_api", label="Trading API", status="failed",
-                message="API anahtarları geçersiz — bilgileri kontrol edin",
-                related_fields=["api_key", "api_secret", "api_passphrase"],
-            )
-        elif resp.status_code == 429:
-            return CheckResult(
-                name="trading_api", label="Trading API", status="failed",
-                message="Çok fazla istek — biraz bekleyip tekrar deneyin",
-                related_fields=["api_key", "api_secret", "api_passphrase"],
-            )
-        else:
-            return CheckResult(
-                name="trading_api", label="Trading API", status="failed",
-                message=f"API yanıt kodu: {resp.status_code}",
-                related_fields=["api_key", "api_secret", "api_passphrase"],
-            )
+        return CheckResult(
+            name="trading_api", label="Trading API", status="failed",
+            message="API yanıt verdi ama bakiye alınamadı",
+            related_fields=["private_key"],
+        )
     except Exception as e:
         # Plaintext credential LOGLANMAZ — sadece hata sınıfı
         from backend.auth_clients.errors import ClientError, ErrorCategory

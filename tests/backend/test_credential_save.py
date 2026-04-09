@@ -579,108 +579,72 @@ class TestValidationStatus:
 # ╚══════════════════════════════════════════════════════════════╝
 
 class TestTradingApiErrorClassification:
-    """Trading API error handling — HTTP status-based messages."""
+    """Trading API error handling — SDK derive + balance based."""
 
-    def _orch_with_creds(self):
+    def _orch_with_pk(self):
         from unittest.mock import MagicMock
         orch = MagicMock()
         orch.credential_store.credentials = Credentials(
-            api_key="k", api_secret="s", api_passphrase="p",
+            private_key="0x" + "ab" * 32,
+            funder_address="0x" + "cd" * 20,
         )
-        orch.credential_store.get_trading_headers.return_value = {
-            "POLY_API_KEY": "k", "POLY_SIGNATURE": "s", "POLY_PASSPHRASE": "p",
-        }
         return orch
 
     @pytest.mark.asyncio
-    async def test_trading_auth_error(self):
-        """401 → 'API anahtarları geçersiz'."""
-        from backend.api.credential import _check_trading_api
-        from unittest.mock import patch, AsyncMock, MagicMock
-        orch = self._orch_with_creds()
-        mock_resp = MagicMock(status_code=401)
-        mock_client = AsyncMock()
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.get = AsyncMock(return_value=mock_resp)
-        with patch('httpx.AsyncClient', return_value=mock_client):
-            result = await _check_trading_api(orch)
-        assert result.status == "failed"
-        assert "geçersiz" in result.message
-
-    @pytest.mark.asyncio
-    async def test_trading_network_error(self):
-        """ConnectionError → 'Bağlantı kurulamadı'."""
-        from backend.api.credential import _check_trading_api
-        from unittest.mock import patch, AsyncMock
-        orch = self._orch_with_creds()
-        mock_client = AsyncMock()
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.get = AsyncMock(side_effect=ConnectionError("refused"))
-        with patch('httpx.AsyncClient', return_value=mock_client):
-            result = await _check_trading_api(orch)
-        assert result.status == "failed"
-        assert "Bağlantı" in result.message
-
-    @pytest.mark.asyncio
-    async def test_trading_timeout_error(self):
-        """TimeoutError → 'zaman aşımı'."""
-        from backend.api.credential import _check_trading_api
-        from unittest.mock import patch, AsyncMock
-        import asyncio as aio
-        orch = self._orch_with_creds()
-        mock_client = AsyncMock()
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.get = AsyncMock(side_effect=aio.TimeoutError())
-        with patch('httpx.AsyncClient', return_value=mock_client):
-            result = await _check_trading_api(orch)
-        assert result.status == "failed"
-        assert "zaman aşımı" in result.message.lower()
-
-    @pytest.mark.asyncio
     async def test_trading_success(self):
-        """200 → passed."""
+        """SDK balance OK → passed."""
         from backend.api.credential import _check_trading_api
-        from unittest.mock import patch, AsyncMock, MagicMock
-        orch = self._orch_with_creds()
-        mock_resp = MagicMock(status_code=200)
-        mock_client = AsyncMock()
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.get = AsyncMock(return_value=mock_resp)
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        from unittest.mock import patch, MagicMock
+        orch = self._orch_with_pk()
+
+        mock_client = MagicMock()
+        mock_client.create_or_derive_api_creds.return_value = MagicMock()
+        mock_client.get_balance_allowance.return_value = {"balance": "1000"}
+
+        with patch('py_clob_client.client.ClobClient', return_value=mock_client):
             result = await _check_trading_api(orch)
         assert result.status == "passed"
         assert "başarılı" in result.message
 
     @pytest.mark.asyncio
-    async def test_trading_rate_limit(self):
-        """429 → 'Çok fazla istek'."""
+    async def test_trading_sdk_error(self):
+        """SDK hata → failed."""
         from backend.api.credential import _check_trading_api
-        from unittest.mock import patch, AsyncMock, MagicMock
-        orch = self._orch_with_creds()
-        mock_resp = MagicMock(status_code=429)
-        mock_client = AsyncMock()
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client.get = AsyncMock(return_value=mock_resp)
-        with patch('httpx.AsyncClient', return_value=mock_client):
+        from unittest.mock import patch, MagicMock
+        orch = self._orch_with_pk()
+
+        mock_client = MagicMock()
+        mock_client.create_or_derive_api_creds.side_effect = Exception("SDK init failed")
+
+        with patch('py_clob_client.client.ClobClient', return_value=mock_client):
             result = await _check_trading_api(orch)
         assert result.status == "failed"
-        assert "fazla istek" in result.message
 
     @pytest.mark.asyncio
-    async def test_trading_missing_creds(self):
-        """Credential eksik → failed (API call yapılmaz)."""
+    async def test_trading_network_error(self):
+        """ConnectionError → 'Bağlantı kurulamadı'."""
+        from backend.api.credential import _check_trading_api
+        from unittest.mock import patch, MagicMock
+        orch = self._orch_with_pk()
+
+        mock_client = MagicMock()
+        mock_client.create_or_derive_api_creds.side_effect = ConnectionError("refused")
+
+        with patch('py_clob_client.client.ClobClient', return_value=mock_client):
+            result = await _check_trading_api(orch)
+        assert result.status == "failed"
+        assert "Bağlantı" in result.message
+
+    @pytest.mark.asyncio
+    async def test_trading_missing_pk(self):
+        """Private key eksik → failed (SDK call yapılmaz)."""
         from backend.api.credential import _check_trading_api
         from unittest.mock import MagicMock
         orch = MagicMock()
         orch.credential_store.credentials = Credentials()
         result = await _check_trading_api(orch)
         assert result.status == "failed"
-        assert "eksik" in result.message
+        assert "eksik" in result.message.lower() or "Private" in result.message
 
 
 class TestPartialUpdate:
