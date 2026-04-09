@@ -107,7 +107,7 @@ class ExitOrchestrator:
                     entity_id=pos.position_id,
                 )
                 # Sadece force sell evaluate (stale override mantigi evaluate_force_sell icinde)
-                fs_result = self._evaluator.evaluate_force_sell(pos, price, secs)
+                fs_result = self._evaluator.evaluate_force_sell(pos, price, secs, outcome_fresh=False)
                 if fs_result.should_exit:
                     fs_triggers = fs_result.detail.get("trigger_set", []) if fs_result.detail else []
                     self._tracker.request_close(
