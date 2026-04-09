@@ -674,83 +674,35 @@ class Orchestrator:
     _EVENT_URL_TEMPLATE = "https://polymarket.com/event/{slug}"
 
     def build_search_snapshot(self) -> list[dict]:
-        """Search tile verileri — enabled + configured coinler için kural değerlendirmesi.
+        """Search tile verileri — EvaluationLoop cache'inden okunur.
 
-        Her coin için runtime evaluation yapar (EvaluationLoop cache'i yok,
-        kendi context'ini oluşturur — minimum invaziv).
+        Evaluation TEK YERDE yapılır (EvaluationLoop._evaluate_single).
+        Bu metot sadece cache okuyup UI contract'a çevirir (presenter/adapter).
+        Kendi evaluation YAPMAZ.
         """
-        from backend.strategy.evaluation_context import EvaluationContext
-        from backend.market_data.live_price import PriceStatus
         from backend.market_data.coin_price_client import CoinPriceStatus
 
+        cached = self.evaluation_loop.get_last_results()
+        eligible = self.settings_store.get_eligible_coins()
         tiles = []
-        eligible_settings = self.settings_store.get_eligible_coins()
-        open_count = len(self.position_tracker.get_all_positions())
 
-        for cs in eligible_settings:
+        for cs in eligible:
             asset = cs.coin
+            eval_result = cached.get(asset)
+            if eval_result is None:
+                continue  # henüz evaluate edilmemiş — gösterme
 
-            # Outcome fiyat
+            # Gösterim verileri — pipeline'dan direkt (evaluation DEĞİL)
             price_rec = self.pipeline.get_record_by_asset(asset)
-            if price_rec:
-                up_price = price_rec.up_price
-                down_price = price_rec.down_price
-                best_bid = price_rec.best_bid
-                best_ask = price_rec.best_ask
-                outcome_fresh = price_rec.status == PriceStatus.FRESH
-                condition_id = price_rec.condition_id
-            else:
-                up_price = down_price = best_bid = best_ask = 0.0
-                outcome_fresh = False
-                condition_id = ""
+            condition_id = price_rec.condition_id if price_rec else ""
 
-            # Coin USD
             coin_rec = self.coin_client.get_price(asset)
             coin_usd = coin_rec.usd_price if coin_rec else 0.0
-            coin_fresh = coin_rec.status == CoinPriceStatus.FRESH if coin_rec else False
 
-            # PTB
             ptb_rec = self.ptb_fetcher.get_record(condition_id) if condition_id else None
             ptb_value = ptb_rec.ptb_value if ptb_rec and ptb_rec.is_locked else 0.0
-            ptb_acquired = ptb_rec.is_locked if ptb_rec else False
 
-            # Kalan süre
-            now = _time.time()
-            slot_start = (int(now) // self._SLOT_SECONDS) * self._SLOT_SECONDS
-            secs_remaining = (slot_start + self._SLOT_SECONDS) - now
-
-            # Context + evaluation
-            ctx = EvaluationContext(
-                condition_id=condition_id,
-                asset=asset,
-                up_price=up_price,
-                down_price=down_price,
-                best_bid=best_bid,
-                best_ask=best_ask,
-                outcome_fresh=outcome_fresh,
-                coin_usd_price=coin_usd,
-                coin_usd_fresh=coin_fresh,
-                ptb_value=ptb_value,
-                ptb_acquired=ptb_acquired,
-                seconds_remaining=secs_remaining,
-                side_mode=cs.side_mode,
-                time_min_seconds=cs.time_min,
-                time_max_seconds=cs.time_max,
-                price_min=cs.price_min,
-                price_max=cs.price_max,
-                delta_threshold=cs.delta_threshold,
-                spread_max_pct=cs.spread_max,
-                event_max_positions=cs.event_max,
-                event_fill_count=0,
-                open_position_count=open_count,
-                time_enabled=cs.time_min > 0,
-                price_enabled=cs.price_min > 0,
-                delta_enabled=cs.delta_threshold > 0,
-                spread_enabled=cs.spread_max > 0,
-            )
-            eval_result = self.rule_engine.evaluate(ctx)
-
-            # Rule spec'leri SearchTileContract formatına dönüştür
+            # Rule sonuçları — cache'ten (tek otorite)
             rules = []
             for rr in eval_result.rule_results:
                 rules.append({
@@ -765,17 +717,17 @@ class Orchestrator:
             slug = reg.slug if reg else ""
             event_url = self._EVENT_URL_TEMPLATE.format(slug=slug) if slug else ""
 
-            # Dominant price → pnl_big (pass/total)
+            # Pass count (cache'ten — tek otorite)
             total_enabled = eval_result.pass_count + eval_result.fail_count + eval_result.waiting_count
             pnl_big = f"{eval_result.pass_count}/{total_enabled}" if total_enabled > 0 else "0/0"
 
-            # PTB / live / delta formatted
+            # Gösterim format
             ptb_fmt = f"{ptb_value:,.2f}" if ptb_value > 0 else "—"
             live_fmt = f"{coin_usd:,.2f}" if coin_usd > 0 else "—"
             delta_val = abs(coin_usd - ptb_value) if ptb_value > 0 and coin_usd > 0 else 0
             delta_fmt = f"${delta_val:,.0f}" if delta_val > 0 else "—"
 
-            # Tone
+            # Tone (cache'ten — tek otorite)
             if eval_result.pass_count >= total_enabled and total_enabled > 0:
                 tone = "profit"
             elif eval_result.fail_count > 0:
@@ -785,7 +737,6 @@ class Orchestrator:
             else:
                 tone = "neutral"
 
-            # Signal ready
             signal_ready = eval_result.decision.value == "entry"
 
             tiles.append({
@@ -808,10 +759,13 @@ class Orchestrator:
     def build_idle_snapshot(self) -> list[dict]:
         """Idle tile verileri — pasif / ayarsız / hatalı coinler.
 
+        Evaluation YAPMAZ — sadece runtime state + settings'ten besler.
         idle_kind öncelik sırası: bot_stopped → waiting_rules → error → no_events
         """
         tiles = []
         all_settings = self.settings_store.get_all()
+        # Cache'te olan coinler search'te — idle'da gösterme
+        cached_assets = set(self.evaluation_loop.get_last_results().keys())
 
         for cs in all_settings:
             asset = cs.coin
@@ -833,16 +787,21 @@ class Orchestrator:
                 idle_kind = "bot_stopped"
                 msg = "Ayarlar yapıldı ama pasif durumda"
 
-            # 4. Error — price data stale/invalid
-            elif cs.is_trade_eligible:
+            # 4. Eligible + cache'te → search'te gösteriliyor, idle'da DEĞİL
+            elif asset in cached_assets:
+                # Error check — stale fiyat varsa idle'a düşür
                 price_rec = self.pipeline.get_record_by_asset(asset)
                 if price_rec and price_rec.is_stale:
                     idle_kind = "error"
                     msg = "Fiyat verisi güncel değil — stale data"
-                # Eligible coin → search tile'da, idle'da değil
-                # Sadece stale/error durumunda idle'a düşer
+                else:
+                    continue  # search'te, idle'da gösterme
 
-            # idle_kind None ise bu coin search'te veya aktif — idle listede gösterme
+            # 5. Eligible ama cache'te değil → henüz evaluate edilmemiş
+            elif cs.is_trade_eligible:
+                idle_kind = "no_events"
+                msg = "Uygun event bekleniyor — discovery tarama devam"
+
             if idle_kind is None:
                 continue
 

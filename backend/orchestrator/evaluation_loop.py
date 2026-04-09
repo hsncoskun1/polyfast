@@ -60,6 +60,8 @@ class EvaluationLoop:
         self._task: asyncio.Task | None = None
         self._eval_count: int = 0
         self._entry_count: int = 0
+        # Son evaluation sonuçları — snapshot provider bu cache'i okur
+        self._last_results: dict[str, "EvaluationResult"] = {}
 
     async def start(self) -> None:
         if self._running:
@@ -94,6 +96,14 @@ class EvaluationLoop:
     @property
     def entry_signal_count(self) -> int:
         return self._entry_count
+
+    def get_last_results(self) -> dict[str, "EvaluationResult"]:
+        """Son evaluation sonuçlarını döndür (snapshot provider için). Kopya döner."""
+        return dict(self._last_results)
+
+    def get_last_result(self, asset: str) -> "EvaluationResult | None":
+        """Tek coin için son evaluation sonucu."""
+        return self._last_results.get(asset)
 
     async def _loop(self) -> None:
         """Ana evaluation döngüsü."""
@@ -203,4 +213,6 @@ class EvaluationLoop:
             spread_enabled=coin_settings.spread_max > 0,
         )
 
-        return self._engine.evaluate(ctx)
+        result = self._engine.evaluate(ctx)
+        self._last_results[asset] = result
+        return result

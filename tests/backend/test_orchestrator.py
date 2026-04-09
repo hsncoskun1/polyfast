@@ -211,6 +211,73 @@ class TestEvaluationLoop:
         assert result is not None
         assert result.decision in (OverallDecision.ENTRY, OverallDecision.NO_ENTRY, OverallDecision.WAITING)
 
+    def test_evaluation_cache_populated(self):
+        """Evaluation sonrası cache'te sonuç var."""
+        engine = RuleEngine()
+        pipeline = LivePricePipeline()
+        pipeline.update_from_ws("0x1", "BTC", "up", best_bid=0.85, best_ask=0.86)
+        coin_client = CoinPriceClient()
+        coin_client.set_coins(["BTC"])
+        coin_client._update_record("BTC", 67310.0)
+        ptb_fetcher = MagicMock()
+        ptb_record = MagicMock()
+        ptb_record.is_locked = True
+        ptb_record.ptb_value = 67260.0
+        ptb_fetcher.get_record.return_value = ptb_record
+        store = SettingsStore()
+        store.set(CoinSettings(
+            coin="BTC", coin_enabled=True,
+            side_mode=SideMode.DOMINANT_ONLY,
+            delta_threshold=20.0, price_min=51, price_max=95,
+            spread_max=5.0, time_min=10, time_max=270,
+            event_max=1, order_amount=5.0,
+        ))
+        loop = EvaluationLoop(engine, pipeline, coin_client, ptb_fetcher, store)
+        # Evaluate
+        settings = store.get("BTC")
+        loop._evaluate_single(settings)
+        # Cache check
+        results = loop.get_last_results()
+        assert "BTC" in results
+        assert results["BTC"].decision in (OverallDecision.ENTRY, OverallDecision.NO_ENTRY, OverallDecision.WAITING)
+        # Single getter
+        single = loop.get_last_result("BTC")
+        assert single is not None
+        assert loop.get_last_result("ETH") is None
+
+    def test_evaluation_cache_overwrite(self):
+        """İkinci evaluate aynı coin → eski sonuç üzerine yazılır."""
+        engine = RuleEngine()
+        pipeline = LivePricePipeline()
+        pipeline.update_from_ws("0x1", "BTC", "up", best_bid=0.85, best_ask=0.86)
+        coin_client = CoinPriceClient()
+        coin_client.set_coins(["BTC"])
+        coin_client._update_record("BTC", 67310.0)
+        ptb_fetcher = MagicMock()
+        ptb_record = MagicMock()
+        ptb_record.is_locked = True
+        ptb_record.ptb_value = 67260.0
+        ptb_fetcher.get_record.return_value = ptb_record
+        store = SettingsStore()
+        store.set(CoinSettings(
+            coin="BTC", coin_enabled=True,
+            side_mode=SideMode.DOMINANT_ONLY,
+            delta_threshold=20.0, price_min=51, price_max=95,
+            spread_max=5.0, time_min=10, time_max=270,
+            event_max=1, order_amount=5.0,
+        ))
+        loop = EvaluationLoop(engine, pipeline, coin_client, ptb_fetcher, store)
+        settings = store.get("BTC")
+        # İlk evaluate
+        loop._evaluate_single(settings)
+        first = loop.get_last_result("BTC")
+        # İkinci evaluate (aynı data)
+        loop._evaluate_single(settings)
+        second = loop.get_last_result("BTC")
+        # Sonuç değişmiş olabilir ama cache'te var
+        assert second is not None
+        assert len(loop.get_last_results()) == 1  # hâlâ tek BTC
+
     def test_entry_signal_logged_not_executed(self):
         """ENTRY sinyali üretilir ama order GÖNDERİLMEZ."""
         import backend.orchestrator.evaluation_loop as mod
