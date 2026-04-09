@@ -549,3 +549,125 @@ class TestValidationStatus:
         is_ready = status == "passed"
         assert status == "failed"
         assert is_ready is False
+
+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Partial update tests                                         ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+class TestPartialUpdate:
+    """credential/update partial update semantiği:
+    None = dokunulmadı → mevcut korunur
+    "" = bilinçli boşaltıldı
+    "val" = yeni değer
+    """
+
+    def test_none_preserves_existing(self):
+        """None gönderilen alanlar mevcut değeri korur."""
+        store = CredentialStore()
+        store.load(Credentials(
+            api_key="existing_key",
+            api_secret="existing_secret",
+            api_passphrase="existing_pass",
+            private_key="0xabc",
+            funder_address="0xfunder",
+            relayer_key="rlk_old",
+        ))
+        existing = store.credentials
+
+        # Partial merge simülasyonu (endpoint mantığı)
+        from backend.api.credential import CredentialUpdateRequest
+        body = CredentialUpdateRequest(api_key="new_key")  # sadece api_key
+
+        merged = Credentials(
+            api_key=body.api_key if body.api_key is not None else existing.api_key,
+            api_secret=body.api_secret if body.api_secret is not None else existing.api_secret,
+            api_passphrase=body.api_passphrase if body.api_passphrase is not None else existing.api_passphrase,
+            private_key=body.private_key if body.private_key is not None else existing.private_key,
+            funder_address=body.funder_address if body.funder_address is not None else existing.funder_address,
+            relayer_key=body.relayer_key if body.relayer_key is not None else existing.relayer_key,
+        )
+
+        assert merged.api_key == "new_key"           # güncellendi
+        assert merged.api_secret == "existing_secret"  # korundu
+        assert merged.api_passphrase == "existing_pass"  # korundu
+        assert merged.private_key == "0xabc"           # korundu
+        assert merged.relayer_key == "rlk_old"         # korundu
+
+    def test_empty_string_clears_field(self):
+        """Boş string gönderilen alan bilinçli boşaltılır."""
+        store = CredentialStore()
+        store.load(Credentials(api_key="existing_key", api_secret="existing_secret"))
+        existing = store.credentials
+
+        from backend.api.credential import CredentialUpdateRequest
+        body = CredentialUpdateRequest(api_key="")  # bilinçli boşalt
+
+        merged_key = body.api_key if body.api_key is not None else existing.api_key
+        assert merged_key == ""  # boşaltıldı
+
+    def test_full_update_overwrites_all(self):
+        """Tüm alanlar gönderilirse tümü güncellenir."""
+        store = CredentialStore()
+        store.load(_full_creds())
+        existing = store.credentials
+
+        from backend.api.credential import CredentialUpdateRequest
+        body = CredentialUpdateRequest(
+            api_key="new_k", api_secret="new_s", api_passphrase="new_p",
+            private_key="0xnew", funder_address="0xnewfunder", relayer_key="rlk_new",
+        )
+
+        merged = Credentials(
+            api_key=body.api_key if body.api_key is not None else existing.api_key,
+            api_secret=body.api_secret if body.api_secret is not None else existing.api_secret,
+            api_passphrase=body.api_passphrase if body.api_passphrase is not None else existing.api_passphrase,
+            private_key=body.private_key if body.private_key is not None else existing.private_key,
+            funder_address=body.funder_address if body.funder_address is not None else existing.funder_address,
+            relayer_key=body.relayer_key if body.relayer_key is not None else existing.relayer_key,
+        )
+
+        assert merged.api_key == "new_k"
+        assert merged.api_secret == "new_s"
+        assert merged.relayer_key == "rlk_new"
+
+    def test_no_fields_sent_preserves_all(self):
+        """Hiç alan gönderilmezse tümü korunur."""
+        store = CredentialStore()
+        store.load(_full_creds())
+        existing = store.credentials
+
+        from backend.api.credential import CredentialUpdateRequest
+        body = CredentialUpdateRequest()  # hiçbir alan yok (tümü None)
+
+        merged = Credentials(
+            api_key=body.api_key if body.api_key is not None else existing.api_key,
+            api_secret=body.api_secret if body.api_secret is not None else existing.api_secret,
+            api_passphrase=body.api_passphrase if body.api_passphrase is not None else existing.api_passphrase,
+            private_key=body.private_key if body.private_key is not None else existing.private_key,
+            funder_address=body.funder_address if body.funder_address is not None else existing.funder_address,
+            relayer_key=body.relayer_key if body.relayer_key is not None else existing.relayer_key,
+        )
+
+        assert merged.api_key == "pk_test_123"
+        assert merged.api_secret == "sk_test_456"
+        assert merged.relayer_key == "rlk_test_001"
+
+    def test_request_model_defaults_none(self):
+        """Request model'de tüm alanlar default None."""
+        from backend.api.credential import CredentialUpdateRequest
+        body = CredentialUpdateRequest()
+        assert body.api_key is None
+        assert body.api_secret is None
+        assert body.api_passphrase is None
+        assert body.private_key is None
+        assert body.funder_address is None
+        assert body.relayer_key is None
+
+    def test_single_field_update(self):
+        """Tek alan güncelleme — diğerleri None kalır."""
+        from backend.api.credential import CredentialUpdateRequest
+        body = CredentialUpdateRequest(relayer_key="new_rlk")
+        assert body.relayer_key == "new_rlk"
+        assert body.api_key is None  # dokunulmadı
+        assert body.private_key is None  # dokunulmadı

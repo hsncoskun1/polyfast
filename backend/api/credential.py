@@ -33,18 +33,21 @@ router = APIRouter()
 # ╚══════════════════════════════════════════════════════════════╝
 
 class CredentialUpdateRequest(BaseModel):
-    """Credential güncelleme — 6 alan.
+    """Credential güncelleme — partial update.
 
-    Trading API (zorunlu üçlü): api_key, api_secret, api_passphrase
-    Signing (zorunlu ikili): private_key, funder_address
-    Relayer (zorunlu): relayer_key
+    Semantik:
+    - None  = alan gönderilmedi → mevcut değer korunur
+    - ""    = alan bilinçli boşaltıldı → boş yazılır
+    - "val" = yeni değer → güncellenir
+
+    Frontend sadece değiştirilen alanları gönderir.
     """
-    api_key: str = ""
-    api_secret: str = ""
-    api_passphrase: str = ""
-    private_key: str = ""
-    funder_address: str = ""
-    relayer_key: str = ""
+    api_key: str | None = None
+    api_secret: str | None = None
+    api_passphrase: str | None = None
+    private_key: str | None = None
+    funder_address: str | None = None
+    relayer_key: str | None = None
 
 
 class CredentialUpdateResponse(BaseModel):
@@ -123,11 +126,13 @@ def _build_response(creds: Credentials, missing: list[str], message: str) -> Cre
 
 @router.post("/credential/update", response_model=CredentialUpdateResponse)
 async def credential_update(body: CredentialUpdateRequest):
-    """Credential kaydet + presence check + capability özeti.
+    """Credential kaydet — partial update + presence check + capability özeti.
 
-    - 6 alan: trading (3) + signing (2) + relayer (1)
-    - Tümü zorunlu (is_fully_ready için)
-    - Gerçek API validation bu endpoint'te YAPILMIYOR
+    Partial update semantiği:
+    - None  = alan gönderilmedi → mevcut değer korunur
+    - ""    = alan bilinçli boşaltıldı → boş yazılır
+    - "val" = yeni değer → güncellenir
+
     - In-memory only — restart sonrası credential kaybolur
     - Plaintext LOGLANMAZ, response'ta DÖNMEZ
     """
@@ -135,14 +140,17 @@ async def credential_update(body: CredentialUpdateRequest):
     if orch is None:
         raise HTTPException(status_code=503, detail="Orchestrator not initialized")
 
-    # Credentials oluştur
+    # Mevcut credential'ı al (partial update için)
+    existing = orch.credential_store.credentials
+
+    # Partial merge: None = mevcut korunsun, değer varsa güncelle
     creds = Credentials(
-        api_key=body.api_key,
-        api_secret=body.api_secret,
-        api_passphrase=body.api_passphrase,
-        private_key=body.private_key,
-        funder_address=body.funder_address,
-        relayer_key=body.relayer_key,
+        api_key=body.api_key if body.api_key is not None else existing.api_key,
+        api_secret=body.api_secret if body.api_secret is not None else existing.api_secret,
+        api_passphrase=body.api_passphrase if body.api_passphrase is not None else existing.api_passphrase,
+        private_key=body.private_key if body.private_key is not None else existing.private_key,
+        funder_address=body.funder_address if body.funder_address is not None else existing.funder_address,
+        relayer_key=body.relayer_key if body.relayer_key is not None else existing.relayer_key,
     )
 
     # CredentialStore'a yükle — version artar
