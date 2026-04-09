@@ -15,7 +15,7 @@
  * Mock fallback: YOK (durust empty state)
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { COLOR, FONT, SIZE, SECTION_TONE, ensureStyles, type SectionKey } from './styles';
 import Sidebar, { type BotLocalMode } from './Sidebar';
@@ -35,7 +35,7 @@ import type {
 // ╚══════════════════════════════════════════════════════════════╝
 
 ensureStyles(
-  'composition-v52',
+  'composition-v53',
   `
 .dsp-root {
   display: flex;
@@ -221,6 +221,32 @@ ensureStyles(
 .dsp-main-tab-label { overflow: visible; }
 .dsp-main-tab:hover { opacity: 0.9; }
 .dsp-main-tab:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
+
+/* Flash dot — yeni data vurgusu (count değişince 2s) */
+.dsp-flash-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: ${COLOR.cyan};
+  margin-left: 6px;
+  vertical-align: 2px;
+  opacity: 0;
+  box-shadow: 0 0 8px ${COLOR.cyan};
+  animation: dsp-flash 2s ease-out;
+}
+.dsp-flash-dot.open { background: ${COLOR.green}; box-shadow: 0 0 8px ${COLOR.green}; }
+.dsp-flash-dot.idle { background: ${COLOR.yellow}; box-shadow: 0 0 8px ${COLOR.yellow}; }
+.dsp-flash-dot.settings { background: ${COLOR.red}; box-shadow: 0 0 8px ${COLOR.red}; }
+@keyframes dsp-flash {
+  0%   { opacity: 0; transform: scale(0.6); }
+  10%  { opacity: 1; transform: scale(1.3); }
+  70%  { opacity: 0.8; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dsp-flash-dot { animation: none !important; opacity: 0; }
+}
 .dsp-modal-btn:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; }
 
 /* Accessibility — kullanıcı OS'te 'animasyon azalt' tercihi yaptıysa tüm pulse/loop dursun */
@@ -531,6 +557,25 @@ ensureStyles(
 
 
 /** Empty state için küçük inline SVG illüstrasyonlar */
+/**
+ * useCountFlash — count değişince 2 saniye boyunca true döner,
+ * sonra false'a düşer. UI'da "yeni data" flash vurgusu için.
+ */
+function useCountFlash(count: number, duration = 2000): boolean {
+  const prev = useRef<number>(count);
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    if (count !== prev.current) {
+      prev.current = count;
+      setFlash(true);
+      const id = setTimeout(() => setFlash(false), duration);
+      return () => clearTimeout(id);
+    }
+    return undefined;
+  }, [count, duration]);
+  return flash;
+}
+
 function EmptyIcon({ kind }: { kind: 'search' | 'idle' | 'settings' }) {
   if (kind === 'search') {
     return (
@@ -704,6 +749,11 @@ export default function DashboardSidebarPreview({
   const idleOnly = idle.filter((i) => i.idle_kind === 'bot_stopped');
   const idleSettings = idle.filter((i) => i.idle_kind === 'waiting_rules' || i.idle_kind === 'error');
   const mainCounts = { search: search.length, idle: idleOnly.length, settings: idleSettings.length };
+  const openCount = positions.filter((p) => p.variant !== 'claim').length;
+  const flashOpen     = useCountFlash(openCount);
+  const flashSearch   = useCountFlash(mainCounts.search);
+  const flashIdle     = useCountFlash(mainCounts.idle);
+  const flashSettings = useCountFlash(mainCounts.settings);
 
   // Status chip: hep gosterilir (Q3 = a)
   const online = data.errorStreak < 3;
@@ -755,8 +805,9 @@ export default function DashboardSidebarPreview({
             AÇIK İŞLEMLER
           </span>
           <span className="dsp-orail-title-count" style={{ color: SECTION_TONE.open.fg }}>
-            {positions.filter((p) => p.variant !== 'claim').length}
+            {openCount}
           </span>
+          {flashOpen && <span className="dsp-flash-dot open" aria-hidden />}
         </div>
         <OpenRail positions={sortedPositions} />
       </div>
@@ -776,9 +827,9 @@ export default function DashboardSidebarPreview({
 
         <div className="dsp-main-tabs">
           {([
-            { key: 'search',   label: 'İşlem Arananlar',    count: mainCounts.search },
-            { key: 'idle',     label: 'İşlem Aranmayanlar', count: mainCounts.idle },
-            { key: 'settings', label: 'Ayar Gerekli',       count: mainCounts.settings },
+            { key: 'search',   label: 'İşlem Arananlar',    count: mainCounts.search,   flash: flashSearch },
+            { key: 'idle',     label: 'İşlem Aranmayanlar', count: mainCounts.idle,     flash: flashIdle },
+            { key: 'settings', label: 'Ayar Gerekli',       count: mainCounts.settings, flash: flashSettings },
           ] as const).map((t) => (
             <button
               key={t.key}
@@ -788,6 +839,7 @@ export default function DashboardSidebarPreview({
             >
               <span className="dsp-main-tab-label">{t.label}</span>
               <span className="dsp-main-tab-count">{t.count}</span>
+              {t.flash && <span className={`dsp-flash-dot ${t.key}`} aria-hidden />}
             </button>
           ))}
         </div>
