@@ -16,6 +16,7 @@ Güvenlik kuralları (CLAUDE.md):
 - CREDENTIAL GEREKLI'den çıkış = is_fully_ready=true
 """
 
+import asyncio
 import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -321,17 +322,44 @@ async def _check_trading_api(orch) -> CheckResult:
             related_fields=["api_key", "api_secret", "api_passphrase"],
         )
     except Exception as e:
-        # Plaintext credential LOGLANMAZ — sadece hata türü
-        err_type = type(e).__name__
+        # Plaintext credential LOGLANMAZ — sadece hata sınıfı
+        from backend.auth_clients.errors import ClientError, ErrorCategory
+        msg = "Beklenmeyen hata — tekrar deneyin"
+        if isinstance(e, ClientError):
+            cat = e.category
+            if cat == ErrorCategory.AUTH:
+                msg = "API anahtarları geçersiz — bilgileri kontrol edin"
+            elif cat == ErrorCategory.NETWORK:
+                msg = "Bağlantı kurulamadı — internet bağlantınızı kontrol edin"
+            elif cat == ErrorCategory.TIMEOUT:
+                msg = "Bağlantı zaman aşımına uğradı — tekrar deneyin"
+            elif cat == ErrorCategory.RATE_LIMIT:
+                msg = "Çok fazla istek — biraz bekleyip tekrar deneyin"
+            elif cat == ErrorCategory.SERVER:
+                msg = "Polymarket sunucu hatası — daha sonra tekrar deneyin"
+        elif isinstance(e, (TimeoutError, asyncio.TimeoutError)):
+            msg = "Bağlantı zaman aşımına uğradı — tekrar deneyin"
+        elif isinstance(e, (ConnectionError, OSError)):
+            msg = "Bağlantı kurulamadı — internet bağlantınızı kontrol edin"
+
+        # İç log: secret olmadan teknik tip
+        log_event(
+            logger, logging.WARNING,
+            f"Trading API check failed: {type(e).__name__} "
+            f"(category={getattr(e, 'category', 'unknown')})",
+            entity_type="credential",
+            entity_id="validate_trading",
+        )
+
         return CheckResult(
             name="trading_api", label="Trading API", status="failed",
-            message=f"API bağlantısı başarısız: {err_type}",
+            message=msg,
             related_fields=["api_key", "api_secret", "api_passphrase"],
         )
 
 
 def _check_signing(orch) -> CheckResult:
-    """Signing doğrulaması — private_key format + funder_address check."""
+    """Signing doğrulaması — private_key normalizasyon + format + funder check."""
     creds = orch.credential_store.credentials
     if not creds.has_signing_credentials():
         return CheckResult(
@@ -339,23 +367,30 @@ def _check_signing(orch) -> CheckResult:
             message="Signing credential eksik (private_key, funder_address)",
             related_fields=["private_key", "funder_address"],
         )
-    # Format check: private_key should start with 0x and be hex
+
+    # ── Private key: normalize + validate ──
     pk = creds.private_key
+    # 0x prefix yoksa ekle (Polymarket key'ler genelde prefix'siz)
     if not pk.startswith("0x"):
-        return CheckResult(
-            name="signing", label="Signing", status="failed",
-            message="Private key 0x ile başlamalı",
-            related_fields=["private_key"],
-        )
+        pk = "0x" + pk
+    # Hex format check
     try:
-        int(pk[2:], 16)  # hex format check
+        int(pk[2:], 16)
     except ValueError:
         return CheckResult(
             name="signing", label="Signing", status="failed",
             message="Private key geçersiz hex formatı",
             related_fields=["private_key"],
         )
-    # funder_address format check
+    # Uzunluk check: 0x + 64 hex = 66 total
+    if len(pk) != 66:
+        return CheckResult(
+            name="signing", label="Signing", status="failed",
+            message=f"Private key 64 hex karakter olmalı (mevcut: {len(pk) - 2})",
+            related_fields=["private_key"],
+        )
+
+    # ── Funder address: strict Ethereum address format ──
     fa = creds.funder_address
     if not fa.startswith("0x"):
         return CheckResult(
@@ -363,6 +398,21 @@ def _check_signing(orch) -> CheckResult:
             message="Funder address 0x ile başlamalı",
             related_fields=["funder_address"],
         )
+    if len(fa) != 42:
+        return CheckResult(
+            name="signing", label="Signing", status="failed",
+            message=f"Funder address 42 karakter olmalı (mevcut: {len(fa)})",
+            related_fields=["funder_address"],
+        )
+    try:
+        int(fa[2:], 16)
+    except ValueError:
+        return CheckResult(
+            name="signing", label="Signing", status="failed",
+            message="Funder address geçersiz hex formatı",
+            related_fields=["funder_address"],
+        )
+
     return CheckResult(
         name="signing", label="Signing", status="passed",
         message="İmza bilgileri doğru formatta",

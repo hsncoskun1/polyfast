@@ -417,67 +417,90 @@ class TestCheckResult:
 
 class TestSigningCheck:
 
-    def test_signing_pass(self):
-        """Valid signing credentials → passed."""
-        from backend.api.credential import _check_signing
+    def _orch(self, pk="", fa=""):
         from unittest.mock import MagicMock
         orch = MagicMock()
-        orch.credential_store.credentials = Credentials(
-            private_key="0xabcdef1234567890abcdef1234567890",
-            funder_address="0x71C7db5a9b2d9e4F",
-        )
-        result = _check_signing(orch)
+        orch.credential_store.credentials = Credentials(private_key=pk, funder_address=fa)
+        return orch
+
+    def test_signing_with_prefix_valid(self):
+        """0x prefix + 64 hex → passed."""
+        from backend.api.credential import _check_signing
+        pk = "0x" + "ab" * 32  # 0x + 64 hex = 66 char
+        fa = "0x" + "cd" * 20  # 0x + 40 hex = 42 char
+        result = _check_signing(self._orch(pk, fa))
         assert result.status == "passed"
-        assert result.name == "signing"
+
+    def test_signing_no_prefix_valid(self):
+        """0x prefix'siz 64-char hex → normalizasyon + passed."""
+        from backend.api.credential import _check_signing
+        pk = "ab" * 32  # 64 hex, 0x yok
+        fa = "0x" + "cd" * 20
+        result = _check_signing(self._orch(pk, fa))
+        assert result.status == "passed"
+        assert "doğru formatta" in result.message
 
     def test_signing_missing(self):
         """Signing eksik → failed."""
         from backend.api.credential import _check_signing
-        from unittest.mock import MagicMock
-        orch = MagicMock()
-        orch.credential_store.credentials = Credentials()
-        result = _check_signing(orch)
+        result = _check_signing(self._orch())
         assert result.status == "failed"
         assert "private_key" in result.related_fields
 
-    def test_signing_bad_prefix(self):
-        """Private key 0x ile başlamıyor → failed."""
-        from backend.api.credential import _check_signing
-        from unittest.mock import MagicMock
-        orch = MagicMock()
-        orch.credential_store.credentials = Credentials(
-            private_key="not_hex_key",
-            funder_address="0x71C7db5a9b2d9e4F",
-        )
-        result = _check_signing(orch)
-        assert result.status == "failed"
-        assert "0x" in result.message
-
     def test_signing_bad_hex(self):
-        """Private key hex değil → failed."""
+        """Hex olmayan private key → failed."""
         from backend.api.credential import _check_signing
-        from unittest.mock import MagicMock
-        orch = MagicMock()
-        orch.credential_store.credentials = Credentials(
-            private_key="0xNOTHEX!!!",
-            funder_address="0x71C7db5a9b2d9e4F",
-        )
-        result = _check_signing(orch)
+        result = _check_signing(self._orch("0xNOTHEX!!NOTHEX!!NOTHEX!!NOTHEX!!NOTHEX!!NOTHEX!!NOTHEX!!NOTHEX!!", "0x" + "cd" * 20))
         assert result.status == "failed"
         assert "hex" in result.message
 
-    def test_signing_funder_bad_prefix(self):
-        """Funder address 0x ile başlamıyor → failed."""
+    def test_signing_short_key(self):
+        """Kısa private key → failed."""
         from backend.api.credential import _check_signing
-        from unittest.mock import MagicMock
-        orch = MagicMock()
-        orch.credential_store.credentials = Credentials(
-            private_key="0xabcdef1234567890",
-            funder_address="no_prefix_address",
-        )
-        result = _check_signing(orch)
+        result = _check_signing(self._orch("0xabc", "0x" + "cd" * 20))
+        assert result.status == "failed"
+        assert "64 hex" in result.message
+
+    def test_signing_long_key(self):
+        """Uzun private key → failed."""
+        from backend.api.credential import _check_signing
+        pk = "0x" + "ab" * 33  # 66 hex = too long
+        result = _check_signing(self._orch(pk, "0x" + "cd" * 20))
+        assert result.status == "failed"
+        assert "64 hex" in result.message
+
+    def test_funder_bad_prefix(self):
+        """Funder 0x ile başlamıyor → failed."""
+        from backend.api.credential import _check_signing
+        pk = "0x" + "ab" * 32
+        result = _check_signing(self._orch(pk, "no_prefix_address_here_long_enough"))
         assert result.status == "failed"
         assert "funder_address" in result.related_fields
+
+    def test_funder_wrong_length(self):
+        """Funder 42 karakter değil → failed."""
+        from backend.api.credential import _check_signing
+        pk = "0x" + "ab" * 32
+        result = _check_signing(self._orch(pk, "0xshort"))
+        assert result.status == "failed"
+        assert "42 karakter" in result.message
+
+    def test_funder_bad_hex(self):
+        """Funder hex değil → failed."""
+        from backend.api.credential import _check_signing
+        pk = "0x" + "ab" * 32
+        fa = "0x" + "ZZ" * 20  # 42 char ama hex değil
+        result = _check_signing(self._orch(pk, fa))
+        assert result.status == "failed"
+        assert "hex" in result.message
+
+    def test_funder_valid_42char(self):
+        """Funder 0x + 40 hex = 42 char → passed."""
+        from backend.api.credential import _check_signing
+        pk = "0x" + "ab" * 32
+        fa = "0x" + "E5beAf12345678901234567890123456789a04B0"  # exactly 42
+        result = _check_signing(self._orch(pk, fa))
+        assert result.status == "passed"
 
 
 class TestRelayerCheck:
@@ -554,6 +577,120 @@ class TestValidationStatus:
 # ╔══════════════════════════════════════════════════════════════╗
 # ║  Partial update tests                                         ║
 # ╚══════════════════════════════════════════════════════════════╝
+
+class TestTradingApiErrorClassification:
+    """Trading API error handling — category-based messages."""
+
+    @pytest.mark.asyncio
+    async def test_trading_auth_error(self):
+        """Auth error → 'API anahtarları geçersiz'."""
+        from backend.api.credential import _check_trading_api
+        from backend.auth_clients.errors import ClientError, ErrorCategory
+        from unittest.mock import MagicMock, AsyncMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials(
+            api_key="k", api_secret="s", api_passphrase="p",
+        )
+        # Mock trading client to raise auth error
+        import backend.api.credential as cred_mod
+        original = cred_mod.__dict__.get('_check_trading_api')
+
+        # Direct test: mock the import path
+        mock_client_cls = MagicMock()
+        mock_client_cls.return_value.fetch_balance = AsyncMock(
+            side_effect=ClientError("auth fail", category=ErrorCategory.AUTH)
+        )
+        import backend.auth_clients.trading_client as tc_mod
+        old_cls = tc_mod.AuthenticatedTradingClient
+        tc_mod.AuthenticatedTradingClient = mock_client_cls
+        try:
+            result = await _check_trading_api(orch)
+            assert result.status == "failed"
+            assert "geçersiz" in result.message
+        finally:
+            tc_mod.AuthenticatedTradingClient = old_cls
+
+    @pytest.mark.asyncio
+    async def test_trading_network_error(self):
+        """Network error → 'Bağlantı kurulamadı'."""
+        from backend.api.credential import _check_trading_api
+        from unittest.mock import MagicMock, AsyncMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials(
+            api_key="k", api_secret="s", api_passphrase="p",
+        )
+        mock_client_cls = MagicMock()
+        mock_client_cls.return_value.fetch_balance = AsyncMock(
+            side_effect=ConnectionError("connection refused")
+        )
+        import backend.auth_clients.trading_client as tc_mod
+        old_cls = tc_mod.AuthenticatedTradingClient
+        tc_mod.AuthenticatedTradingClient = mock_client_cls
+        try:
+            result = await _check_trading_api(orch)
+            assert result.status == "failed"
+            assert "Bağlantı" in result.message
+        finally:
+            tc_mod.AuthenticatedTradingClient = old_cls
+
+    @pytest.mark.asyncio
+    async def test_trading_timeout_error(self):
+        """Timeout → 'zaman aşımı'."""
+        from backend.api.credential import _check_trading_api
+        from unittest.mock import MagicMock, AsyncMock
+        import asyncio as aio
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials(
+            api_key="k", api_secret="s", api_passphrase="p",
+        )
+        mock_client_cls = MagicMock()
+        mock_client_cls.return_value.fetch_balance = AsyncMock(
+            side_effect=aio.TimeoutError()
+        )
+        import backend.auth_clients.trading_client as tc_mod
+        old_cls = tc_mod.AuthenticatedTradingClient
+        tc_mod.AuthenticatedTradingClient = mock_client_cls
+        try:
+            result = await _check_trading_api(orch)
+            assert result.status == "failed"
+            assert "zaman aşımı" in result.message.lower()
+        finally:
+            tc_mod.AuthenticatedTradingClient = old_cls
+
+    @pytest.mark.asyncio
+    async def test_trading_success(self):
+        """Başarılı balance fetch → passed."""
+        from backend.api.credential import _check_trading_api
+        from unittest.mock import MagicMock, AsyncMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials(
+            api_key="k", api_secret="s", api_passphrase="p",
+        )
+        mock_client_cls = MagicMock()
+        mock_client_cls.return_value.fetch_balance = AsyncMock(
+            return_value={"balance": "100.00"}
+        )
+        import backend.auth_clients.trading_client as tc_mod
+        old_cls = tc_mod.AuthenticatedTradingClient
+        tc_mod.AuthenticatedTradingClient = mock_client_cls
+        try:
+            result = await _check_trading_api(orch)
+            assert result.status == "passed"
+            assert "başarılı" in result.message
+        finally:
+            tc_mod.AuthenticatedTradingClient = old_cls
+
+    @pytest.mark.asyncio
+    async def test_trading_missing_creds(self):
+        """Credential eksik → failed (API call yapılmaz)."""
+        from backend.api.credential import _check_trading_api
+        from unittest.mock import MagicMock
+        orch = MagicMock()
+        orch.credential_store.credentials = Credentials()
+        result = await _check_trading_api(orch)
+        assert result.status == "failed"
+        assert "eksik" in result.message
+
 
 class TestPartialUpdate:
     """credential/update partial update semantiği:
