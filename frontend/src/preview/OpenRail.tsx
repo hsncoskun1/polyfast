@@ -630,15 +630,15 @@ export default function OpenRail({
   return (
     <aside className="dsp-orail">
       <div className="dsp-orail-list">
+        {openOnly.map((p) => (
+          <OpenCard key={p.position_id} position={p} />
+        ))}
         {claimPositions.map((p) => (
           <ClaimCard
             key={p.position_id}
             position={p}
             claim={claimByPos.get(p.position_id) ?? null}
           />
-        ))}
-        {openOnly.map((p) => (
-          <OpenCard key={p.position_id} position={p} />
         ))}
       </div>
     </aside>

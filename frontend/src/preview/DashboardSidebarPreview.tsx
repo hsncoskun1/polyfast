@@ -648,11 +648,11 @@ function EmptyState({
   );
 }
 
-// Sirala: claim variant once, sonra open
+// Sirala: open variant üstte, claim altta
 function sortPositions(positions: PositionSummary[]): PositionSummary[] {
   return [...positions].sort((a, b) => {
-    const av = a.variant === 'claim' ? 0 : 1;
-    const bv = b.variant === 'claim' ? 0 : 1;
+    const av = a.variant === 'claim' ? 1 : 0;
+    const bv = b.variant === 'claim' ? 1 : 0;
     return av - bv;
   });
 }
