@@ -665,3 +665,204 @@ class Orchestrator:
             eval_loop=self.evaluation_loop,
             cleanup=self.cleanup,
         )
+
+    # ══════════════════════════════════════════════════════════════
+    # SNAPSHOT PROVIDERS — dashboard API tarafından çağrılır
+    # ══════════════════════════════════════════════════════════════
+
+    _SLOT_SECONDS = 300
+    _EVENT_URL_TEMPLATE = "https://polymarket.com/event/{slug}"
+
+    def build_search_snapshot(self) -> list[dict]:
+        """Search tile verileri — enabled + configured coinler için kural değerlendirmesi.
+
+        Her coin için runtime evaluation yapar (EvaluationLoop cache'i yok,
+        kendi context'ini oluşturur — minimum invaziv).
+        """
+        from backend.strategy.evaluation_context import EvaluationContext
+        from backend.market_data.live_price import PriceStatus
+        from backend.market_data.coin_price_client import CoinPriceStatus
+
+        tiles = []
+        eligible_settings = self.settings_store.get_eligible_coins()
+        open_count = len(self.position_tracker.get_all_positions())
+
+        for cs in eligible_settings:
+            asset = cs.coin
+
+            # Outcome fiyat
+            price_rec = self.pipeline.get_record_by_asset(asset)
+            if price_rec:
+                up_price = price_rec.up_price
+                down_price = price_rec.down_price
+                best_bid = price_rec.best_bid
+                best_ask = price_rec.best_ask
+                outcome_fresh = price_rec.status == PriceStatus.FRESH
+                condition_id = price_rec.condition_id
+            else:
+                up_price = down_price = best_bid = best_ask = 0.0
+                outcome_fresh = False
+                condition_id = ""
+
+            # Coin USD
+            coin_rec = self.coin_client.get_price(asset)
+            coin_usd = coin_rec.usd_price if coin_rec else 0.0
+            coin_fresh = coin_rec.status == CoinPriceStatus.FRESH if coin_rec else False
+
+            # PTB
+            ptb_rec = self.ptb_fetcher.get_record(condition_id) if condition_id else None
+            ptb_value = ptb_rec.ptb_value if ptb_rec and ptb_rec.is_locked else 0.0
+            ptb_acquired = ptb_rec.is_locked if ptb_rec else False
+
+            # Kalan süre
+            now = _time.time()
+            slot_start = (int(now) // self._SLOT_SECONDS) * self._SLOT_SECONDS
+            secs_remaining = (slot_start + self._SLOT_SECONDS) - now
+
+            # Context + evaluation
+            ctx = EvaluationContext(
+                condition_id=condition_id,
+                asset=asset,
+                up_price=up_price,
+                down_price=down_price,
+                best_bid=best_bid,
+                best_ask=best_ask,
+                outcome_fresh=outcome_fresh,
+                coin_usd_price=coin_usd,
+                coin_usd_fresh=coin_fresh,
+                ptb_value=ptb_value,
+                ptb_acquired=ptb_acquired,
+                seconds_remaining=secs_remaining,
+                side_mode=cs.side_mode,
+                time_min_seconds=cs.time_min,
+                time_max_seconds=cs.time_max,
+                price_min=cs.price_min,
+                price_max=cs.price_max,
+                delta_threshold=cs.delta_threshold,
+                spread_max_pct=cs.spread_max,
+                event_max_positions=cs.event_max,
+                event_fill_count=0,
+                open_position_count=open_count,
+                time_enabled=cs.time_min > 0,
+                price_enabled=cs.price_min > 0,
+                delta_enabled=cs.delta_threshold > 0,
+                spread_enabled=cs.spread_max > 0,
+            )
+            eval_result = self.rule_engine.evaluate(ctx)
+
+            # Rule spec'leri SearchTileContract formatına dönüştür
+            rules = []
+            for rr in eval_result.rule_results:
+                rules.append({
+                    "label": rr.rule_name,
+                    "live_value": str(rr.detail.get("live_value", "—")),
+                    "threshold_text": str(rr.detail.get("threshold_text", "")),
+                    "state": rr.state.value,
+                })
+
+            # Event URL
+            reg = self.registry.get_by_condition_id(condition_id) if condition_id else None
+            slug = reg.slug if reg else ""
+            event_url = self._EVENT_URL_TEMPLATE.format(slug=slug) if slug else ""
+
+            # Dominant price → pnl_big (pass/total)
+            total_enabled = eval_result.pass_count + eval_result.fail_count + eval_result.waiting_count
+            pnl_big = f"{eval_result.pass_count}/{total_enabled}" if total_enabled > 0 else "0/0"
+
+            # PTB / live / delta formatted
+            ptb_fmt = f"{ptb_value:,.2f}" if ptb_value > 0 else "—"
+            live_fmt = f"{coin_usd:,.2f}" if coin_usd > 0 else "—"
+            delta_val = abs(coin_usd - ptb_value) if ptb_value > 0 and coin_usd > 0 else 0
+            delta_fmt = f"${delta_val:,.0f}" if delta_val > 0 else "—"
+
+            # Tone
+            if eval_result.pass_count >= total_enabled and total_enabled > 0:
+                tone = "profit"
+            elif eval_result.fail_count > 0:
+                tone = "loss"
+            elif eval_result.waiting_count > 0:
+                tone = "pending"
+            else:
+                tone = "neutral"
+
+            # Signal ready
+            signal_ready = eval_result.decision.value == "entry"
+
+            tiles.append({
+                "tile_id": f"search-{asset.lower()}",
+                "coin": asset,
+                "event_url": event_url,
+                "pnl_big": pnl_big,
+                "pnl_amount": "HAZIR" if signal_ready else "BEKLE",
+                "pnl_tone": tone,
+                "ptb": ptb_fmt,
+                "live": live_fmt,
+                "delta": delta_fmt,
+                "rules": rules,
+                "signal_ready": signal_ready,
+                "type": "ok" if signal_ready else "wait",
+            })
+
+        return tiles
+
+    def build_idle_snapshot(self) -> list[dict]:
+        """Idle tile verileri — pasif / ayarsız / hatalı coinler.
+
+        idle_kind öncelik sırası: bot_stopped → waiting_rules → error → no_events
+        """
+        tiles = []
+        all_settings = self.settings_store.get_all()
+
+        for cs in all_settings:
+            asset = cs.coin
+            idle_kind = None
+            msg = ""
+
+            # 1. Bot stopped / paused → tüm coinler idle
+            if not self.trading_enabled or self.paused:
+                idle_kind = "bot_stopped"
+                msg = "Bot çalışmıyor — işlem aranmıyor"
+
+            # 2. Ayar eksik (enabled ama configured değil)
+            elif cs.coin_enabled and not cs.is_configured:
+                idle_kind = "waiting_rules"
+                msg = "Ayarlar tamamlanmadan coinde işlem açılamaz"
+
+            # 3. Coin disabled (kullanıcı kapattı)
+            elif not cs.coin_enabled:
+                idle_kind = "bot_stopped"
+                msg = "Ayarlar yapıldı ama pasif durumda"
+
+            # 4. Error — price data stale/invalid
+            elif cs.is_trade_eligible:
+                price_rec = self.pipeline.get_record_by_asset(asset)
+                if price_rec and price_rec.is_stale:
+                    idle_kind = "error"
+                    msg = "Fiyat verisi güncel değil — stale data"
+                # Eligible coin → search tile'da, idle'da değil
+                # Sadece stale/error durumunda idle'a düşer
+
+            # idle_kind None ise bu coin search'te veya aktif — idle listede gösterme
+            if idle_kind is None:
+                continue
+
+            # Event URL
+            reg_records = self.registry.get_all()
+            slug = ""
+            for r in reg_records:
+                if r.asset.upper() == asset.upper():
+                    slug = r.slug
+                    break
+            event_url = self._EVENT_URL_TEMPLATE.format(slug=slug) if slug else None
+
+            tiles.append({
+                "tile_id": f"idle-{asset.lower()}",
+                "coin": asset,
+                "idle_kind": idle_kind,
+                "msg": msg,
+                "activity": None,
+                "rules": None,
+                "event_url": event_url,
+            })
+
+        return tiles
