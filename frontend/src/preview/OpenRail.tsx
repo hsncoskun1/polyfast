@@ -9,7 +9,7 @@ import { COIN_FALLBACK } from './coinRegistry';
 import type { PositionSummary, ClaimSummary } from '../api/dashboard';
 
 ensureStyles(
-  'openrail-v45',
+  'openrail-v46',
   `
 .dsp-orail {
   width: 100%;
@@ -431,6 +431,11 @@ ensureStyles(
   border: 1px solid ${COLOR.yellow};
   color: #1a1505;
 }
+.dsp-ocard-claim-pop.ok {
+  background: ${COLOR.green};
+  border: 1px solid ${COLOR.green};
+  color: #0b1e10;
+}
 `
 );
 
@@ -720,7 +725,9 @@ function ClaimCard({
               ? { position: 'relative', background: COLOR.redSoft, borderColor: COLOR.red }
               : status === 'RETRY'
                 ? { position: 'relative', background: COLOR.yellowSoft, borderColor: COLOR.yellow }
-                : undefined
+                : status === 'OK'
+                  ? { position: 'relative', background: COLOR.greenSoft, borderColor: COLOR.green }
+                  : undefined
           }
         >
           <span className="dsp-ocard-exit-lbl">Deneme</span>
@@ -730,6 +737,9 @@ function ClaimCard({
           )}
           {status === 'RETRY' && (
             <div className="dsp-ocard-claim-pop retry">{`Deneme ${retryText} | ${nextText} sonra tekrar`}</div>
+          )}
+          {status === 'OK' && (
+            <div className="dsp-ocard-claim-pop ok">Claim doğrulandı | {payout} bakiyeye eklendi</div>
           )}
         </div>
         <div className="dsp-ocard-exit sl">
