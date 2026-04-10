@@ -59,6 +59,19 @@ async def lifespan(app: FastAPI):
         entity_id="startup",
     )
 
+    # ── Database init + migrations ──
+    from backend.persistence.database import init_db, close_db
+    from backend.persistence.migrations import run_migrations
+    db = await init_db()
+    applied = await run_migrations(db)
+    if applied:
+        log_event(
+            logger, logging.INFO,
+            f"Database migrations applied: {applied}",
+            entity_type="app",
+            entity_id="migrations",
+        )
+
     # Orchestrator oluştur ve başlat
     _orchestrator = Orchestrator()
     await _orchestrator.start()
@@ -148,6 +161,10 @@ async def lifespan(app: FastAPI):
     if _orchestrator:
         await _orchestrator.stop()
         _orchestrator = None
+
+    # Database close
+    from backend.persistence.database import close_db
+    await close_db()
 
     log_event(
         logger, logging.INFO,

@@ -275,7 +275,7 @@ class DiscoveryLoop:
     async def _sync_to_registry(self, events: list) -> None:
         """Discovery sonuçlarını registry'ye sync et."""
         try:
-            sync_result = await self._sync.sync(events)
+            sync_result = self._sync.sync(events)
             log_event(
                 logger, logging.DEBUG,
                 f"Registry sync complete",
