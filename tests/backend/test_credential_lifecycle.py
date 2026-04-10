@@ -57,7 +57,7 @@ class TestClobClientCredentialStore:
         # SDK yok ama credential'lar cekilmis olmali
         _ = wrapper.is_initialized
         assert wrapper._api_key == "k1"
-        assert wrapper._private_key == "pk1"
+        assert wrapper._private_key == "0xpk1"  # 0x prefix ekleniyor
         assert wrapper._last_cred_version == 1
 
     def test_credential_change_detected(self):
@@ -76,7 +76,7 @@ class TestClobClientCredentialStore:
         # Sonraki islemde yeni credential alinir
         _ = wrapper.is_initialized
         assert wrapper._api_key == "k2"
-        assert wrapper._private_key == "pk2"
+        assert wrapper._private_key == "0xpk2"  # 0x prefix ekleniyor
         assert wrapper._last_cred_version == 2
 
     def test_no_change_no_reinitialize(self):

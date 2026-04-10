@@ -151,6 +151,8 @@ class Orchestrator:
             passive_refresh_interval=cfg.market_data.balance_refresh_interval_seconds,
         )
         self.clob_client = ClobClientWrapper(credential_store=self.credential_store)
+        # BalanceManager ↔ ClobClientWrapper bağlantısı — balance fetch fonksiyonu
+        self.balance_manager.set_fetch_function(self.clob_client.get_balance)
         self.relayer_client = RelayerClientWrapper(credential_store=self.credential_store)
 
         # Claim manager — retry config + persistence

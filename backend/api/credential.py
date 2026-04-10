@@ -224,6 +224,14 @@ async def credential_update(body: CredentialUpdateRequest):
     )
     orch.credential_store.load(creds)
 
+    # Credential update sonrası balance fetch tetikle
+    # ClobClientWrapper._ensure_initialized() version değişikliğini algılayıp SDK reinit yapar
+    # BalanceManager.fetch() yeni credential'larla bakiye çeker
+    try:
+        await orch.balance_manager.fetch()
+    except Exception:
+        pass  # Balance fetch başarısız olabilir — credential update'i bloklamaz
+
     # Log — plaintext YOK
     log_event(
         logger, logging.INFO,

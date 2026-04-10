@@ -96,7 +96,10 @@ class ClobClientWrapper:
 
         # Credential degisti — reinitialize
         creds = self._credential_store.credentials
-        self._private_key = creds.private_key
+        pk = creds.private_key
+        if pk and not pk.startswith("0x"):
+            pk = "0x" + pk
+        self._private_key = pk
         self._api_key = creds.api_key
         self._api_secret = creds.api_secret
         self._api_passphrase = creds.api_passphrase
@@ -118,15 +121,27 @@ class ClobClientWrapper:
         if self._private_key and self._api_key:
             try:
                 from py_clob_client.client import ClobClient
+                from py_clob_client.clob_types import ApiCreds
+
+                # Funder address: credential store'dan veya private key'den derive
+                funder = None
+                if self._credential_store:
+                    funder = self._credential_store.credentials.funder_address or None
+
+                # ApiCreds objesi — dict değil (SDK uyumluluğu)
+                api_creds = ApiCreds(
+                    api_key=self._api_key,
+                    api_secret=self._api_secret,
+                    api_passphrase=self._api_passphrase,
+                )
+
                 self._client = ClobClient(
                     host="https://clob.polymarket.com",
                     key=self._private_key,
                     chain_id=self._chain_id,
-                    creds={
-                        "apiKey": self._api_key,
-                        "secret": self._api_secret,
-                        "passphrase": self._api_passphrase,
-                    },
+                    creds=api_creds,
+                    signature_type=2,
+                    funder=funder,
                 )
                 self._initialized = True
                 log_event(
@@ -174,11 +189,17 @@ class ClobClientWrapper:
             return None
 
         try:
-            # SDK call: get_balance_allowance
-            result = self._client.get_balance_allowance()
+            # SDK call: get_balance_allowance (explicit params — SDK bug workaround)
+            from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
+            params = BalanceAllowanceParams(
+                asset_type=AssetType.COLLATERAL,
+                signature_type=2,
+            )
+            result = self._client.get_balance_allowance(params)
             if result is not None:
-                balance = float(result.get("balance", 0))
-                return {"available": balance, "total": balance}
+                raw = int(result.get("balance", 0))
+                usd = raw / 1_000_000  # USDC 6 decimals
+                return {"available": usd, "total": usd}
         except Exception as e:
             log_event(
                 logger, logging.WARNING,

@@ -135,7 +135,7 @@ class BalanceManager:
         except Exception as e:
             log_event(
                 logger, logging.WARNING,
-                f"Balance fetch failed: {e}",
+                f"Balance fetch failed: {type(e).__name__}",
                 entity_type="balance",
                 entity_id="fetch_error",
             )
