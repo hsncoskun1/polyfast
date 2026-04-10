@@ -23,6 +23,7 @@ import TopBar from './TopBar';
 import OpenRail from './OpenRail';
 import SearchRail from './SearchRail';
 import IdleRail from './IdleRail';
+import CoinSettingsModal from './CoinSettingsModal';
 import CredentialModal from './CredentialModal';
 import { MOCK_DATA } from './mockData';
 import type {
@@ -816,6 +817,15 @@ export default function DashboardSidebarPreview({
     setCredModalOpen(false);
   }, []);
 
+  // Coin settings modal
+  const [settingsModalCoin, setSettingsModalCoin] = useState<string | null>(null);
+  const handleOpenSettings = useCallback((symbol: string) => {
+    if (symbol) setSettingsModalCoin(symbol);
+  }, []);
+  const handleCloseSettings = useCallback(() => {
+    setSettingsModalCoin(null);
+  }, []);
+
   // FAZ4-4: coin toggle — fetch sırasında disable + loading hissi
   const [toggling, setToggling] = useState<Set<string>>(new Set());
   const handleCoinToggle = async (symbol: string) => {
@@ -987,7 +997,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <SearchRail tiles={search} onAlert={showAlert} onToggle={handleCoinToggle} toggling={toggling} />
+            <SearchRail tiles={search} onAlert={showAlert} onToggle={handleCoinToggle} toggling={toggling} onSettings={handleOpenSettings} />
           ))}
           {mainTab === 'idle' && (idleOnly.length === 0 ? (
             <EmptyState
@@ -999,7 +1009,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <IdleRail tiles={idleOnly} tone="idle" onAlert={showAlert} onToggle={handleCoinToggle} toggling={toggling} />
+            <IdleRail tiles={idleOnly} tone="idle" onAlert={showAlert} onToggle={handleCoinToggle} toggling={toggling} onSettings={handleOpenSettings} />
           ))}
           {mainTab === 'settings' && (idleSettings.length === 0 ? (
             <EmptyState
@@ -1011,7 +1021,7 @@ export default function DashboardSidebarPreview({
               statusText={statusText}
             />
           ) : (
-            <IdleRail tiles={idleSettings} tone="settings" onAlert={showAlert} onToggle={handleCoinToggle} toggling={toggling} />
+            <IdleRail tiles={idleSettings} tone="settings" onAlert={showAlert} onToggle={handleCoinToggle} toggling={toggling} onSettings={handleOpenSettings} />
           ))}
         </div>
       </div>
@@ -1036,6 +1046,13 @@ export default function DashboardSidebarPreview({
         <CredentialModal
           closable={credClosable}
           onClose={handleCredClose}
+          mockMode={mockMode}
+        />
+      )}
+      {settingsModalCoin && (
+        <CoinSettingsModal
+          symbol={settingsModalCoin}
+          onClose={handleCloseSettings}
           mockMode={mockMode}
         />
       )}

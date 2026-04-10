@@ -315,7 +315,7 @@ function pickRule(rules: RuleSpecContract[], label: string): RuleSpecContract | 
   return rules.find((r) => r.label.toLowerCase() === label.toLowerCase().replace(' ', ''));
 }
 
-function SearchCard({ tile, onAlert, onToggle, toggling }: { tile: SearchTileContract; onAlert?: AlertFn; onToggle?: (symbol: string) => void; toggling?: Set<string> }) {
+function SearchCard({ tile, onAlert, onToggle, toggling, onSettings }: { tile: SearchTileContract; onAlert?: AlertFn; onToggle?: (symbol: string) => void; toggling?: Set<string>; onSettings?: (symbol: string) => void }) {
   const coin = COIN_FALLBACK[tile.coin];
   const passN = tile.rules.filter((r) => r.state === 'pass').length;
   const pnlFg = passN >= 6 ? COLOR.green : passN === 5 ? COLOR.yellow : COLOR.red;
@@ -369,7 +369,7 @@ function SearchCard({ tile, onAlert, onToggle, toggling }: { tile: SearchTileCon
             className="dsp-scard-icbtn"
             title="Coin ayarları"
             aria-label="Ayarlar"
-            onClick={() => onAlert?.('⚙', `${tile.coin} Ayarları`, `${tile.coin} coin ayarları — modal Phase 2'de eklenecek`)}
+            onClick={() => onSettings?.(tile.coin)}
           >⚙</button>
         </div>
       </div>
@@ -459,7 +459,7 @@ function passCount(t: SearchTileContract): number {
 }
 type AlertFn = (icon: string, title: string, body: string) => void;
 
-export default function SearchRail({ tiles, onAlert, onToggle, toggling }: { tiles: SearchTileContract[]; onAlert?: AlertFn; onToggle?: (symbol: string) => void; toggling?: Set<string> }) {
+export default function SearchRail({ tiles, onAlert, onToggle, toggling, onSettings }: { tiles: SearchTileContract[]; onAlert?: AlertFn; onToggle?: (symbol: string) => void; toggling?: Set<string>; onSettings?: (symbol: string) => void }) {
   const sorted = useMemo(
     () =>
       tiles
@@ -475,7 +475,7 @@ export default function SearchRail({ tiles, onAlert, onToggle, toggling }: { til
   return (
     <div className="dsp-srail-list">
       {sorted.map((t) => (
-        <SearchCard key={t.tile_id} tile={t} onAlert={onAlert} onToggle={onToggle} toggling={toggling} />
+        <SearchCard key={t.tile_id} tile={t} onAlert={onAlert} onToggle={onToggle} toggling={toggling} onSettings={onSettings} />
       ))}
     </div>
   );

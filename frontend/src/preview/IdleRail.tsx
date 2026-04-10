@@ -235,7 +235,7 @@ function renderActivityText(text: string): React.ReactNode[] {
   return parts;
 }
 
-function IdleCard({ tile, tone, onAlert, onToggle, toggling }: { tile: IdleTileContract; tone: 'idle' | 'settings'; onAlert?: AlertFn; onToggle?: (symbol: string) => void; toggling?: Set<string> }) {
+function IdleCard({ tile, tone, onAlert, onToggle, toggling, onSettings }: { tile: IdleTileContract; tone: 'idle' | 'settings'; onAlert?: AlertFn; onToggle?: (symbol: string) => void; toggling?: Set<string>; onSettings?: (symbol: string) => void }) {
   const coin = tile.coin ? COIN_FALLBACK[tile.coin] : undefined;
   const coinTone = coin?.tone;
   const bgStyle = coinTone
@@ -309,7 +309,7 @@ function IdleCard({ tile, tone, onAlert, onToggle, toggling }: { tile: IdleTileC
           title="Coin ayarları"
           aria-label="Ayarlar"
           onClick={() =>
-            onAlert?.('⚙', `${tile.coin ?? 'Coin'} Ayarları`, `${tile.coin ?? 'Coin'} coin ayarları — modal Phase 2'de eklenecek`)
+            onSettings?.(tile.coin ?? '')
           }
         >⚙</button>
       </div>
@@ -341,17 +341,19 @@ export default function IdleRail({
   onAlert,
   onToggle,
   toggling,
+  onSettings,
 }: {
   tiles: IdleTileContract[];
   tone?: 'idle' | 'settings';
   onAlert?: AlertFn;
   onToggle?: (symbol: string) => void;
   toggling?: Set<string>;
+  onSettings?: (symbol: string) => void;
 }) {
   return (
     <div className="dsp-irail-list">
       {tiles.map((t) => (
-        <IdleCard key={t.tile_id} tile={t} tone={tone} onAlert={onAlert} onToggle={onToggle} toggling={toggling} />
+        <IdleCard key={t.tile_id} tile={t} tone={tone} onAlert={onAlert} onToggle={onToggle} toggling={toggling} onSettings={onSettings} />
       ))}
     </div>
   );
