@@ -382,10 +382,9 @@ export default function CoinSettingsModal({ symbol, onClose, mockMode }: CoinSet
 
         {showSpreadLocked && (
           <div className="csm-locked">
-            <div className="csm-locked-title">🔒 Spread — KAPALI</div>
+            <div className="csm-locked-title">🔒 Spread — Şu anda aktif değil</div>
             <div className="csm-locked-desc">
-              Bu kural bu sürümde sistem tarafından yönetilmektedir.
-              İleri sürümlerde gelişmiş ayarlardan yapılandırılabilir.
+              İlerleyen sürümlerde aktif edilecektir.
             </div>
           </div>
         )}

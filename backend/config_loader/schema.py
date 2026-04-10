@@ -65,7 +65,7 @@ class DeltaRuleConfig(BaseModel):
     Örnek: BTC threshold=50 → $50 fark, DOGE threshold=0.001 → $0.001 fark.
     """
     enabled: bool = True
-    threshold: float = Field(default=50.0, ge=0.0001, le=100000.0)
+    threshold: float = Field(default=50.0, ge=0.00001, le=100000.0)
 
 
 class SpreadRuleConfig(BaseModel):

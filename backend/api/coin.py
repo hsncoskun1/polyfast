@@ -103,11 +103,20 @@ class CoinSettingsRequest(BaseModel):
                 raise ValueError(f"Geçersiz side_mode: {v}. Geçerli: {valid}")
         return v
 
-    @field_validator('delta_threshold', 'spread_max', 'order_amount')
+    @field_validator('delta_threshold', 'spread_max')
     @classmethod
     def validate_positive_float(cls, v):
         if v is not None and v < 0:
             raise ValueError("Negatif değer kabul edilmez")
+        return v
+
+    @field_validator('order_amount')
+    @classmethod
+    def validate_order_amount(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("Negatif değer kabul edilmez")
+        if v is not None and 0 < v < 1.0:
+            raise ValueError("İşlem tutarı en az $1.00 olmalı")
         return v
 
     @field_validator('price_min', 'price_max', 'time_min', 'time_max', 'event_max')
