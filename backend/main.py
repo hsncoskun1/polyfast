@@ -98,10 +98,12 @@ async def lifespan(app: FastAPI):
     elif credential_ok and not balance_ok:
         log_event(
             logger, logging.WARNING,
-            "StartupGuard: credential OK, balance FAIL — degraded mode",
+            "StartupGuard: credential OK, balance FAIL — degraded mode, retry active",
             entity_type="app",
             entity_id="startup_guard",
         )
+        # Balance verify retry başlat — 30s aralıkla denemeye devam eder
+        _orchestrator._start_verify_retry()
     else:
         log_event(
             logger, logging.INFO,
@@ -112,19 +114,29 @@ async def lifespan(app: FastAPI):
 
     # ── auto_start_bot_on_startup ──
     # Bot ancak credential + balance OK ise otomatik başlayabilir
+    # Balance fail durumunda verify retry zaten çalışıyor (30s aralıkla)
+    # Retry başarılı olunca trading_enabled=True → bot normal moda geçer
     auto_start = _orchestrator._config.trading.auto_start_bot_on_startup
     if auto_start and credential_ok and balance_ok:
         log_event(
             logger, logging.INFO,
-            "Auto-start: bot starting (credential OK, balance OK, auto_start=true)",
+            "Auto-start: bot running (credential OK, balance OK)",
             entity_type="app",
             entity_id="auto_start",
         )
-        # Loop'lar zaten start() ile çalışıyor — burada trading_enabled flag yeterli
-    elif auto_start and not (credential_ok and balance_ok):
+    elif auto_start and credential_ok and not balance_ok:
         log_event(
             logger, logging.WARNING,
-            "Auto-start: SKIPPED (credential or balance not ready)",
+            "Auto-start: degraded — balance retry active, bot will start when ready",
+            entity_type="app",
+            entity_id="auto_start",
+        )
+        # verify_retry zaten başlatıldı (yukarıda)
+        # Başarılı olunca trading_enabled=True → loop'lar zaten çalışıyor
+    elif auto_start and not credential_ok:
+        log_event(
+            logger, logging.WARNING,
+            "Auto-start: SKIPPED — no credential, waiting for user input",
             entity_type="app",
             entity_id="auto_start",
         )
