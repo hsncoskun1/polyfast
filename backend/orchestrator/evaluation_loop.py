@@ -174,8 +174,12 @@ class EvaluationLoop:
         coin_usd = coin_record.usd_price if coin_record else 0.0
         coin_fresh = coin_record.status == CoinPriceStatus.FRESH if coin_record else False
 
-        # PTB
+        # PTB — condition_id ile ara, bulamazsa asset ile fallback
+        # Pipeline'da outcome price yoksa condition_id bos olur,
+        # ama PTB ayri fetch edildigi icin asset bazli arama gerekir.
         ptb_record = self._ptb_fetcher.get_record(condition_id) if condition_id else None
+        if ptb_record is None:
+            ptb_record = self._ptb_fetcher.get_record_by_asset(asset)
         ptb_value = ptb_record.ptb_value if ptb_record and ptb_record.is_locked else 0.0
         ptb_acquired = ptb_record.is_locked if ptb_record else False
 

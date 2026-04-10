@@ -285,22 +285,31 @@ class Orchestrator:
         self.coin_client.set_coins(eligible_assets)
 
         # 5. PTB fetch — sadece lock'lanmamış olanlar için
+        #
+        # SLUG CONVENTION FARKI:
+        #   Gamma API (discovery) slug  = {asset}-updown-5m-{slot_END}
+        #   Polymarket event page slug  = {asset}-updown-5m-{slot_START}
+        #
+        # PTB SSR adapter event page'i kullanır → slug slot START olmalı.
+        # Discovery slug'ı registry/dashboard için doğrudur, PTB için DEĞİL.
+        #
         for asset, info in event_map.items():
             cond_id = info.get("condition_id", "")
-            slug = info.get("slug", "")
-            if cond_id and slug:
-                existing = self.ptb_fetcher.get_record(cond_id)
-                if existing and existing.is_locked:
-                    continue  # zaten lock'lı, tekrar deneme
-                # Background task olarak PTB retry başlat
-                slot_start = (int(_time.time()) // 300) * 300
-                event_end_ts = float(slot_start + 300)
-                asyncio.create_task(
-                    self.ptb_fetcher.fetch_ptb_with_retry(
-                        cond_id, asset, slug, event_end_ts,
-                    ),
-                    name=f"ptb_retry_{asset}",
-                )
+            if not cond_id:
+                continue
+            existing = self.ptb_fetcher.get_record(cond_id)
+            if existing and existing.is_locked:
+                continue  # zaten lock'lı, tekrar deneme
+            # PTB slug: event page convention = slot START timestamp
+            slot_start = (int(_time.time()) // 300) * 300
+            event_end_ts = float(slot_start + 300)
+            ptb_slug = f"{asset.lower()}-updown-5m-{slot_start}"
+            asyncio.create_task(
+                self.ptb_fetcher.fetch_ptb_with_retry(
+                    cond_id, asset, ptb_slug, event_end_ts,
+                ),
+                name=f"ptb_retry_{asset}",
+            )
 
         log_event(
             logger, logging.INFO,

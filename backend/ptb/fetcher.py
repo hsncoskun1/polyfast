@@ -165,6 +165,21 @@ class PTBFetcher:
         """Get PTB record by condition ID."""
         return self._records.get(condition_id)
 
+    def get_record_by_asset(self, asset: str) -> PTBRecord | None:
+        """Get PTB record by asset name (fallback when condition_id unknown).
+
+        Pipeline'da outcome price yoksa condition_id bos olur.
+        Bu metot asset adi ile PTB arar — locked kayit once doner.
+        """
+        upper = asset.upper()
+        best = None
+        for rec in self._records.values():
+            if rec.asset.upper() == upper:
+                if rec.is_locked:
+                    return rec  # locked = kesin sonuc
+                best = rec  # locked degil ama var
+        return best
+
     def get_all_records(self) -> dict[str, PTBRecord]:
         """Get all PTB records."""
         return dict(self._records)
