@@ -347,6 +347,10 @@ async def credential_status():
     # missing_fields: kullanıcı input contract'ına göre (2 alan)
     missing = _compute_missing_input(creds.private_key, creds.relayer_key)
 
+    # is_fully_ready: credential loaded + balance available → startup restore sonrası true olabilir
+    balance_ok = orch.balance_manager.available_balance > 0 if hasattr(orch, 'balance_manager') else False
+    is_ready = can_place_orders and can_auto_claim and balance_ok and len(missing) == 0
+
     return CredentialStatusResponse(
         has_any=has_any,
         has_trading_api=has_trading_api,
@@ -354,10 +358,10 @@ async def credential_status():
         has_relayer=has_relayer,
         can_place_orders=can_place_orders,
         can_auto_claim=can_auto_claim,
-        validated=False,              # status endpoint validate çalıştırmaz
-        validation_status="not_run",
+        validated=balance_ok,
+        validation_status="passed" if is_ready else "not_run",
         failed_checks=[],
-        is_fully_ready=False,         # validate passed olmadan false
+        is_fully_ready=is_ready,
         missing_fields=missing,
         masked_fields=_mask_credentials(creds),
     )

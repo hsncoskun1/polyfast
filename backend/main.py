@@ -19,6 +19,7 @@ from backend.api.dashboard import router as dashboard_router
 from backend.api.bot import router as bot_router
 from backend.api.coin import router as coin_router
 from backend.api.credential import router as credential_router
+from backend.api.settings import router as settings_router
 from backend.version import __version__
 from backend.orchestrator.wiring import Orchestrator
 from backend.logging_config.service import get_logger, log_event
@@ -116,3 +117,4 @@ app.include_router(dashboard_router, prefix="/api")
 app.include_router(bot_router, prefix="/api")
 app.include_router(coin_router, prefix="/api")
 app.include_router(credential_router, prefix="/api")
+app.include_router(settings_router, prefix="/api")
