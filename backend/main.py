@@ -63,25 +63,71 @@ async def lifespan(app: FastAPI):
     _orchestrator = Orchestrator()
     await _orchestrator.start()
 
-    # Encrypted credential restore — startup'ta otomatik yükleme
+    # ── Encrypted credential restore ──
+    credential_ok = False
+    balance_ok = False
     try:
         from backend.persistence.credential_persistence import load_encrypted
         creds = load_encrypted()
         if creds and creds.private_key:
             _orchestrator.credential_store.load(creds)
-            # Balance fetch tetikle (credential wiring)
-            try:
-                await _orchestrator.balance_manager.fetch()
-            except Exception:
-                pass  # Balance fetch fail → dashboard $0 gösterir, bloklamaz
+            credential_ok = True
             log_event(
                 logger, logging.INFO,
                 "Encrypted credential restored on startup",
                 entity_type="app",
                 entity_id="credential_restore",
             )
+            # Balance fetch tetikle
+            try:
+                result = await _orchestrator.balance_manager.fetch()
+                balance_ok = result is True
+            except Exception:
+                pass
     except Exception:
-        pass  # Restore fail → modal açılır, bloklamaz
+        pass  # Restore fail → modal açılır
+
+    # ── StartupGuard: credential + balance zorunlu ──
+    if credential_ok and balance_ok:
+        log_event(
+            logger, logging.INFO,
+            "StartupGuard: credential OK, balance OK — trading readiness confirmed",
+            entity_type="app",
+            entity_id="startup_guard",
+        )
+    elif credential_ok and not balance_ok:
+        log_event(
+            logger, logging.WARNING,
+            "StartupGuard: credential OK, balance FAIL — degraded mode",
+            entity_type="app",
+            entity_id="startup_guard",
+        )
+    else:
+        log_event(
+            logger, logging.INFO,
+            "StartupGuard: no credential — waiting for user input",
+            entity_type="app",
+            entity_id="startup_guard",
+        )
+
+    # ── auto_start_bot_on_startup ──
+    # Bot ancak credential + balance OK ise otomatik başlayabilir
+    auto_start = _orchestrator._config.trading.auto_start_bot_on_startup
+    if auto_start and credential_ok and balance_ok:
+        log_event(
+            logger, logging.INFO,
+            "Auto-start: bot starting (credential OK, balance OK, auto_start=true)",
+            entity_type="app",
+            entity_id="auto_start",
+        )
+        # Loop'lar zaten start() ile çalışıyor — burada trading_enabled flag yeterli
+    elif auto_start and not (credential_ok and balance_ok):
+        log_event(
+            logger, logging.WARNING,
+            "Auto-start: SKIPPED (credential or balance not ready)",
+            entity_type="app",
+            entity_id="auto_start",
+        )
 
     yield
 

@@ -66,8 +66,8 @@ class EvaluationLoop:
         self._last_results: dict[str, "EvaluationResult"] = {}
 
     async def start(self) -> None:
-        if self._running:
-            return
+        if self._running and self._task and not self._task.done():
+            return  # Çalışıyor — skip
         self._running = True
         self._task = asyncio.create_task(self._loop(), name="evaluation_loop")
         log_event(

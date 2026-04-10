@@ -163,9 +163,9 @@ class BalanceManager:
     # ─── Passive refresh loop ───
 
     async def start_passive_refresh(self) -> None:
-        """Arka plan passive refresh baslat (15-30s arayla)."""
-        if self._running:
-            return
+        """Arka plan passive refresh baslat (15-30s arayla). Crashed task varsa yeniden başlat."""
+        if self._running and self._task and not self._task.done():
+            return  # Çalışıyor — skip
         self._running = True
         self._task = asyncio.create_task(self._passive_loop(), name="balance_refresh")
 

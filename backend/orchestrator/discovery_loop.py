@@ -74,14 +74,15 @@ class DiscoveryLoop:
         self._events_found: int = 0
         self._scan_count: int = 0
         self._retry_count: int = 0
-        self._health_incidents: list[HealthIncident] = []
+        from collections import deque
+        self._health_incidents: deque = deque(maxlen=100)  # FIFO cap
 
     # ─── Lifecycle ───
 
     async def start(self) -> None:
-        """Discovery loop'u başlat."""
-        if self._running:
-            return
+        """Discovery loop'u başlat. Crashed task varsa yeniden başlat."""
+        if self._running and self._task and not self._task.done():
+            return  # Çalışıyor — skip
         self._running = True
         self._task = asyncio.create_task(self._loop(), name="discovery_loop")
         log_event(

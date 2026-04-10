@@ -25,6 +25,7 @@ router = APIRouter()
 
 class GlobalSettingsResponse(BaseModel):
     """Global settings okuma response'u."""
+    auto_start_bot_on_startup: bool
     bot_max_positions: int
     block_new_entries_when_claim_pending: bool
     tp_percentage: float
@@ -40,6 +41,7 @@ class GlobalSettingsResponse(BaseModel):
 
 class GlobalSettingsUpdateRequest(BaseModel):
     """Global settings partial update. None = değişmez."""
+    auto_start_bot_on_startup: Optional[bool] = None
     bot_max_positions: Optional[int] = None
     block_new_entries_when_claim_pending: Optional[bool] = None
     tp_percentage: Optional[float] = None
@@ -77,6 +79,7 @@ def _read_global_settings(orch) -> GlobalSettingsResponse:
     fs = cfg.trading.exit_rules.force_sell
 
     return GlobalSettingsResponse(
+        auto_start_bot_on_startup=cfg.trading.auto_start_bot_on_startup,
         bot_max_positions=cfg.trading.entry_rules.bot_max.max_positions,
         block_new_entries_when_claim_pending=cfg.trading.claim.wait_for_claim_before_new_trade,
         tp_percentage=tp.percentage,
@@ -117,6 +120,11 @@ async def global_settings_update(body: GlobalSettingsUpdateRequest):
 
     cfg = orch._config
     changed = []
+
+    # ── auto_start ──
+    if body.auto_start_bot_on_startup is not None:
+        cfg.trading.auto_start_bot_on_startup = body.auto_start_bot_on_startup
+        changed.append("auto_start_bot_on_startup")
 
     # ── bot_max_positions ──
     if body.bot_max_positions is not None:

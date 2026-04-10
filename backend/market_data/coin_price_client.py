@@ -157,7 +157,8 @@ class CoinPriceClient:
         self._coins: list[str] = []
         self._total_updates: int = 0
         self._last_connect_at: datetime | None = None
-        self._health_incidents: list[HealthIncident] = []
+        from collections import deque
+        self._health_incidents: deque = deque(maxlen=100)  # FIFO cap
         self._running: bool = False
         self._task: asyncio.Task | None = None
 

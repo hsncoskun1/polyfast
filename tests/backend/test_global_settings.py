@@ -37,6 +37,7 @@ class TestGlobalSettingsResponseModel:
         from backend.api.settings import GlobalSettingsResponse
         fields = set(GlobalSettingsResponse.model_fields.keys())
         expected = {
+            "auto_start_bot_on_startup",
             "bot_max_positions", "block_new_entries_when_claim_pending",
             "tp_percentage", "tp_reevaluate",
             "sl_enabled", "sl_percentage", "sl_jump_threshold",
@@ -78,6 +79,7 @@ class TestReadSettings:
         orch._config = AppConfig()  # default config
 
         result = _read_global_settings(orch)
+        assert result.auto_start_bot_on_startup is False
         assert result.bot_max_positions == 3
         assert result.tp_percentage == 5.0
         assert result.sl_enabled is True

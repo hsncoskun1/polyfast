@@ -88,7 +88,8 @@ class RTDSClient:
         self._last_connected_at: datetime | None = None
         self._last_disconnected_at: datetime | None = None
         self._reconnect_attempts = 0
-        self._health_incidents: list[HealthIncident] = []
+        from collections import deque
+        self._health_incidents: deque = deque(maxlen=100)  # FIFO cap
         self._total_messages: int = 0
 
         # Subscription tracking — remembers tokens for auto-resubscribe
