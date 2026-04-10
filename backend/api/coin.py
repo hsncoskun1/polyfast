@@ -1,6 +1,7 @@
-"""Coin action API — toggle + settings save.
+"""Coin action API — toggle + settings read/save.
 
 POST /api/coin/{symbol}/toggle    → coin_enabled flip + persist
+GET  /api/coin/{symbol}/settings  → mevcut ayarlar + governance oku
 POST /api/coin/{symbol}/settings  → kural parametreleri kaydet + persist
 
 Action endpoint'leri read-only dashboard router'dan ayrı tutulur.
@@ -126,8 +127,47 @@ class CoinSettingsResponse(BaseModel):
     missing_fields: list[str] = []
 
 
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Field governance — backend authority                        ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+class FieldPolicy(BaseModel):
+    """Tek bir alan için governance policy."""
+    visible: bool = True
+    editable: bool = True
+    locked: bool = False
+
+
+# Default governance — spread locked, diğerleri açık
+DEFAULT_FIELD_GOVERNANCE: dict[str, dict] = {
+    "side_mode":        {"visible": True, "editable": True, "locked": False},
+    "delta_threshold":  {"visible": True, "editable": True, "locked": False},
+    "price_min":        {"visible": True, "editable": True, "locked": False},
+    "price_max":        {"visible": True, "editable": True, "locked": False},
+    "time_min":         {"visible": True, "editable": True, "locked": False},
+    "time_max":         {"visible": True, "editable": True, "locked": False},
+    "event_max":        {"visible": True, "editable": True, "locked": False},
+    "order_amount":     {"visible": True, "editable": True, "locked": False},
+    "spread_max":       {"visible": True, "editable": False, "locked": True},
+}
+
+
+class CoinSettingsReadResponse(BaseModel):
+    """Coin ayarları okuma — mevcut değerler + governance."""
+    symbol: str
+    configured: bool
+    coin_enabled: bool
+    missing_fields: list[str]
+    settings: dict              # alan adı → değer
+    field_governance: dict      # alan adı → {visible, editable, locked}
+
+
 def _check_missing_fields(settings) -> list[str]:
-    """Configured olmak için eksik alanları bul."""
+    """Configured olmak için eksik alanları bul.
+
+    spread_max dahil DEĞİL — governance locked/kapalı.
+    side_mode dahil DEĞİL — default DOMINANT_ONLY (her zaman geçerli).
+    """
     missing = []
     if settings.delta_threshold <= 0:
         missing.append('delta_threshold')
@@ -137,8 +177,6 @@ def _check_missing_fields(settings) -> list[str]:
         missing.append('price_max')
     if settings.price_min >= settings.price_max and settings.price_min > 0:
         missing.append('price_min < price_max')
-    if settings.spread_max <= 0:
-        missing.append('spread_max')
     if settings.time_min <= 0:
         missing.append('time_min')
     if settings.time_max <= 0:
@@ -148,6 +186,47 @@ def _check_missing_fields(settings) -> list[str]:
     if settings.order_amount <= 0:
         missing.append('order_amount')
     return missing
+
+
+@router.get("/coin/{symbol}/settings", response_model=CoinSettingsReadResponse)
+async def coin_settings_read(symbol: str):
+    """Coin ayarlarını oku — mevcut değerler + governance.
+
+    Frontend modal açılınca mevcut ayarları doldurur.
+    Governance bilgisi ile hangi alanın editable/locked olduğunu bildirir.
+    """
+    orch = _get_orchestrator()
+    if orch is None:
+        raise HTTPException(status_code=503, detail="Orchestrator not initialized")
+
+    symbol_upper = symbol.upper()
+    cs = orch.settings_store.get(symbol_upper)
+
+    if cs is None:
+        # Coin ayarı yok — boş default döndür
+        from backend.settings.coin_settings import CoinSettings
+        cs = CoinSettings(coin=symbol_upper)
+
+    missing = _check_missing_fields(cs)
+
+    return CoinSettingsReadResponse(
+        symbol=symbol_upper,
+        configured=cs.is_configured,
+        coin_enabled=cs.coin_enabled,
+        missing_fields=missing,
+        settings={
+            "side_mode": cs.side_mode.value,
+            "delta_threshold": cs.delta_threshold,
+            "price_min": cs.price_min,
+            "price_max": cs.price_max,
+            "time_min": cs.time_min,
+            "time_max": cs.time_max,
+            "event_max": cs.event_max,
+            "order_amount": cs.order_amount,
+            "spread_max": cs.spread_max,
+        },
+        field_governance=DEFAULT_FIELD_GOVERNANCE,
+    )
 
 
 @router.post("/coin/{symbol}/settings", response_model=CoinSettingsResponse)

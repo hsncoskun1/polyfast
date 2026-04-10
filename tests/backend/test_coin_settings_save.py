@@ -287,14 +287,15 @@ class TestMissingFields:
         assert len(missing) == 0
 
     def test_partial_missing(self):
-        """Bazı alanlar dolu, bazıları eksik."""
+        """Bazı alanlar dolu, bazıları eksik. spread_max dahil DEĞİL."""
         from backend.api.coin import _check_missing_fields
         settings = CoinSettings(
             coin="BTC", delta_threshold=0.50, price_min=51, price_max=85,
         )
         missing = _check_missing_fields(settings)
-        assert 'spread_max' in missing
+        assert 'spread_max' not in missing  # governance locked
         assert 'order_amount' in missing
+        assert 'time_min' in missing
         assert 'delta_threshold' not in missing
 
 
@@ -304,11 +305,21 @@ class TestMissingFields:
 
 class TestSettingsEndpoint:
 
-    def test_router_has_settings_endpoint(self):
-        """Coin router'da settings endpoint var."""
+    def test_router_has_settings_post(self):
+        """Coin router'da settings POST endpoint var."""
         from backend.api.coin import router
         paths = [r.path for r in router.routes]
         assert "/coin/{symbol}/settings" in paths
+
+    def test_router_has_settings_get(self):
+        """Coin router'da settings GET endpoint var."""
+        from backend.api.coin import router
+        methods = []
+        for r in router.routes:
+            if hasattr(r, 'path') and r.path == "/coin/{symbol}/settings":
+                methods.extend(r.methods or [])
+        assert "GET" in methods
+        assert "POST" in methods
 
     def test_response_model_fields(self):
         """CoinSettingsResponse doğru field'lara sahip."""
@@ -317,8 +328,50 @@ class TestSettingsEndpoint:
             success=True,
             symbol="BTC",
             configured=False,
-            message="BTC ayarları kaydedildi — 5 eksik alan var",
-            missing_fields=["spread_max", "time_min", "time_max", "event_max", "order_amount"],
+            message="BTC ayarları kaydedildi — 4 eksik alan var",
+            missing_fields=["time_min", "time_max", "event_max", "order_amount"],
         )
         assert resp.configured is False
-        assert len(resp.missing_fields) == 5
+        assert len(resp.missing_fields) == 4
+
+    def test_read_response_model(self):
+        """CoinSettingsReadResponse doğru field'lara sahip."""
+        from backend.api.coin import CoinSettingsReadResponse
+        resp = CoinSettingsReadResponse(
+            symbol="BTC",
+            configured=False,
+            coin_enabled=False,
+            missing_fields=["order_amount"],
+            settings={"side_mode": "dominant_only", "delta_threshold": 0.5},
+            field_governance={"spread_max": {"visible": True, "editable": False, "locked": True}},
+        )
+        assert resp.symbol == "BTC"
+        assert resp.field_governance["spread_max"]["locked"] is True
+
+
+class TestFieldGovernance:
+
+    def test_default_governance_spread_locked(self):
+        """Default governance'ta spread locked."""
+        from backend.api.coin import DEFAULT_FIELD_GOVERNANCE
+        spread = DEFAULT_FIELD_GOVERNANCE["spread_max"]
+        assert spread["visible"] is True
+        assert spread["editable"] is False
+        assert spread["locked"] is True
+
+    def test_default_governance_other_fields_open(self):
+        """Default governance'ta diğer alanlar open."""
+        from backend.api.coin import DEFAULT_FIELD_GOVERNANCE
+        for field in ["delta_threshold", "price_min", "price_max", "time_min",
+                       "time_max", "event_max", "order_amount", "side_mode"]:
+            policy = DEFAULT_FIELD_GOVERNANCE[field]
+            assert policy["visible"] is True, f"{field} visible olmalı"
+            assert policy["editable"] is True, f"{field} editable olmalı"
+            assert policy["locked"] is False, f"{field} locked olmamalı"
+
+    def test_governance_has_all_fields(self):
+        """Governance tüm 9 alanı kapsıyor."""
+        from backend.api.coin import DEFAULT_FIELD_GOVERNANCE
+        expected = {"side_mode", "delta_threshold", "price_min", "price_max",
+                    "time_min", "time_max", "event_max", "order_amount", "spread_max"}
+        assert set(DEFAULT_FIELD_GOVERNANCE.keys()) == expected
