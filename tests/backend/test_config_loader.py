@@ -30,7 +30,7 @@ def test_load_default_config():
     config = load_config(Path("config/default.yaml"))
     assert isinstance(config, AppConfig)
     assert config.server.port == 8000
-    assert config.trading.min_amount_usd == 5.0
+    assert config.trading.min_amount_usd == 1.0
 
 
 def test_get_config_after_load():

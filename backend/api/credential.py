@@ -224,6 +224,13 @@ async def credential_update(body: CredentialUpdateRequest):
     )
     orch.credential_store.load(creds)
 
+    # Encrypted persist — restart sonrası otomatik restore için
+    try:
+        from backend.persistence.credential_persistence import save_encrypted
+        save_encrypted(creds)
+    except Exception:
+        pass  # Persist fail → credential çalışır ama restart'ta kayıp
+
     # Credential update sonrası balance fetch tetikle
     # ClobClientWrapper._ensure_initialized() version değişikliğini algılayıp SDK reinit yapar
     # BalanceManager.fetch() yeni credential'larla bakiye çeker

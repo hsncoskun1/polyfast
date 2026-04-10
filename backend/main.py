@@ -62,6 +62,26 @@ async def lifespan(app: FastAPI):
     _orchestrator = Orchestrator()
     await _orchestrator.start()
 
+    # Encrypted credential restore — startup'ta otomatik yükleme
+    try:
+        from backend.persistence.credential_persistence import load_encrypted
+        creds = load_encrypted()
+        if creds and creds.private_key:
+            _orchestrator.credential_store.load(creds)
+            # Balance fetch tetikle (credential wiring)
+            try:
+                await _orchestrator.balance_manager.fetch()
+            except Exception:
+                pass  # Balance fetch fail → dashboard $0 gösterir, bloklamaz
+            log_event(
+                logger, logging.INFO,
+                "Encrypted credential restored on startup",
+                entity_type="app",
+                entity_id="credential_restore",
+            )
+    except Exception:
+        pass  # Restore fail → modal açılır, bloklamaz
+
     yield
 
     # Graceful shutdown
