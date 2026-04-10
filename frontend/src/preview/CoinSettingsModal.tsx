@@ -431,6 +431,12 @@ export default function CoinSettingsModal({ symbol, onClose, mockMode }: CoinSet
           </div>
         )}
 
+        {hasExisting && (
+          <div style={{ fontSize: '11px', color: '#6e6e80', lineHeight: '1.4', padding: '0 2px' }}>
+            Bu ayarlar giriş kurallarını belirler. Değişiklikler açık işlemleri etkilemez, yalnızca bir sonraki işlem aramasında geçerli olur.
+          </div>
+        )}
+
         <div className="csm-actions">
           <button type="button" className="csm-btn secondary" onClick={onClose} disabled={saving}>
             İptal
