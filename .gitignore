@@ -8,8 +8,10 @@
 *.key
 *.p12
 *.keystore
+*.enc
 secrets/
 credentials/
+data/
 
 # Python
 __pycache__/
