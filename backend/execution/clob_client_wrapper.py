@@ -137,9 +137,10 @@ class ClobClientWrapper:
                 )
                 return True
             except Exception as e:
+                # Plaintext credential sızdırmamak için sadece error tipi logla
                 log_event(
                     logger, logging.WARNING,
-                    f"CLOB SDK init failed: {e} — running without SDK",
+                    f"CLOB SDK init failed: {type(e).__name__} — running without SDK",
                     entity_type="execution",
                     entity_id="sdk_init_error",
                 )

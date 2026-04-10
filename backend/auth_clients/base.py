@@ -108,8 +108,9 @@ class BaseClient:
                     raise last_error
 
             except httpx.ConnectError as e:
+                # type only — full message may contain URL/headers
                 last_error = ClientError(
-                    f"Connection failed: {e}",
+                    f"Connection failed: {type(e).__name__}",
                     category=ErrorCategory.NETWORK,
                     retryable=True,
                     source=self._source_name,
@@ -121,8 +122,9 @@ class BaseClient:
                 raise
 
             except Exception as e:
+                # type only — full message may leak sensitive data
                 last_error = ClientError(
-                    f"Unexpected error: {e}",
+                    f"Unexpected error: {type(e).__name__}",
                     category=ErrorCategory.UNKNOWN,
                     retryable=False,
                     source=self._source_name,

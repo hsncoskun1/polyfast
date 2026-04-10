@@ -47,6 +47,20 @@ def mask_dict(data: dict) -> dict:
     return masked
 
 
+def sanitize_error(e: Exception) -> str:
+    """Exception'dan güvenli log mesajı üret — plaintext credential sızdırmaz.
+
+    Kullanım: log_event(logger, WARNING, f"İşlem hatası: {sanitize_error(e)}", ...)
+    """
+    err_type = type(e).__name__
+    # Exception mesajını maskele
+    msg = mask_string(str(e))
+    # Çok uzun mesajları kes
+    if len(msg) > 200:
+        msg = msg[:200] + "..."
+    return f"{err_type}: {msg}"
+
+
 class CredentialMaskingFilter(logging.Filter):
     """Log filter that masks credential values in log messages and args."""
 
