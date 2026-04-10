@@ -158,14 +158,14 @@ const SIDE_OPTIONS = [
 ];
 
 const FIELDS: FieldDef[] = [
-  { key: 'side_mode', label: 'Trade Yönü', unit: '', type: 'select', options: SIDE_OPTIONS },
-  { key: 'delta_threshold', label: 'Delta Eşiği', unit: 'USD', type: 'number', hint: 'PTB ile coin fiyatı arasındaki fark' },
+  { key: 'side_mode', label: 'Trade Yönü', unit: '', type: 'select', options: SIDE_OPTIONS, hint: 'Dominant: max taraf, Up/Down: tek taraf' },
+  { key: 'delta_threshold', label: 'Delta Eşiği', unit: 'USD', type: 'number', hint: 'Min: 0.00001 — Max: 100,000' },
   { key: 'price_min', label: 'Min Fiyat', unit: '(0-100)', type: 'number' },
   { key: 'price_max', label: 'Max Fiyat', unit: '(0-100)', type: 'number' },
-  { key: 'time_min', label: 'Min Süre', unit: 'saniye', type: 'number', hint: 'Event bitimine kalan min süre' },
-  { key: 'time_max', label: 'Max Süre', unit: 'saniye', type: 'number', hint: 'Event bitimine kalan max süre' },
-  { key: 'event_max', label: 'Event Max', unit: 'fill', type: 'number', hint: 'Tek event\'te max alış sayısı' },
-  { key: 'order_amount', label: 'İşlem Tutarı', unit: 'USD', type: 'number' },
+  { key: 'time_min', label: 'Min Süre', unit: 'saniye', type: 'number', hint: 'Min: 1 — Max: 299' },
+  { key: 'time_max', label: 'Max Süre', unit: 'saniye', type: 'number', hint: 'Min: 1 — Max: 299' },
+  { key: 'event_max', label: 'Event Max', unit: 'fill', type: 'number', hint: 'Min: 1 — Max: 10' },
+  { key: 'order_amount', label: 'İşlem Tutarı', unit: 'USD', type: 'number', hint: 'Min: $1.00 — Max: $10,000' },
 ];
 
 // ── Component ──
