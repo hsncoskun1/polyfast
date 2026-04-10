@@ -139,6 +139,11 @@ class Orchestrator:
         self._verify_retry_task: asyncio.Task | None = None
         self._verify_retry_running: bool = False
 
+        # ── Supervisor ──
+        self._supervisor_task: asyncio.Task | None = None
+        self._supervisor_running: bool = False
+        self._supervisor_restarts: dict[str, int] = {}  # loop_name → ardışık restart sayısı
+
         # ── Bot uptime (paused-aware) ──
         self._bot_start_time: float | None = None
         self._bot_paused_at: float | None = None
@@ -480,9 +485,17 @@ class Orchestrator:
             name="exit_cycle_loop",
         )
 
+        # Supervisor — loop crash detection + auto-restart
+        self._supervisor_running = True
+        self._supervisor_restarts = {}
+        self._supervisor_task = asyncio.create_task(
+            self._supervisor_loop(),
+            name="supervisor_loop",
+        )
+
         log_event(
             logger, logging.INFO,
-            "Orchestrator all loops started (including exit cycle)",
+            "Orchestrator all loops started (including exit cycle + supervisor)",
             entity_type="orchestrator",
             entity_id="started",
         )
@@ -504,6 +517,15 @@ class Orchestrator:
             entity_type="orchestrator",
             entity_id="stop",
         )
+
+        # Supervisor durdur
+        self._supervisor_running = False
+        if self._supervisor_task and not self._supervisor_task.done():
+            self._supervisor_task.cancel()
+            try:
+                await self._supervisor_task
+            except asyncio.CancelledError:
+                pass
 
         # Verify retry durdur
         self._verify_retry_running = False
@@ -610,6 +632,127 @@ class Orchestrator:
             entity_type="orchestrator",
             entity_id="flush",
         )
+
+    # ══════════════════════════════════════════════════════════════
+    # SUPERVISOR — loop crash detection + auto-restart
+    # ══════════════════════════════════════════════════════════════
+
+    _SUPERVISOR_INTERVAL_SEC = 10.0
+    _SUPERVISOR_RAPID_RESTART_THRESHOLD = 3  # 3 ardışık restart → health warning
+
+    async def _supervisor_loop(self) -> None:
+        """Task supervisor — ölmüş loop'ları yeniden başlatır.
+
+        10s aralıkla tüm loop task'larını kontrol eder.
+        Kural:
+        - loop._running == True AND task.done() → sessiz ölüm, RESTART
+        - loop._running == False → manuel stop, DOKUNMA
+        - task alive → normal çalışma, DOKUNMA
+
+        Manuel stop ayrımı: stop() her loop'ta _running=False yapar.
+        Supervisor sadece _running=True + task dead kombinasyonunda restart eder.
+        """
+        while self._supervisor_running:
+            try:
+                await asyncio.sleep(self._SUPERVISOR_INTERVAL_SEC)
+
+                if not self._supervisor_running:
+                    break
+
+                await self._check_and_restart_loop(
+                    name="discovery_loop",
+                    running_flag=self.discovery_loop._running,
+                    task=self.discovery_loop._task,
+                    restart_fn=self.discovery_loop.start,
+                )
+
+                await self._check_and_restart_loop(
+                    name="evaluation_loop",
+                    running_flag=self.evaluation_loop._running,
+                    task=self.evaluation_loop._task,
+                    restart_fn=self.evaluation_loop.start,
+                )
+
+                await self._check_and_restart_loop(
+                    name="coin_client",
+                    running_flag=self.coin_client._running,
+                    task=self.coin_client._task,
+                    restart_fn=self.coin_client.start,
+                )
+
+                # Exit cycle — task var mı, done mı
+                if self._exit_cycle_running and self._exit_cycle_task and self._exit_cycle_task.done():
+                    self._record_restart("exit_cycle")
+                    self._exit_cycle_task = asyncio.create_task(
+                        self._run_exit_cycle_loop(),
+                        name="exit_cycle_loop",
+                    )
+                    log_event(
+                        logger, logging.WARNING,
+                        "SUPERVISOR: exit_cycle restarted (task was dead)",
+                        entity_type="supervisor",
+                        entity_id="exit_cycle_restart",
+                    )
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log_event(
+                    logger, logging.ERROR,
+                    f"Supervisor error: {e}",
+                    entity_type="supervisor",
+                    entity_id="supervisor_error",
+                )
+
+    async def _check_and_restart_loop(
+        self,
+        name: str,
+        running_flag: bool,
+        task: asyncio.Task | None,
+        restart_fn,
+    ) -> None:
+        """Tek loop için supervisor check + restart.
+
+        Kural:
+        - running_flag False → manuel stop, DOKUNMA
+        - task None veya alive → normal, DOKUNMA
+        - running_flag True AND task.done() → sessiz ölüm, RESTART
+        """
+        if not running_flag:
+            # Manuel stop — supervisor dokunmaz
+            return
+
+        if task is None or not task.done():
+            # Normal çalışma veya henüz başlatılmamış
+            return
+
+        # Sessiz ölüm tespit edildi — restart
+        self._record_restart(name)
+        await restart_fn()
+
+        log_event(
+            logger, logging.WARNING,
+            f"SUPERVISOR: {name} restarted (task was dead)",
+            entity_type="supervisor",
+            entity_id=f"{name}_restart",
+        )
+
+    def _record_restart(self, name: str) -> None:
+        """Ardışık restart sayacı + health warning."""
+        count = self._supervisor_restarts.get(name, 0) + 1
+        self._supervisor_restarts[name] = count
+
+        if count >= self._SUPERVISOR_RAPID_RESTART_THRESHOLD:
+            log_event(
+                logger, logging.WARNING,
+                f"SUPERVISOR: {name} restarted {count} times — possible crash loop",
+                entity_type="supervisor",
+                entity_id=f"{name}_rapid_restart",
+            )
+
+    def supervisor_reset_counter(self, name: str) -> None:
+        """Başarılı cycle sonrası restart sayacını sıfırla (dış erişim)."""
+        self._supervisor_restarts[name] = 0
 
     async def _periodic_flush(self) -> None:
         """Periyodik state flush — positions + claims SQLite'a yazilir.
