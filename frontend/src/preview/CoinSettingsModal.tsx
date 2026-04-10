@@ -381,13 +381,13 @@ export default function CoinSettingsModal({ symbol, onClose, mockMode }: CoinSet
             </select>
           ) : (
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               className={`csm-input${hasError ? ' error' : ''}`}
               value={values[f.key] || ''}
               onChange={e => handleChange(f.key, e.target.value)}
               disabled={!!disabled}
-              step={f.key === 'delta_threshold' || f.key === 'order_amount' ? '0.01' : '1'}
-              min="0"
+              placeholder="0"
             />
           )}
           {f.unit && <span className="csm-unit">{f.unit}</span>}
