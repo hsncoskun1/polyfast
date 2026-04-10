@@ -1,9 +1,9 @@
 /**
- * Credential API client — update / status / validate.
+ * Credential API client — 2-alan modeli (private_key + relayer_key).
  *
- * POST /api/credential/update   → partial save + capability
- * GET  /api/credential/status   → maskeli gösterim + durum
- * POST /api/credential/validate → gerçek check + is_fully_ready
+ * POST /api/credential/update   → save + derive + capability
+ * GET  /api/credential/status   → maskeli gösterim + missing_fields
+ * POST /api/credential/validate → gerçek check (trading_api + relayer)
  */
 
 const BASE_URL = '/api';
@@ -57,14 +57,15 @@ export interface CredentialStatusResponse {
   validation_status: string;
   failed_checks: string[];
   is_fully_ready: boolean;
+  missing_fields: string[];
   masked_fields: Record<string, string>;
 }
 
 // ── Fetch functions ─────────────────────────────────────────────
 
-/** Partial update — sadece gönderilen alanlar güncellenir. */
+/** 2-alan save — private_key + relayer_key. Backend derive eder. */
 export async function credentialUpdate(
-  fields: Partial<Record<'api_key' | 'api_secret' | 'api_passphrase' | 'private_key' | 'funder_address' | 'relayer_key', string>>,
+  fields: Partial<Record<'private_key' | 'relayer_key', string>>,
 ): Promise<CredentialUpdateResponse> {
   const res = await fetch(`${BASE_URL}/credential/update`, {
     method: 'POST',
@@ -78,7 +79,7 @@ export async function credentialUpdate(
   return res.json();
 }
 
-/** Status — maskeli alanlar + capability + validation durumu. */
+/** Status — maskeli alanlar + missing_fields + capability. */
 export async function credentialStatus(): Promise<CredentialStatusResponse> {
   const res = await fetch(`${BASE_URL}/credential/status`);
   if (!res.ok) {
@@ -88,7 +89,7 @@ export async function credentialStatus(): Promise<CredentialStatusResponse> {
   return res.json();
 }
 
-/** Validate — gerçek API check + is_fully_ready. */
+/** Validate — gerçek API check (trading_api + relayer). */
 export async function credentialValidate(): Promise<CredentialValidateResponse> {
   const res = await fetch(`${BASE_URL}/credential/validate`, {
     method: 'POST',

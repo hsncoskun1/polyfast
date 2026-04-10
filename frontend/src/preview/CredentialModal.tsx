@@ -193,27 +193,22 @@ ensureStyles('credential-modal-v1', `
 // ║  Types                                                       ║
 // ╚══════════════════════════════════════════════════════════════╝
 
-type FieldKey = 'api_key' | 'api_secret' | 'api_passphrase' | 'private_key' | 'funder_address' | 'relayer_key';
+type FieldKey = 'private_key' | 'relayer_key';
 
 interface FieldDef {
   key: FieldKey;
   label: string;
   hint: string;
-  group: 'trading' | 'signing' | 'relayer';
+  group: 'wallet' | 'relayer';
 }
 
 const FIELDS: FieldDef[] = [
-  { key: 'api_key', label: 'API Key', hint: 'Polymarket hesabınızdan alınan CLOB API anahtarı', group: 'trading' },
-  { key: 'api_secret', label: 'API Secret', hint: 'API anahtarınıza ait gizli anahtar', group: 'trading' },
-  { key: 'api_passphrase', label: 'Passphrase', hint: 'API erişim parolası', group: 'trading' },
-  { key: 'private_key', label: 'Private Key', hint: 'Ethereum cüzdan özel anahtarı (64 hex karakter, 0x opsiyonel)', group: 'signing' },
-  { key: 'funder_address', label: 'Cüzdan Adresi', hint: 'İşlem yapan Ethereum cüzdan adresi (0x ile başlar)', group: 'signing' },
+  { key: 'private_key', label: 'Private Key', hint: 'Ethereum cüzdan özel anahtarı (64 hex karakter)', group: 'wallet' },
   { key: 'relayer_key', label: 'Relayer Key', hint: 'Otomatik tahsilat için relayer API anahtarı', group: 'relayer' },
 ];
 
 const GROUP_LABELS: Record<string, string> = {
-  trading: '📡 Trading API',
-  signing: '🔐 Signing',
+  wallet: '🔐 Cüzdan',
   relayer: '🔄 Relayer',
 };
 
@@ -234,12 +229,10 @@ export interface CredentialModalProps {
 export default function CredentialModal({ closable, onClose, mockMode }: CredentialModalProps) {
   // Field state: value (kullanıcı girişi), touched (dokunuldu mu)
   const [values, setValues] = useState<Record<FieldKey, string>>({
-    api_key: '', api_secret: '', api_passphrase: '',
-    private_key: '', funder_address: '', relayer_key: '',
+    private_key: '', relayer_key: '',
   });
   const [touched, setTouched] = useState<Record<FieldKey, boolean>>({
-    api_key: false, api_secret: false, api_passphrase: false,
-    private_key: false, funder_address: false, relayer_key: false,
+    private_key: false, relayer_key: false,
   });
   const [masked, setMasked] = useState<Record<string, string>>({});
   const [hasAny, setHasAny] = useState(false);
@@ -289,7 +282,7 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
 
   const handleSave = useCallback(async () => {
     if (mockMode) {
-      // Mock'ta da boş alan kontrolü — rasgele değerle onay vermemeli
+      // Mock — 2 alan boşluk kontrolü
       const mockMissing = FIELDS.filter(f => !values[f.key].trim()).map(f => f.key);
       if (mockMissing.length > 0) {
         setErrorFields(new Set(mockMissing));
@@ -297,26 +290,29 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
         setPhase('form');
         return;
       }
-      // Tüm alanlar dolu — mock validate
-      const checks = FIELDS.map(f => {
-        // Signing format check (0x prefix)
-        if (f.key === 'private_key' || f.key === 'funder_address') {
-          const v = values[f.key];
-          const hexPart = v.startsWith('0x') ? v.slice(2) : v;
-          const validHex = /^[0-9a-fA-F]+$/.test(hexPart);
-          if (!validHex) return { name: f.key, label: f.label, status: 'failed' as const, message: 'Geçersiz hex formatı', related_fields: [f.key] };
-          if (f.key === 'private_key' && hexPart.length !== 64) return { name: f.key, label: f.label, status: 'failed' as const, message: '64 hex karakter olmalı', related_fields: [f.key] };
-          if (f.key === 'funder_address' && !v.startsWith('0x')) return { name: f.key, label: f.label, status: 'failed' as const, message: '0x ile başlamalı', related_fields: [f.key] };
-          if (f.key === 'funder_address' && v.length !== 42) return { name: f.key, label: f.label, status: 'failed' as const, message: '42 karakter olmalı', related_fields: [f.key] };
-        }
-        return { name: f.key, label: f.label, status: 'passed' as const, message: 'Mock OK', related_fields: [f.key] };
-      });
+      // Private key hex format check
+      const pkVal = values.private_key;
+      const hexPart = pkVal.startsWith('0x') ? pkVal.slice(2) : pkVal;
+      const pkValid = /^[0-9a-fA-F]{64}$/.test(hexPart);
+
+      const checks = [
+        {
+          name: 'trading_api', label: 'Trading API',
+          status: pkValid ? 'passed' as const : 'failed' as const,
+          message: pkValid ? 'Mock: Bakiye kontrolü başarılı' : 'Private key 64 hex karakter olmalı',
+          related_fields: ['private_key'],
+        },
+        {
+          name: 'relayer', label: 'Relayer',
+          status: 'passed' as const,
+          message: 'Mock: Relayer key mevcut',
+          related_fields: ['relayer_key'],
+        },
+      ];
       const failedChecks = checks.filter(c => c.status === 'failed');
       const allPassed = failedChecks.length === 0;
       if (failedChecks.length > 0) {
-        const failFields = new Set<string>();
-        failedChecks.forEach(c => c.related_fields.forEach(rf => failFields.add(rf)));
-        setErrorFields(failFields);
+        setErrorFields(new Set(failedChecks.flatMap(c => c.related_fields)));
       }
       setPhase('result');
       setValidateResult({
@@ -324,10 +320,10 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
         validation_status: allPassed ? 'passed' : 'partial',
         checks,
         failed_checks: failedChecks.map(c => c.name),
-        has_trading_api: true, has_signing: allPassed, has_relayer: true,
-        can_place_orders: allPassed, can_auto_claim: allPassed,
+        has_trading_api: pkValid, has_signing: pkValid, has_relayer: true,
+        can_place_orders: pkValid, can_auto_claim: pkValid,
         is_fully_ready: allPassed,
-        message: allPassed ? 'Mock: Kontrol tamamlandı' : `Mock: ${failedChecks.length} sorunlu alan`,
+        message: allPassed ? 'Mock: Kontrol tamamlandı' : `Mock: ${failedChecks.length} sorunlu kontrol`,
       });
       return;
     }
@@ -495,12 +491,16 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
         {/* Form */}
         {(phase === 'form' || phase === 'saving') && (
           <>
-            {(['trading', 'signing', 'relayer'] as const).map(group => (
+            {(['wallet', 'relayer'] as const).map(group => (
               <div className="cred-group" key={group}>
                 <div className="cred-group-label">{GROUP_LABELS[group]}</div>
                 {FIELDS.filter(f => f.group === group).map(renderField)}
               </div>
             ))}
+
+            <div style={{ fontSize: '11px', color: '#6e6e80', lineHeight: '1.4' }}>
+              Cüzdan adresi ve API anahtarları otomatik oluşturulur. Sadece standart Ethereum cüzdanları desteklenir.
+            </div>
 
             {errorMsg && (
               <div className="cred-result-msg error">{errorMsg}</div>

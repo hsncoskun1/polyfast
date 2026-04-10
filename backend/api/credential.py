@@ -250,8 +250,13 @@ async def credential_update(body: CredentialUpdateRequest):
 # ╚══════════════════════════════════════════════════════════════╝
 
 class CredentialStatusResponse(BaseModel):
-    """Credential durumu — maskeli alanlar + capability + validation."""
-    has_any: bool                       # herhangi bir alan dolu mu
+    """Credential durumu — 2-alan modeli (private_key + relayer_key).
+
+    has_any: kullanıcı en az 1 input girmiş mi (private_key veya relayer_key)
+    missing_fields: kullanıcının girmesi gereken ama eksik olan inputlar
+    masked_fields: tüm credential alanları maskeli (derive edilenler dahil)
+    """
+    has_any: bool                       # private_key dolu mu
     has_trading_api: bool
     has_signing: bool
     has_relayer: bool
@@ -259,8 +264,9 @@ class CredentialStatusResponse(BaseModel):
     can_auto_claim: bool
     validated: bool
     validation_status: str              # "not_run" | "passed" | "partial" | "failed"
-    failed_checks: list[str]            # ["signing", "relayer"] — validate sonrası dolar
+    failed_checks: list[str]
     is_fully_ready: bool
+    missing_fields: list[str]           # kullanıcı input: ["private_key", "relayer_key"]
     masked_fields: dict[str, str]       # alan adı → maskeli değer
 
 
@@ -292,11 +298,11 @@ def _mask_credentials(creds: Credentials) -> dict[str, str]:
 
 @router.get("/credential/status", response_model=CredentialStatusResponse)
 async def credential_status():
-    """Credential durumu — maskeli gösterim + capability özeti.
+    """Credential durumu — 2-alan modeli + maskeli gösterim.
 
-    - Plaintext credential DÖNMEZ — sadece maskeli versiyon
-    - Frontend Kaydet/Güncelle kararı için has_any kullanır
-    - Maskeli alanlar input placeholder'ı olarak gösterilir
+    - has_any: kullanıcı private_key girmiş mi (derive edilen alanlar sayılmaz)
+    - missing_fields: kullanıcının girmesi gereken inputlar (private_key, relayer_key)
+    - masked_fields: tüm alanlar maskeli (plaintext DÖNMEZ)
     """
     orch = _get_orchestrator()
     if orch is None:
@@ -309,11 +315,11 @@ async def credential_status():
     can_place_orders = has_trading_api and has_signing
     can_auto_claim = can_place_orders and has_relayer
 
-    # has_any: herhangi bir alan dolu mu
-    has_any = bool(
-        creds.api_key or creds.api_secret or creds.api_passphrase
-        or creds.private_key or creds.funder_address or creds.relayer_key
-    )
+    # has_any: kullanıcı en az private_key girmiş mi
+    has_any = bool(creds.private_key)
+
+    # missing_fields: kullanıcı input contract'ına göre (2 alan)
+    missing = _compute_missing_input(creds.private_key, creds.relayer_key)
 
     return CredentialStatusResponse(
         has_any=has_any,
@@ -326,6 +332,7 @@ async def credential_status():
         validation_status="not_run",
         failed_checks=[],
         is_fully_ready=False,         # validate passed olmadan false
+        missing_fields=missing,
         masked_fields=_mask_credentials(creds),
     )
 
@@ -441,70 +448,8 @@ async def _check_trading_api(orch) -> CheckResult:
         return CheckResult(
             name="trading_api", label="Trading API", status="failed",
             message=msg,
-            related_fields=["api_key", "api_secret", "api_passphrase"],
-        )
-
-
-def _check_signing(orch) -> CheckResult:
-    """Signing doğrulaması — private_key normalizasyon + format + funder check."""
-    creds = orch.credential_store.credentials
-    if not creds.has_signing_credentials():
-        return CheckResult(
-            name="signing", label="Signing", status="failed",
-            message="Signing credential eksik (private_key, funder_address)",
-            related_fields=["private_key", "funder_address"],
-        )
-
-    # ── Private key: normalize + validate ──
-    pk = creds.private_key
-    # 0x prefix yoksa ekle (Polymarket key'ler genelde prefix'siz)
-    if not pk.startswith("0x"):
-        pk = "0x" + pk
-    # Hex format check
-    try:
-        int(pk[2:], 16)
-    except ValueError:
-        return CheckResult(
-            name="signing", label="Signing", status="failed",
-            message="Private key geçersiz hex formatı",
             related_fields=["private_key"],
         )
-    # Uzunluk check: 0x + 64 hex = 66 total
-    if len(pk) != 66:
-        return CheckResult(
-            name="signing", label="Signing", status="failed",
-            message=f"Private key 64 hex karakter olmalı (mevcut: {len(pk) - 2})",
-            related_fields=["private_key"],
-        )
-
-    # ── Funder address: strict Ethereum address format ──
-    fa = creds.funder_address
-    if not fa.startswith("0x"):
-        return CheckResult(
-            name="signing", label="Signing", status="failed",
-            message="Funder address 0x ile başlamalı",
-            related_fields=["funder_address"],
-        )
-    if len(fa) != 42:
-        return CheckResult(
-            name="signing", label="Signing", status="failed",
-            message=f"Funder address 42 karakter olmalı (mevcut: {len(fa)})",
-            related_fields=["funder_address"],
-        )
-    try:
-        int(fa[2:], 16)
-    except ValueError:
-        return CheckResult(
-            name="signing", label="Signing", status="failed",
-            message="Funder address geçersiz hex formatı",
-            related_fields=["funder_address"],
-        )
-
-    return CheckResult(
-        name="signing", label="Signing", status="passed",
-        message="İmza bilgileri doğru formatta",
-        related_fields=["private_key", "funder_address"],
-    )
 
 
 def _check_relayer(orch) -> CheckResult:
@@ -526,30 +471,29 @@ def _check_relayer(orch) -> CheckResult:
 
 @router.post("/credential/validate", response_model=CredentialValidateResponse)
 async def credential_validate():
-    """Credential doğrulama — gerçek API check + capability özeti.
+    """Credential doğrulama — 2-alan modeli (trading_api + relayer).
 
-    3 adım:
-    1. Trading API — fetch_balance ile gerçek API call
-    2. Signing — private_key + funder_address format check
-    3. Relayer — relayer_key presence check
+    2 check:
+    1. Trading API — SDK derive + balance fetch (private_key'den)
+    2. Relayer — relayer_key presence check
 
+    Signing ayrı check değil — derive başarısının parçası.
     Plaintext LOGLANMAZ, response'ta DÖNMEZ.
     """
     orch = _get_orchestrator()
     if orch is None:
         raise HTTPException(status_code=503, detail="Orchestrator not initialized")
 
-    # 3 check çalıştır
+    # 2 check çalıştır
     trading_check = await _check_trading_api(orch)
-    signing_check = _check_signing(orch)
     relayer_check = _check_relayer(orch)
 
-    checks = [trading_check, signing_check, relayer_check]
+    checks = [trading_check, relayer_check]
     failed = [c.name for c in checks if c.status == "failed"]
     passed_count = sum(1 for c in checks if c.status == "passed")
 
-    # validation_status semantiği
-    if passed_count == 3:
+    # validation_status: 2/2 = passed, 1/2 = partial, 0/2 = failed
+    if passed_count == 2:
         validation_status = "passed"
     elif passed_count == 0:
         validation_status = "failed"
@@ -563,16 +507,16 @@ async def credential_validate():
     has_trading_api = creds.has_trading_credentials()
     has_signing = creds.has_signing_credentials()
     has_relayer = creds.has_relayer_credentials()
-    can_place_orders = has_trading_api and has_signing and trading_check.status == "passed" and signing_check.status == "passed"
+    can_place_orders = has_trading_api and has_signing and trading_check.status == "passed"
     can_auto_claim = can_place_orders and has_relayer and relayer_check.status == "passed"
 
     # Mesaj
     if is_fully_ready:
-        msg = "Tüm bilgiler doğrulandı"
+        msg = "Tüm kontroller başarılı"
     elif validation_status == "partial":
-        msg = f"Kısmi doğrulama: {', '.join(failed)} başarısız"
+        msg = f"Eksik kontrol: {', '.join(failed)}"
     else:
-        msg = "Doğrulama başarısız — bilgileri kontrol edin"
+        msg = "Kontroller başarısız — bilgileri kontrol edin"
 
     # Log — plaintext YOK
     log_event(
