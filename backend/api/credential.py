@@ -234,10 +234,23 @@ async def credential_update(body: CredentialUpdateRequest):
     # Credential update sonrası balance fetch tetikle
     # ClobClientWrapper._ensure_initialized() version değişikliğini algılayıp SDK reinit yapar
     # BalanceManager.fetch() yeni credential'larla bakiye çeker
+    balance_ok = False
     try:
-        await orch.balance_manager.fetch()
+        result = await orch.balance_manager.fetch()
+        balance_ok = result is True
     except Exception:
         pass  # Balance fetch başarısız olabilir — credential update'i bloklamaz
+
+    # Fix-2: Credential + balance OK → trading_enabled hemen True
+    # 30s verify_retry beklenmez — kullanıcı credential girdikten sonra sistem hazır
+    if balance_ok and can_place_orders:
+        orch.trading_enabled = True
+        log_event(
+            logger, logging.INFO,
+            "Credential update: trading_enabled=True (immediate, balance OK)",
+            entity_type="credential",
+            entity_id="trading_enabled",
+        )
 
     # Log — plaintext YOK
     log_event(

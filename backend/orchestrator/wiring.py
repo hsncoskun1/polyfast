@@ -611,12 +611,46 @@ class Orchestrator:
             entity_id="flush",
         )
 
+    async def _periodic_flush(self) -> None:
+        """Periyodik state flush — positions + claims SQLite'a yazilir.
+
+        Settings zaten her set() cagirisinda auto-persist yapiyor (SettingsStoreDB).
+        Bu metot sadece positions ve claims yazarak crash kayip riskini azaltir.
+        _flush_state()'ten farkli: settings ATLANIR (gereksiz), log sessiz (her 30s'de).
+        """
+        flushed_pos = 0
+        flushed_claim = 0
+
+        for pos in self.position_tracker.get_all_positions():
+            if await self.position_store.save(pos):
+                flushed_pos += 1
+
+        for claim in self.claim_manager.get_pending_claims():
+            if await self.claim_store.save(claim):
+                flushed_claim += 1
+
+        # Sadece veri varsa logla — bos flush sessiz kalir
+        if flushed_pos > 0 or flushed_claim > 0:
+            log_event(
+                logger, logging.DEBUG,
+                f"Periodic flush: {flushed_pos} positions, {flushed_claim} claims",
+                entity_type="orchestrator",
+                entity_id="periodic_flush",
+            )
+
     async def _run_exit_cycle_loop(self) -> None:
         """Exit orchestrator periyodik cycle loop.
 
         Her exit_cycle_interval_sec'de bir run_cycle() cagrilir.
         Acik pozisyonlarin fiyatlarini pipeline'dan alir.
+
+        Periyodik flush: her ~30 saniyede positions/claims SQLite'a yazilir.
+        Crash durumunda kayip riski azaltilir — shutdown flush'a bagli kalma YOK.
         """
+        # Flush interval: ~30 saniye (cycle interval'a gore hesaplanir)
+        flush_every = max(1, int(30.0 / self._exit_cycle_interval_sec))
+        cycle_counter = 0
+
         while self._exit_cycle_running:
             try:
                 # Acik pozisyonlar icin canli fiyat ve remaining seconds topla
@@ -668,6 +702,20 @@ class Orchestrator:
                     entity_type="orchestrator",
                     entity_id="exit_cycle_error",
                 )
+
+            # Periyodik flush — crash/reset durumunda veri kaybi riski azaltilir
+            cycle_counter += 1
+            if cycle_counter >= flush_every:
+                cycle_counter = 0
+                try:
+                    await self._periodic_flush()
+                except Exception as e:
+                    log_event(
+                        logger, logging.WARNING,
+                        f"Periodic flush error: {e}",
+                        entity_type="orchestrator",
+                        entity_id="periodic_flush_error",
+                    )
 
             await asyncio.sleep(self._exit_cycle_interval_sec)
 

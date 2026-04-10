@@ -89,9 +89,10 @@ async def lifespan(app: FastAPI):
 
     # ── StartupGuard: credential + balance zorunlu ──
     if credential_ok and balance_ok:
+        _orchestrator.trading_enabled = True
         log_event(
             logger, logging.INFO,
-            "StartupGuard: credential OK, balance OK — trading readiness confirmed",
+            "StartupGuard: credential OK, balance OK — trading_enabled=True (immediate)",
             entity_type="app",
             entity_id="startup_guard",
         )
