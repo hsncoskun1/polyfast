@@ -186,6 +186,7 @@ export default function CoinSettingsModal({ symbol, onClose, mockMode }: CoinSet
   const [statusMsg, setStatusMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [hasExisting, setHasExisting] = useState(false);
 
   // Fetch settings on mount
   const fetchedRef = useRef(false);
@@ -220,8 +221,15 @@ export default function CoinSettingsModal({ symbol, onClose, mockMode }: CoinSet
         const vals: Record<string, string> = {};
         for (const f of FIELDS) {
           const raw = data.settings[f.key];
-          vals[f.key] = raw != null ? String(raw) : '';
+          if (f.type === 'select') {
+            vals[f.key] = raw != null ? String(raw) : '';
+          } else {
+            // Numeric: 0 veya 0.0 = ayarlanmamış → boş göster
+            const num = Number(raw);
+            vals[f.key] = (raw != null && num !== 0) ? String(raw) : '';
+          }
         }
+        setHasExisting(data.configured || Object.values(data.settings).some(v => v != null && Number(v) !== 0));
         setValues(vals);
         setGovernance(data.field_governance as Record<string, FieldPolicy>);
 
@@ -312,7 +320,9 @@ export default function CoinSettingsModal({ symbol, onClose, mockMode }: CoinSet
       const result = await coinSettingsSave(symbol, body);
 
       if (result.configured) {
-        setStatusMsg({ text: 'Ayarlar tamamlandı', ok: true });
+        const saveMsg = hasExisting ? 'Ayarlar güncellendi' : 'Ayarlar kaydedildi';
+        setStatusMsg({ text: saveMsg, ok: true });
+        setHasExisting(true);
         setTimeout(() => onClose(), 1000);
       } else {
         setErrorFields(new Set(result.missing_fields));
@@ -426,7 +436,7 @@ export default function CoinSettingsModal({ symbol, onClose, mockMode }: CoinSet
             İptal
           </button>
           <button type="button" className="csm-btn primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            {saving ? 'Kaydediliyor...' : hasExisting ? 'Güncelle' : 'Kaydet'}
           </button>
         </div>
       </div>
