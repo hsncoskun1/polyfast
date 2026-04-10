@@ -120,7 +120,7 @@ ensureStyles(
 .dsp-scard-icbtn.loading { opacity: 0.4; cursor: wait; }
 .dsp-scard-ticker:focus-visible { outline: 2px solid ${COLOR.cyan}; outline-offset: 2px; border-radius: 3px; }
 
-/* Row 1 col 2 — pnl hero (Rule pass 6/6) + status label */
+/* Row 1 col 2 — pnl hero (Rule pass x/y dinamik) + status label */
 .dsp-scard-pnl {
   grid-column: 2;
   grid-row: 1;
@@ -317,8 +317,11 @@ function pickRule(rules: RuleSpecContract[], label: string): RuleSpecContract | 
 
 function SearchCard({ tile, onAlert, onToggle, toggling, onSettings }: { tile: SearchTileContract; onAlert?: AlertFn; onToggle?: (symbol: string) => void; toggling?: Set<string>; onSettings?: (symbol: string) => void }) {
   const coin = COIN_FALLBACK[tile.coin];
-  const passN = tile.rules.filter((r) => r.state === 'pass').length;
-  const pnlFg = passN >= 6 ? COLOR.green : passN === 5 ? COLOR.yellow : COLOR.red;
+  // Dinamik kural sayacı — disabled/locked kurallar sayılmaz
+  const activeRules = tile.rules.filter((r) => r.state !== 'disabled');
+  const totalActive = activeRules.length;
+  const passN = activeRules.filter((r) => r.state === 'pass').length;
+  const pnlFg = passN >= totalActive ? COLOR.green : passN >= totalActive - 1 ? COLOR.yellow : COLOR.red;
   const coinTone = coin?.tone;
   const bgStyle = coinTone
     ? { background: `linear-gradient(135deg, ${coinTone}1f 0%, ${COLOR.surface} 55%)` }
