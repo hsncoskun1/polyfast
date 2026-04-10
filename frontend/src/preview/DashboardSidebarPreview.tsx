@@ -25,6 +25,7 @@ import SearchRail from './SearchRail';
 import IdleRail from './IdleRail';
 import CoinSettingsModal from './CoinSettingsModal';
 import CredentialModal from './CredentialModal';
+import GlobalSettingsModal from './GlobalSettingsModal';
 import { MOCK_DATA } from './mockData';
 import type {
   PositionSummary,
@@ -819,6 +820,7 @@ export default function DashboardSidebarPreview({
 
   // Coin settings modal
   const [settingsModalCoin, setSettingsModalCoin] = useState<string | null>(null);
+  const [globalSettingsOpen, setGlobalSettingsOpen] = useState(false);
   const handleOpenSettings = useCallback((symbol: string) => {
     if (symbol) setSettingsModalCoin(symbol);
   }, []);
@@ -933,6 +935,7 @@ export default function DashboardSidebarPreview({
       <Sidebar
         health={data.health}
         onBotAction={handleBotAction}
+        onNavClick={(label) => { if (label === 'Ayarlar') setGlobalSettingsOpen(true); }}
         mockMode={mockMode}
         localOverride={localOverride}
       />
@@ -1053,6 +1056,12 @@ export default function DashboardSidebarPreview({
         <CoinSettingsModal
           symbol={settingsModalCoin}
           onClose={handleCloseSettings}
+          mockMode={mockMode}
+        />
+      )}
+      {globalSettingsOpen && (
+        <GlobalSettingsModal
+          onClose={() => setGlobalSettingsOpen(false)}
           mockMode={mockMode}
         />
       )}

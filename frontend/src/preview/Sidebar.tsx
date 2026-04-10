@@ -466,11 +466,11 @@ const NAV_ITEMS: NavItem[] = [
   { icon: '📊', label: 'Marketler', active: true },
   { icon: '📜', label: 'Geçmiş', disabled: true },
   { icon: '📈', label: 'Analiz', disabled: true },
-  { icon: '⚙', label: 'Ayarlar', disabled: true },
+  { icon: '⚙', label: 'Ayarlar', disabled: false },
   { icon: '📋', label: 'Loglar', disabled: true },
 ];
 
-function NavList() {
+function NavList({ onNavClick }: { onNavClick?: (label: string) => void }) {
   return (
     <nav className="dsp-sb-nav">
       {NAV_ITEMS.map((item) => (
@@ -483,6 +483,8 @@ function NavList() {
           ]
             .filter(Boolean)
             .join(' ')}
+          style={!item.disabled && !item.active ? { cursor: 'pointer' } : undefined}
+          onClick={() => { if (!item.disabled && onNavClick) onNavClick(item.label); }}
         >
           <span className="dsp-sb-nav-icon">{item.icon}</span>
           <span>{item.label}</span>
@@ -644,6 +646,8 @@ function HealthIndicator({
 export interface SidebarProps {
   health: HealthResponse | null;
   onBotAction: (action: 'start' | 'pause' | 'stop') => void;
+  /** Sidebar nav tıklama — Ayarlar gibi aktif menü öğeleri için */
+  onNavClick?: (label: string) => void;
   /** Mock mode — backend yoksa local sim kullanır */
   mockMode?: boolean;
   /** Mock mode'da hızlı feedback için geçici local override */
@@ -653,6 +657,7 @@ export interface SidebarProps {
 export default function Sidebar({
   health,
   onBotAction,
+  onNavClick,
   mockMode,
   localOverride,
 }: SidebarProps) {
@@ -660,7 +665,7 @@ export default function Sidebar({
   return (
     <aside className="dsp-sidebar">
       <BrandBlock />
-      <NavList />
+      <NavList onNavClick={onNavClick} />
       <div className="dsp-sb-spacer" />
       <BotStatusPanel
         bot={bot}
