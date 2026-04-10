@@ -387,13 +387,14 @@ class TestSpreadFormula:
         assert record.spread == round(0.45 - 0.43, 4)  # DOWN side updates spread too
 
     def test_spread_both_sides_update(self):
-        """Both UP and DOWN sides update spread."""
+        """Both UP and DOWN sides update spread — dominant side determines spread."""
         pipe = LivePricePipeline()
         pipe.update_from_ws("0x1", "BTC", "up", best_bid=0.55, best_ask=0.57)
         assert pipe.get_record("0x1").spread == 0.02
 
+        # After DOWN update, dominant is still UP (0.55 > 0.43) → spread stays UP's 0.02
         pipe.update_from_ws("0x1", "BTC", "down", best_bid=0.43, best_ask=0.46)
-        assert pipe.get_record("0x1").spread == 0.03  # DOWN side overwrites
+        assert pipe.get_record("0x1").spread == 0.02  # dominant UP's ask-bid
 
 
 # ═══════════════════════════════════════════════════════════════

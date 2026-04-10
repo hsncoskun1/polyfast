@@ -155,17 +155,17 @@ class EvaluationLoop:
         """Tek coin için context doldur ve evaluate et."""
         asset = coin_settings.coin
 
-        # Pipeline'dan outcome fiyat
+        # Pipeline'dan outcome fiyat (per-side bid/ask)
         price_record = self._pipeline.get_record_by_asset(asset)
         if price_record:
-            up_price = price_record.up_price
-            down_price = price_record.down_price
-            best_bid = price_record.best_bid
-            best_ask = price_record.best_ask
+            up_bid = price_record.up_bid
+            up_ask = price_record.up_ask
+            down_bid = price_record.down_bid
+            down_ask = price_record.down_ask
             outcome_fresh = price_record.status == PriceStatus.FRESH
             condition_id = price_record.condition_id
         else:
-            up_price = down_price = best_bid = best_ask = 0.0
+            up_bid = up_ask = down_bid = down_ask = 0.0
             outcome_fresh = False
             condition_id = ""
 
@@ -192,10 +192,14 @@ class EvaluationLoop:
         ctx = EvaluationContext(
             condition_id=condition_id,
             asset=asset,
-            up_price=up_price,
-            down_price=down_price,
-            best_bid=best_bid,
-            best_ask=best_ask,
+            up_price=up_bid,       # geriye uyum: up_price = up_bid
+            down_price=down_bid,   # geriye uyum: down_price = down_bid
+            up_bid=up_bid,
+            up_ask=up_ask,
+            down_bid=down_bid,
+            down_ask=down_ask,
+            best_bid=max(up_bid, down_bid),    # dominant bid
+            best_ask=(up_ask if up_bid >= down_bid else down_ask),  # dominant ask
             outcome_fresh=outcome_fresh,
             coin_usd_price=coin_usd,
             coin_usd_fresh=coin_fresh,

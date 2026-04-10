@@ -52,30 +52,72 @@ class PriceStatus(str, Enum):
 class LivePriceRecord:
     """Normalized live price record for a single event/market.
 
-    Attributes:
-        condition_id: Market condition ID.
-        asset: Crypto asset symbol.
-        up_price: Up outcome price (0.0-1.0 range).
-        down_price: Down outcome price (0.0-1.0 range).
-        spread: Difference between best ask and best bid (UP side).
-        status: Current price status.
-        updated_at: When this price was last updated (UTC).
-        source: Where this price came from (PriceSource enum value).
-        stale_threshold_sec: Seconds before price is considered stale.
-        best_bid: Best bid price for UP token (from WS).
-        best_ask: Best ask price for UP token (from WS).
+    Kaynak alanlar (WS'ten direkt):
+        up_bid, up_ask:     UP token best bid/ask
+        down_bid, down_ask: DOWN token best bid/ask
+
+    Türetilmiş property'ler (geriye uyum):
+        up_price    = up_bid   (exit/realizable değer)
+        down_price  = down_bid
+        best_bid    = dominant tarafın bid'i
+        best_ask    = dominant tarafın ask'ı
+        display_up  = midpoint(up_bid, up_ask)
+        display_down = midpoint(down_bid, down_ask)
+
+    FOK market order semantiği:
+        Entry maliyeti  = ask (karşı tarafın satış fiyatı)
+        Exit realizasyon = bid (alıcıların teklif fiyatı)
     """
     condition_id: str
     asset: str
-    up_price: float = 0.0
-    down_price: float = 0.0
+
+    # ── Kaynak alanlar (WS'ten direkt, sentetik değil) ──
+    up_bid: float = 0.0
+    up_ask: float = 0.0
+    down_bid: float = 0.0
+    down_ask: float = 0.0
+
     spread: float = 0.0
     status: PriceStatus = PriceStatus.WAITING
     updated_at: datetime | None = None
     source: str = ""
     stale_threshold_sec: int = DEFAULT_STALE_THRESHOLD_SEC
-    best_bid: float = 0.0
-    best_ask: float = 0.0
+
+    # ── Türetilmiş property'ler (geriye uyum) ──
+
+    @property
+    def up_price(self) -> float:
+        """UP outcome fiyatı = up_bid (exit/realizable)."""
+        return self.up_bid
+
+    @property
+    def down_price(self) -> float:
+        """DOWN outcome fiyatı = down_bid (exit/realizable)."""
+        return self.down_bid
+
+    @property
+    def best_bid(self) -> float:
+        """Dominant tarafın bid'i (geriye uyum)."""
+        return self.up_bid if self.up_bid >= self.down_bid else self.down_bid
+
+    @property
+    def best_ask(self) -> float:
+        """Dominant tarafın ask'ı (geriye uyum)."""
+        return self.up_ask if self.up_bid >= self.down_bid else self.down_ask
+
+    @property
+    def display_up(self) -> float:
+        """UP gösterim fiyatı = midpoint(bid, ask)."""
+        if self.up_bid > 0 and self.up_ask > 0:
+            return round((self.up_bid + self.up_ask) / 2, 4)
+        return self.up_bid
+
+    @property
+    def display_down(self) -> float:
+        """DOWN gösterim fiyatı = midpoint(bid, ask)."""
+        if self.down_bid > 0 and self.down_ask > 0:
+            return round((self.down_bid + self.down_ask) / 2, 4)
+        return self.down_bid
 
     @property
     def is_fresh(self) -> bool:
@@ -137,19 +179,18 @@ class LivePricePipeline:
         best_bid: float,
         best_ask: float,
     ) -> LivePriceRecord:
-        """Update price from RTDS WebSocket market data.
+        """Update price from CLOB WS market channel.
 
-        WS sends per-token data. Each token is one side (UP or DOWN).
-        When the UP side is updated, up_price = best_bid (mid or bid).
-        Spread = best_ask - best_bid.
-        DOWN price = 1 - UP price (binary market invariant).
+        WS her token için ayrı best_bid/best_ask gönderir.
+        UP ve DOWN tokenleri AYRI stream edilir — sentetik fiyat YOK.
+        Her side sadece kendi alanlarını günceller, karşı side'a dokunmaz.
 
         Args:
             condition_id: Market condition ID.
             asset: Crypto asset symbol.
-            side: "up" or "down".
-            best_bid: Best bid price for this token.
-            best_ask: Best ask price for this token.
+            side: "up" or "down" — hangi token'ın verisi.
+            best_bid: Bu token'ın en iyi alış teklifi.
+            best_ask: Bu token'ın en iyi satış fiyatı.
 
         Returns:
             Updated LivePriceRecord.
@@ -158,7 +199,6 @@ class LivePricePipeline:
 
         # Validate bid/ask
         if not self._is_valid_ws_price(best_bid) or not self._is_valid_ws_price(best_ask):
-            # Don't mark INVALID on single bad WS tick if we already have valid data
             if record.status == PriceStatus.WAITING:
                 record.status = PriceStatus.INVALID
             log_event(
@@ -172,16 +212,11 @@ class LivePricePipeline:
         side_lower = side.lower()
 
         if side_lower == "up":
-            record.up_price = best_bid
-            record.down_price = round(1.0 - best_bid, 4)
-            record.best_bid = best_bid
-            record.best_ask = best_ask
-            record.spread = round(best_ask - best_bid, 4)
+            record.up_bid = best_bid
+            record.up_ask = best_ask
         elif side_lower == "down":
-            record.down_price = best_bid
-            record.up_price = round(1.0 - best_bid, 4)
-            # DOWN side de spread günceller — en son gelen side'ın spread'i geçerli
-            record.spread = round(best_ask - best_bid, 4)
+            record.down_bid = best_bid
+            record.down_ask = best_ask
         else:
             log_event(
                 logger, logging.WARNING,
@@ -190,6 +225,12 @@ class LivePricePipeline:
                 entity_id=condition_id,
             )
             return record
+
+        # Spread: dominant tarafın ask - bid
+        dom_bid = record.best_bid
+        dom_ask = record.best_ask
+        if dom_bid > 0 and dom_ask > 0:
+            record.spread = round(dom_ask - dom_bid, 4)
 
         record.status = PriceStatus.FRESH
         record.updated_at = datetime.now(timezone.utc)
@@ -243,9 +284,9 @@ class LivePricePipeline:
             )
             return record
 
-        # Update record
-        record.up_price = up_price
-        record.down_price = down_price
+        # Update record — Gamma kaynak olarak bid'e yazar (ask bilgisi yok)
+        record.up_bid = up_price
+        record.down_bid = down_price
         record.spread = spread
         record.status = PriceStatus.FRESH
         record.updated_at = datetime.now(timezone.utc)

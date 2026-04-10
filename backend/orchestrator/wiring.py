@@ -139,6 +139,9 @@ class Orchestrator:
         self._verify_retry_task: asyncio.Task | None = None
         self._verify_retry_running: bool = False
 
+        # ── RTDS WS task ──
+        self._rtds_task: asyncio.Task | None = None
+
         # ── Supervisor ──
         self._supervisor_task: asyncio.Task | None = None
         self._supervisor_running: bool = False
@@ -218,6 +221,7 @@ class Orchestrator:
         )
         self.subscription_manager = SubscriptionManager(
             self.bridge, self.coin_client, self.ptb_fetcher,
+            rtds_client=self.rtds_client,
         )
         self.cleanup = EventCleanup(
             self.pipeline, self.ptb_fetcher, self.bridge,
@@ -477,6 +481,14 @@ class Orchestrator:
 
         # State restore (7/24 — restart sonrasi kaldigi yerden devam)
         await self.restore_state()
+
+        # CLOB WS Market Channel — outcome price (UP/DOWN bid/ask)
+        # Push-only: 1 subscribe sonrası server sürekli veri gönderir
+        # Token subscribe'ı subscription_manager.apply_diff()'te yapılır
+        self._rtds_task = asyncio.create_task(
+            self.rtds_client.run_forever(),
+            name="rtds_ws_loop",
+        )
 
         # Coin price batch loop
         await self.coin_client.start()

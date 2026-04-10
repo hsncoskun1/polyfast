@@ -32,21 +32,21 @@ class TestUpdateFromWS:
     """Test LivePricePipeline.update_from_ws() method."""
 
     def test_ws_update_up_side(self):
-        """WS UP side update sets up_price and calculates down_price."""
+        """WS UP side update sets up_price; DOWN stays 0 until DOWN side received."""
         pipe = LivePricePipeline()
         record = pipe.update_from_ws("0x1", "BTC", "up", best_bid=0.55, best_ask=0.56)
         assert record.up_price == 0.55
-        assert record.down_price == 0.45
+        assert record.down_price == 0.0  # DOWN not yet received
         assert record.spread == 0.01
         assert record.status == PriceStatus.FRESH
         assert record.source == PriceSource.RTDS_WS.value
 
     def test_ws_update_down_side(self):
-        """WS DOWN side update sets down_price and calculates up_price."""
+        """WS DOWN side update sets down_price; UP stays 0 until UP side received."""
         pipe = LivePricePipeline()
         record = pipe.update_from_ws("0x1", "BTC", "down", best_bid=0.45, best_ask=0.46)
         assert record.down_price == 0.45
-        assert record.up_price == 0.55
+        assert record.up_price == 0.0  # UP not yet received
 
     def test_ws_update_records_best_bid_ask(self):
         """WS update stores best_bid/best_ask on record."""

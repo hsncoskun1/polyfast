@@ -714,9 +714,10 @@ class TestStage10Evaluation:
         assert ctx.outcome_fresh is False
 
     def test_dominant_price_calculation(self):
-        """Dominant price = max(up, down)."""
+        """Dominant price = ask of dominant side (entry ref)."""
         from backend.strategy.evaluation_context import EvaluationContext
-        ctx = EvaluationContext(up_price=0.65, down_price=0.35)
+        ctx = EvaluationContext(up_price=0.65, down_price=0.35,
+                                up_bid=0.65, up_ask=0.65, down_bid=0.35, down_ask=0.35)
         assert ctx.evaluated_price == 0.65
         assert ctx.evaluated_side == "UP"
 
@@ -739,6 +740,7 @@ class TestStage10Evaluation:
 
         ctx = EvaluationContext(
             up_price=0.65, down_price=0.35,
+            up_bid=0.65, up_ask=0.65, down_bid=0.35, down_ask=0.35,
             best_bid=0.64, best_ask=0.66,
             outcome_fresh=True,
             coin_usd_price=65000, coin_usd_fresh=True,

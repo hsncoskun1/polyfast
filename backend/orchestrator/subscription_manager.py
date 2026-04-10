@@ -47,10 +47,12 @@ class SubscriptionManager:
         bridge: WSPriceBridge,
         coin_price_client: CoinPriceClient,
         ptb_fetcher: PTBFetcher,
+        rtds_client=None,
     ):
         self._bridge = bridge
         self._coin_client = coin_price_client
         self._ptb_fetcher = ptb_fetcher
+        self._rtds_client = rtds_client
         self._current_subscribed: set[str] = set()  # şu an subscribe olan asset'ler
 
     def compute_diff(self, new_eligible_assets: list[str]) -> SubscriptionDiff:
@@ -85,6 +87,23 @@ class SubscriptionManager:
             (self._current_subscribed | set(diff.to_subscribe))
             - set(diff.to_unsubscribe)
         )
+
+        # CLOB WS'e güncel token set'i bildir
+        # Bridge'deki registered_token_ids tam listeyi tutar
+        # Reconnect sonrası _subscribed_tokens'tan resubscribe yapılır
+        if (diff.to_subscribe or diff.to_unsubscribe) and self._rtds_client:
+            all_tokens = self._bridge.registered_token_ids
+            self._rtds_client.update_subscription(all_tokens)
+            if self._rtds_client.is_connected:
+                try:
+                    await self._rtds_client.subscribe(all_tokens)
+                except Exception as e:
+                    log_event(
+                        logger, logging.WARNING,
+                        f"RTDS subscribe failed: {e}",
+                        entity_type="orchestrator",
+                        entity_id="rtds_subscribe_error",
+                    )
 
         if diff.to_subscribe or diff.to_unsubscribe:
             log_event(

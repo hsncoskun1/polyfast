@@ -33,11 +33,15 @@ class EvaluationContext:
     asset: str = ""
     event_slug: str = ""
 
-    # ── Outcome fiyatları (CLOB WS'ten) ──
-    up_price: float = 0.0          # UP outcome fiyatı (0.0-1.0)
-    down_price: float = 0.0        # DOWN outcome fiyatı (0.0-1.0)
-    best_bid: float = 0.0          # outcome best bid
-    best_ask: float = 0.0          # outcome best ask
+    # ── Outcome fiyatları (CLOB WS'ten, per-side) ──
+    up_price: float = 0.0          # UP token bid (exit/realizable)
+    down_price: float = 0.0        # DOWN token bid (exit/realizable)
+    up_bid: float = 0.0            # UP token best bid
+    up_ask: float = 0.0            # UP token best ask
+    down_bid: float = 0.0          # DOWN token best bid
+    down_ask: float = 0.0          # DOWN token best ask
+    best_bid: float = 0.0          # dominant taraf bid (geriye uyum)
+    best_ask: float = 0.0          # dominant taraf ask (geriye uyum)
     outcome_fresh: bool = False    # outcome verisi fresh mi
 
     # ── Side mode ──
@@ -85,34 +89,54 @@ class EvaluationContext:
     # ── Türetilmiş ──
 
     @property
-    def evaluated_price(self) -> float:
-        """Side mode'a göre değerlendirilecek fiyat (0.0-1.0).
-
-        dominant_only → max(up, down), her zaman >= 0.50
-        up_only → up_price
-        down_only → down_price
-        """
-        if self.side_mode == SideMode.UP_ONLY:
-            return self.up_price
-        if self.side_mode == SideMode.DOWN_ONLY:
-            return self.down_price
-        return max(self.up_price, self.down_price)  # dominant_only
-
-    @property
     def evaluated_side(self) -> str:
         """Side mode'a göre değerlendirilecek taraf."""
         if self.side_mode == SideMode.UP_ONLY:
             return "UP"
         if self.side_mode == SideMode.DOWN_ONLY:
             return "DOWN"
-        return "UP" if self.up_price >= self.down_price else "DOWN"
+        # DOMINANT: bid bazlı dominant taraf (exit perspektifi)
+        return "UP" if self.up_bid >= self.down_bid else "DOWN"
+
+    @property
+    def entry_ref_price(self) -> float:
+        """Entry karar fiyatı — FOK market order = ASK tarafı.
+
+        Price rule bu fiyatı kullanır (gerçek giriş maliyeti).
+        """
+        if self.side_mode == SideMode.UP_ONLY:
+            return self.up_ask
+        if self.side_mode == SideMode.DOWN_ONLY:
+            return self.down_ask
+        # DOMINANT: dominant tarafın ask'ı
+        return self.up_ask if self.up_bid >= self.down_bid else self.down_ask
+
+    @property
+    def exit_ref_price(self) -> float:
+        """Exit realizasyon fiyatı — satış = BID tarafı.
+
+        TP/SL/FS bu fiyatı kullanır (gerçek çıkış değeri).
+        """
+        if self.side_mode == SideMode.UP_ONLY:
+            return self.up_bid
+        if self.side_mode == SideMode.DOWN_ONLY:
+            return self.down_bid
+        return self.up_bid if self.up_bid >= self.down_bid else self.down_bid
+
+    @property
+    def evaluated_price(self) -> float:
+        """Entry karar fiyatı — price rule için (= entry_ref_price).
+
+        FOK market order → maliyet = ask tarafı.
+        """
+        return self.entry_ref_price
 
     @property
     def evaluated_price_100(self) -> float:
-        """Değerlendirilecek fiyat 0-100 ölçeğinde."""
+        """Entry fiyat 0-100 ölçeğinde."""
         return self.evaluated_price * 100
 
-    # Backward compat — dominant_* isimleri korunuyor
+    # Backward compat
     @property
     def dominant_price(self) -> float:
         return self.evaluated_price
@@ -127,9 +151,11 @@ class EvaluationContext:
 
     @property
     def spread_pct(self) -> float:
-        """Spread yüzdesi: (ask-bid)/ask*100. best_ask bazlı."""
-        if self.best_ask > 0:
-            return (self.best_ask - self.best_bid) / self.best_ask * 100
+        """Spread yüzdesi: dominant tarafın (ask-bid)/ask*100."""
+        ask = self.entry_ref_price
+        bid = self.exit_ref_price
+        if ask > 0:
+            return (ask - bid) / ask * 100
         return 0.0
 
     @property

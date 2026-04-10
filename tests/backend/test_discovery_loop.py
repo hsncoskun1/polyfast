@@ -203,23 +203,26 @@ class TestDiscoveryLoopScanWithRetry:
 class TestSideModeContext:
 
     def test_dominant_only_default(self):
-        ctx = EvaluationContext(up_price=0.85, down_price=0.15)
+        ctx = EvaluationContext(up_price=0.85, down_price=0.15,
+                                up_bid=0.85, up_ask=0.85, down_bid=0.15, down_ask=0.15)
         assert ctx.side_mode == SideMode.DOMINANT_ONLY
         assert ctx.evaluated_price == 0.85
         assert ctx.evaluated_side == "UP"
         assert ctx.evaluated_price_100 == 85.0
 
     def test_dominant_only_down_dominant(self):
-        ctx = EvaluationContext(up_price=0.30, down_price=0.70)
+        ctx = EvaluationContext(up_price=0.30, down_price=0.70,
+                                up_bid=0.30, up_ask=0.30, down_bid=0.70, down_ask=0.70)
         assert ctx.evaluated_price == 0.70
         assert ctx.evaluated_side == "DOWN"
 
     def test_up_only(self):
         ctx = EvaluationContext(
             up_price=0.30, down_price=0.70,
+            up_bid=0.30, up_ask=0.30, down_bid=0.70, down_ask=0.70,
             side_mode=SideMode.UP_ONLY,
         )
-        # up_only → up_price kullanılır (dominant değil)
+        # up_only → up_ask kullanılır (entry ref = ask)
         assert ctx.evaluated_price == 0.30
         assert ctx.evaluated_side == "UP"
         assert ctx.evaluated_price_100 == 30.0
@@ -227,16 +230,18 @@ class TestSideModeContext:
     def test_down_only(self):
         ctx = EvaluationContext(
             up_price=0.85, down_price=0.15,
+            up_bid=0.85, up_ask=0.85, down_bid=0.15, down_ask=0.15,
             side_mode=SideMode.DOWN_ONLY,
         )
-        # down_only → down_price kullanılır
+        # down_only → down_ask kullanılır (entry ref = ask)
         assert ctx.evaluated_price == 0.15
         assert ctx.evaluated_side == "DOWN"
         assert ctx.evaluated_price_100 == 15.0
 
     def test_backward_compat_dominant_property(self):
         """dominant_* isimleri hâlâ çalışır."""
-        ctx = EvaluationContext(up_price=0.85, down_price=0.15)
+        ctx = EvaluationContext(up_price=0.85, down_price=0.15,
+                                up_bid=0.85, up_ask=0.85, down_bid=0.15, down_ask=0.15)
         assert ctx.dominant_price == ctx.evaluated_price
         assert ctx.dominant_side == ctx.evaluated_side
 
@@ -247,6 +252,7 @@ class TestPriceRuleSideMode:
         rule = PriceRule()
         ctx = EvaluationContext(
             up_price=0.85, down_price=0.15,
+            up_bid=0.85, up_ask=0.85, down_bid=0.15, down_ask=0.15,
             side_mode=SideMode.DOMINANT_ONLY,
             outcome_fresh=True,
             price_min=51, price_max=95, price_enabled=True,
@@ -257,10 +263,11 @@ class TestPriceRuleSideMode:
         assert result.detail["evaluated_price_100"] == 85.0
 
     def test_up_only_low_up_price_pass(self):
-        """UP only modunda up_price=30 → min=1 max=99 → 30 aralıkta → PASS."""
+        """UP only modunda up_ask=30 → min=1 max=99 → 30 aralıkta → PASS."""
         rule = PriceRule()
         ctx = EvaluationContext(
             up_price=0.30, down_price=0.70,
+            up_bid=0.30, up_ask=0.30, down_bid=0.70, down_ask=0.70,
             side_mode=SideMode.UP_ONLY,
             outcome_fresh=True,
             price_min=1, price_max=99, price_enabled=True,
@@ -271,10 +278,11 @@ class TestPriceRuleSideMode:
         assert result.detail["evaluated_price_100"] == 30.0
 
     def test_up_only_below_min_fail(self):
-        """UP only modunda up_price=5 → min=10 → FAIL."""
+        """UP only modunda up_ask=5 → min=10 → FAIL."""
         rule = PriceRule()
         ctx = EvaluationContext(
             up_price=0.05, down_price=0.95,
+            up_bid=0.05, up_ask=0.05, down_bid=0.95, down_ask=0.95,
             side_mode=SideMode.UP_ONLY,
             outcome_fresh=True,
             price_min=10, price_max=99, price_enabled=True,
@@ -282,10 +290,11 @@ class TestPriceRuleSideMode:
         assert rule.evaluate(ctx).state == RuleState.FAIL
 
     def test_down_only_pass(self):
-        """DOWN only modunda down_price=70 → 51-99 → PASS."""
+        """DOWN only modunda down_ask=70 → 51-99 → PASS."""
         rule = PriceRule()
         ctx = EvaluationContext(
             up_price=0.30, down_price=0.70,
+            up_bid=0.30, up_ask=0.30, down_bid=0.70, down_ask=0.70,
             side_mode=SideMode.DOWN_ONLY,
             outcome_fresh=True,
             price_min=51, price_max=99, price_enabled=True,
@@ -299,6 +308,7 @@ class TestPriceRuleSideMode:
         rule = PriceRule()
         ctx = EvaluationContext(
             up_price=0.50, down_price=0.50,
+            up_bid=0.50, up_ask=0.50, down_bid=0.50, down_ask=0.50,
             side_mode=SideMode.DOMINANT_ONLY,
             outcome_fresh=True,
             price_min=51, price_max=95, price_enabled=True,
@@ -311,6 +321,7 @@ class TestPriceRuleSideMode:
         rule = PriceRule()
         ctx = EvaluationContext(
             up_price=0.85, down_price=0.15,
+            up_bid=0.85, up_ask=0.85, down_bid=0.15, down_ask=0.15,
             side_mode=SideMode.DOMINANT_ONLY,
             outcome_fresh=True,
             price_min=51, price_max=95, price_enabled=True,

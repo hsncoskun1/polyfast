@@ -37,6 +37,10 @@ def _make_ctx(**overrides) -> EvaluationContext:
         asset="BTC",
         up_price=0.85,
         down_price=0.15,
+        up_bid=0.85,
+        up_ask=0.86,
+        down_bid=0.15,
+        down_ask=0.16,
         best_bid=0.84,
         best_ask=0.86,
         outcome_fresh=True,
@@ -200,7 +204,9 @@ class TestPriceRule:
     def test_dominant_up_in_range_pass(self):
         """UP dominant 85 → 51-95 aralığında → PASS."""
         rule = PriceRule()
-        ctx = _make_ctx(up_price=0.85, down_price=0.15, price_min=51, price_max=95)
+        ctx = _make_ctx(up_price=0.85, down_price=0.15,
+                        up_bid=0.85, up_ask=0.85, down_bid=0.15, down_ask=0.15,
+                        price_min=51, price_max=95)
         result = rule.evaluate(ctx)
         assert result.state == RuleState.PASS
         assert result.detail["evaluated_side"] == "UP"
@@ -208,7 +214,9 @@ class TestPriceRule:
     def test_dominant_down_in_range_pass(self):
         """DOWN dominant 70 → 51-95 aralığında → PASS."""
         rule = PriceRule()
-        ctx = _make_ctx(up_price=0.30, down_price=0.70, price_min=51, price_max=95)
+        ctx = _make_ctx(up_price=0.30, down_price=0.70,
+                        up_bid=0.30, up_ask=0.30, down_bid=0.70, down_ask=0.70,
+                        price_min=51, price_max=95)
         result = rule.evaluate(ctx)
         assert result.state == RuleState.PASS
         assert result.detail["evaluated_side"] == "DOWN"
@@ -216,13 +224,17 @@ class TestPriceRule:
     def test_dominant_below_min_fail(self):
         """Dominant 52 → min=70 → FAIL."""
         rule = PriceRule()
-        ctx = _make_ctx(up_price=0.52, down_price=0.48, price_min=70, price_max=95)
+        ctx = _make_ctx(up_price=0.52, down_price=0.48,
+                        up_bid=0.52, up_ask=0.52, down_bid=0.48, down_ask=0.48,
+                        price_min=70, price_max=95)
         assert rule.evaluate(ctx).state == RuleState.FAIL
 
     def test_dominant_above_max_fail(self):
         """Dominant 97 → max=95 → FAIL."""
         rule = PriceRule()
-        ctx = _make_ctx(up_price=0.97, down_price=0.03, price_min=51, price_max=95)
+        ctx = _make_ctx(up_price=0.97, down_price=0.03,
+                        up_bid=0.97, up_ask=0.97, down_bid=0.03, down_ask=0.03,
+                        price_min=51, price_max=95)
         assert rule.evaluate(ctx).state == RuleState.FAIL
 
     def test_outcome_not_fresh_waiting(self):
@@ -234,13 +246,16 @@ class TestPriceRule:
     def test_boundary_51_pass(self):
         """Dominant tam 51 → min=51 → PASS."""
         rule = PriceRule()
-        ctx = _make_ctx(up_price=0.51, down_price=0.49, price_min=51, price_max=95)
+        ctx = _make_ctx(up_price=0.51, down_price=0.49,
+                        up_bid=0.51, up_ask=0.51, down_bid=0.49, down_ask=0.49,
+                        price_min=51, price_max=95)
         assert rule.evaluate(ctx).state == RuleState.PASS
 
     def test_dominant_always_max(self):
-        """dominant = max(up, down)."""
-        ctx = _make_ctx(up_price=0.40, down_price=0.60)
-        assert ctx.dominant_price == 0.60
+        """dominant = max(up, down) — uses ask for evaluated_price."""
+        ctx = _make_ctx(up_price=0.40, down_price=0.60,
+                        up_bid=0.40, up_ask=0.41, down_bid=0.60, down_ask=0.61)
+        assert ctx.dominant_price == 0.61  # ask of dominant side
         assert ctx.dominant_side == "DOWN"
 
 
@@ -320,33 +335,42 @@ class TestDeltaRule:
 class TestSpreadRule:
 
     def test_spread_below_max_pass(self):
-        """(0.86 - 0.84) / 0.86 * 100 = 2.33% <= 5% → PASS."""
+        """spread_pct uses entry_ref_price(ask) and exit_ref_price(bid)."""
         rule = SpreadRule()
-        ctx = _make_ctx(best_bid=0.84, best_ask=0.86, spread_max_pct=5.0)
+        # dominant=UP (up_bid=0.84 > down_bid), entry_ref=up_ask=0.86, exit_ref=up_bid=0.84
+        ctx = _make_ctx(up_bid=0.84, up_ask=0.86, down_bid=0.14, down_ask=0.16,
+                        best_bid=0.84, best_ask=0.86, spread_max_pct=5.0)
         result = rule.evaluate(ctx)
         assert result.state == RuleState.PASS
         assert abs(result.detail["spread_pct"] - 2.3256) < 0.01
 
     def test_spread_above_max_fail(self):
-        """(0.60 - 0.55) / 0.60 * 100 = 8.33% > 3.2% → FAIL."""
+        """High spread → FAIL."""
         rule = SpreadRule()
-        ctx = _make_ctx(best_bid=0.55, best_ask=0.60, spread_max_pct=3.2)
+        # dominant=UP (up_bid=0.55 > down_bid=0.40), entry_ref=up_ask=0.60, exit_ref=up_bid=0.55
+        ctx = _make_ctx(up_bid=0.55, up_ask=0.60, down_bid=0.40, down_ask=0.45,
+                        best_bid=0.55, best_ask=0.60, spread_max_pct=3.2)
         assert rule.evaluate(ctx).state == RuleState.FAIL
 
-    def test_spread_formula_best_ask_based(self):
-        """Spread = (ask-bid)/ask*100 — best_ask bazlı (mid değil)."""
-        ctx = _make_ctx(best_bid=0.55, best_ask=0.57)
+    def test_spread_formula_entry_ref_based(self):
+        """Spread = (entry_ref - exit_ref)/entry_ref*100 — ask bazlı."""
+        # dominant=UP (up_bid=0.55 > down_bid=0.43), entry_ref=up_ask=0.57, exit_ref=up_bid=0.55
+        ctx = _make_ctx(up_bid=0.55, up_ask=0.57, down_bid=0.43, down_ask=0.45,
+                        best_bid=0.55, best_ask=0.57)
         expected = (0.57 - 0.55) / 0.57 * 100
         assert abs(ctx.spread_pct - expected) < 0.001
 
     def test_spread_decimal_threshold(self):
         """Ondalıklı threshold: 3.2%."""
         rule = SpreadRule()
+        # dominant=UP (up_bid=0.55 > down_bid=0.43), entry_ref=up_ask=0.57, exit_ref=up_bid=0.55
         # spread = (0.57 - 0.55) / 0.57 * 100 = 3.508%
-        ctx = _make_ctx(best_bid=0.55, best_ask=0.57, spread_max_pct=3.2)
+        ctx = _make_ctx(up_bid=0.55, up_ask=0.57, down_bid=0.43, down_ask=0.45,
+                        best_bid=0.55, best_ask=0.57, spread_max_pct=3.2)
         assert rule.evaluate(ctx).state == RuleState.FAIL  # 3.508 > 3.2
 
-        ctx2 = _make_ctx(best_bid=0.55, best_ask=0.57, spread_max_pct=4.0)
+        ctx2 = _make_ctx(up_bid=0.55, up_ask=0.57, down_bid=0.43, down_ask=0.45,
+                         best_bid=0.55, best_ask=0.57, spread_max_pct=4.0)
         assert rule.evaluate(ctx2).state == RuleState.PASS  # 3.508 < 4.0
 
     def test_outcome_not_fresh_waiting(self):
@@ -356,7 +380,7 @@ class TestSpreadRule:
 
     def test_best_ask_zero_waiting(self):
         rule = SpreadRule()
-        ctx = _make_ctx(best_ask=0)
+        ctx = _make_ctx(best_ask=0, up_ask=0.0, down_ask=0.0)
         assert rule.evaluate(ctx).state == RuleState.WAITING
 
 
@@ -427,18 +451,22 @@ class TestBotMaxRule:
 class TestEvaluationContext:
 
     def test_dominant_price(self):
-        ctx = _make_ctx(up_price=0.85, down_price=0.15)
+        ctx = _make_ctx(up_price=0.85, down_price=0.15,
+                        up_bid=0.85, up_ask=0.85, down_bid=0.15, down_ask=0.15)
         assert ctx.dominant_price == 0.85
         assert ctx.dominant_side == "UP"
         assert ctx.dominant_price_100 == 85.0
 
     def test_dominant_down(self):
-        ctx = _make_ctx(up_price=0.30, down_price=0.70)
+        ctx = _make_ctx(up_price=0.30, down_price=0.70,
+                        up_bid=0.30, up_ask=0.30, down_bid=0.70, down_ask=0.70)
         assert ctx.dominant_price == 0.70
         assert ctx.dominant_side == "DOWN"
 
     def test_spread_pct(self):
-        ctx = _make_ctx(best_bid=0.55, best_ask=0.57)
+        # dominant=UP (up_bid=0.55 > down_bid=0.43), entry_ref=up_ask=0.57, exit_ref=up_bid=0.55
+        ctx = _make_ctx(up_bid=0.55, up_ask=0.57, down_bid=0.43, down_ask=0.45,
+                        best_bid=0.55, best_ask=0.57)
         expected = (0.57 - 0.55) / 0.57 * 100
         assert abs(ctx.spread_pct - expected) < 0.001
 
