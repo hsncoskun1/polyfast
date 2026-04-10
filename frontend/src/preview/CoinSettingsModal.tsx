@@ -241,8 +241,30 @@ export default function CoinSettingsModal({ symbol, onClose, mockMode }: CoinSet
   const sideMode = values.side_mode || 'dominant_only';
   const priceRange = sideMode === 'dominant_only' ? '51-99' : '1-99';
 
+  /** Sayı normalizasyonu: virgül → nokta, binlik ayırıcı temizle */
+  const normalizeNumeric = (raw: string): string => {
+    // Boş string koru
+    if (!raw) return raw;
+    let s = raw;
+    // Binlik niyetli virgül: "10,000" → "10000"
+    // Eğer virgülden sonra 3 rakam varsa ve nokta yoksa → binlik
+    if (/^\d{1,3}(,\d{3})+$/.test(s)) {
+      s = s.replace(/,/g, '');
+    } else {
+      // Ondalık niyetli virgül: "10,5" → "10.5"
+      s = s.replace(/,/g, '.');
+    }
+    // Birden fazla nokta varsa sadece ilkini koru
+    const parts = s.split('.');
+    if (parts.length > 2) {
+      s = parts[0] + '.' + parts.slice(1).join('');
+    }
+    return s;
+  };
+
   const handleChange = useCallback((key: string, value: string) => {
-    setValues(prev => ({ ...prev, [key]: value }));
+    const normalized = key !== 'side_mode' ? normalizeNumeric(value) : value;
+    setValues(prev => ({ ...prev, [key]: normalized }));
     setErrorFields(prev => { const n = new Set(prev); n.delete(key); return n; });
     setStatusMsg(null);
   }, []);
