@@ -125,17 +125,31 @@ class TestConfiguredStatus:
         result = store.update_settings("BTC", delta_threshold=0.50)
         assert result.is_configured is False
 
-    def test_not_configured_without_enable(self):
-        """Tüm alanlar dolu ama coin_enabled=false → is_configured=false."""
+    def test_configured_without_enable(self):
+        """Alanlar dolu + coin_enabled=false → is_configured=true (configured ≠ enabled)."""
         store = SettingsStore()
         result = store.update_settings(
             "BTC",
             delta_threshold=0.50, price_min=51, price_max=85,
-            spread_max=3.0, time_min=30, time_max=270,
+            time_min=30, time_max=270,
             event_max=1, order_amount=5.0,
         )
         assert result.coin_enabled is False
-        assert result.is_configured is False
+        assert result.is_configured is True   # ayarlar tamam
+        assert result.is_trade_eligible is False  # ama enable değil → eligible değil
+
+    def test_configured_without_spread(self):
+        """Spread governance kapalı (spread_max=0) → is_configured=true."""
+        store = SettingsStore()
+        result = store.update_settings(
+            "BTC",
+            delta_threshold=0.50, price_min=51, price_max=85,
+            time_min=30, time_max=270,
+            event_max=1, order_amount=5.0,
+            # spread_max gönderilmiyor → 0 kalır
+        )
+        assert result.spread_max == 0.0
+        assert result.is_configured is True  # spread bloklamamalı
 
 
 # ╔══════════════════════════════════════════════════════════════╗

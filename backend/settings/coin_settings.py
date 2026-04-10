@@ -67,15 +67,16 @@ class CoinSettings:
     def is_configured(self) -> bool:
         """Tüm zorunlu alanlar doldurulmuş mu?
 
-        Ayar yapılmadan trade açılamaz.
+        configured = ayarlar tamam mı (coin_enabled AYRI kavram)
+        spread_max dahil değil — governance locked/kapalı olabilir
+        coin_enabled dahil değil — $ butonu ayrı kontrol
+        is_trade_eligible = coin_enabled AND is_configured
         """
         return (
-            self.coin_enabled
-            and self.delta_threshold > 0
+            self.delta_threshold > 0
             and self.price_min > 0
             and self.price_max > 0
             and self.price_min < self.price_max
-            and self.spread_max > 0
             and self.time_min > 0
             and self.time_max > 0
             and self.time_min < self.time_max
