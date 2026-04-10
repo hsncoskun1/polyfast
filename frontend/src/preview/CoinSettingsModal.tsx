@@ -15,13 +15,13 @@ ensureStyles('coin-settings-modal-v1', `
   background: ${COLOR.bgRaised};
   border: 1px solid ${COLOR.borderStrong};
   border-radius: ${SIZE.radiusLg}px;
-  max-width: 480px;
+  max-width: 540px;
   width: 100%;
-  padding: 24px 24px 20px;
+  padding: 24px 28px 20px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px ${COLOR.brandSoft};
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -31,12 +31,12 @@ ensureStyles('coin-settings-modal-v1', `
   color: ${COLOR.text};
 }
 .csm-group-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: ${FONT.weight.bold};
   color: ${COLOR.cyan};
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 .csm-field {
   display: flex;
@@ -52,11 +52,13 @@ ensureStyles('coin-settings-modal-v1', `
   font-size: 12px;
   font-weight: ${FONT.weight.semibold};
   color: ${COLOR.textMuted};
-  min-width: 100px;
+  min-width: 180px;
+  flex-shrink: 0;
 }
 .csm-input {
-  flex: 1;
-  padding: 7px 10px;
+  width: 120px;
+  max-width: 120px;
+  padding: 6px 10px;
   border-radius: ${SIZE.radius}px;
   border: 1px solid ${COLOR.border};
   background: ${COLOR.surface};
@@ -70,8 +72,9 @@ ensureStyles('coin-settings-modal-v1', `
 .csm-input.error { border-color: ${COLOR.red}; box-shadow: 0 0 0 2px rgba(239,68,68,0.15); }
 .csm-input[disabled] { opacity: 0.4; cursor: not-allowed; }
 .csm-select {
-  flex: 1;
-  padding: 7px 10px;
+  width: 180px;
+  max-width: 180px;
+  padding: 6px 10px;
   border-radius: ${SIZE.radius}px;
   border: 1px solid ${COLOR.border};
   background: ${COLOR.surface};
@@ -88,7 +91,7 @@ ensureStyles('coin-settings-modal-v1', `
 .csm-hint {
   font-size: 10px;
   color: ${COLOR.textDim};
-  padding-left: 108px;
+  padding-left: 188px;
 }
 .csm-locked {
   padding: 10px 14px;
@@ -158,12 +161,12 @@ const SIDE_OPTIONS = [
 ];
 
 const FIELDS: FieldDef[] = [
-  { key: 'side_mode', label: 'Trade Yönü', unit: '', type: 'select', options: SIDE_OPTIONS, hint: 'Dominant: max taraf, Up/Down: tek taraf' },
-  { key: 'delta_threshold', label: 'Delta Eşiği', unit: 'USD', type: 'number', hint: 'Min: 0.00001 — Max: 100,000' },
-  { key: 'price_min', label: 'Min Fiyat', unit: '(0-100)', type: 'number' },
-  { key: 'price_max', label: 'Max Fiyat', unit: '(0-100)', type: 'number' },
-  { key: 'time_min', label: 'Min Süre', unit: 'saniye', type: 'number', hint: 'Min: 1 — Max: 299' },
-  { key: 'time_max', label: 'Max Süre', unit: 'saniye', type: 'number', hint: 'Min: 1 — Max: 299' },
+  { key: 'side_mode', label: 'Trade Yönü', unit: '', type: 'select', options: SIDE_OPTIONS, hint: 'Dominant: yüksek olan taraf, Up/Down: tek taraf' },
+  { key: 'delta_threshold', label: 'Delta Eşiği', unit: 'USD', type: 'number', hint: 'Min: 0.00001 — Max: 100000 (delta kuralı için kullanılır)' },
+  { key: 'price_min', label: 'Minimum Yön Giriş Fiyatı', unit: '', type: 'number' },
+  { key: 'price_max', label: 'Maksimum Yön Giriş Fiyatı', unit: '', type: 'number' },
+  { key: 'time_min', label: 'Minimum Kalan Süre', unit: 'saniye', type: 'number', hint: 'Min: 1 — Max: 299' },
+  { key: 'time_max', label: 'Maksimum Kalan Süre', unit: 'saniye', type: 'number', hint: 'Min: 1 — Max: 299' },
   { key: 'event_max', label: 'Event Max', unit: 'fill', type: 'number', hint: 'Min: 1 — Max: 10' },
   { key: 'order_amount', label: 'İşlem Tutarı', unit: 'USD', type: 'number', hint: 'Min: $1.00 — Max: $10,000' },
 ];
@@ -326,7 +329,7 @@ export default function CoinSettingsModal({ symbol, onClose, mockMode }: CoinSet
     // Side mode'a göre price hint değiştir
     let hint = f.hint || '';
     if (f.key === 'price_min' || f.key === 'price_max') {
-      hint = `Geçerli aralık: ${priceRange}`;
+      hint = `${priceRange} arasında olabilir`;
     }
 
     return (
@@ -371,10 +374,11 @@ export default function CoinSettingsModal({ symbol, onClose, mockMode }: CoinSet
       <div className="csm-modal" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
         <div className="csm-title">{symbol} Ayarları</div>
 
-        <div className="csm-group-label">📊 Trade Yönü</div>
+
+        <div className="csm-group-label">📊 Yön Ayarları</div>
         {renderField(FIELDS[0])}
 
-        <div className="csm-group-label">📈 Entry Kuralları</div>
+        <div className="csm-group-label">📈 İşlem Giriş Kuralları</div>
         {FIELDS.slice(1, 7).map(renderField)}
 
         <div className="csm-group-label">💰 İşlem Tutarı</div>
