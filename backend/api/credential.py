@@ -292,13 +292,24 @@ def _mask(value: str, prefix: int = 4, suffix: int = 4) -> str:
     return value[:prefix] + "****" + value[-suffix:]
 
 
+def _mask_private_key(pk: str) -> str:
+    """Private key maskesi: 0x****son4 — kullanıcı dostu format."""
+    if not pk:
+        return ""
+    # Normalize: 0x prefix ekle
+    clean = pk if pk.startswith("0x") else "0x" + pk
+    if len(clean) <= 8:
+        return "0x****"
+    return f"0x****{clean[-4:]}"
+
+
 def _mask_credentials(creds: Credentials) -> dict[str, str]:
     """Tüm credential alanlarını maskele."""
     return {
         "api_key": _mask(creds.api_key),
-        "api_secret": _mask(creds.api_secret, prefix=0, suffix=0) if creds.api_secret else "",
+        "api_secret": "****" if creds.api_secret else "",
         "api_passphrase": "****" if creds.api_passphrase else "",
-        "private_key": _mask(creds.private_key),
+        "private_key": _mask_private_key(creds.private_key),
         "funder_address": _mask(creds.funder_address, prefix=6, suffix=4),
         "relayer_key": _mask(creds.relayer_key),
     }
@@ -413,9 +424,11 @@ async def _check_trading_api(orch) -> CheckResult:
         result = client.get_balance_allowance(params)
 
         if result and "balance" in result:
+            raw = int(result.get("balance", 0))
+            usd = raw / 1_000_000  # USDC 6 decimals
             return CheckResult(
                 name="trading_api", label="Trading API", status="passed",
-                message="API bağlantısı başarılı — bakiye doğrulandı",
+                message=f"Bakiye: ${usd:,.2f}",
                 related_fields=["private_key"],
             )
         return CheckResult(
@@ -520,7 +533,12 @@ async def credential_validate():
 
     # Mesaj
     if is_fully_ready:
-        msg = "Tüm kontroller başarılı"
+        # Bakiye bilgisini trading check mesajından çıkar
+        balance_info = ""
+        for c in checks:
+            if c.name == "trading_api" and c.status == "passed" and "Bakiye:" in c.message:
+                balance_info = f" — {c.message}"
+        msg = f"Hoş geldiniz!{balance_info}"
     elif validation_status == "partial":
         msg = f"Eksik kontrol: {', '.join(failed)}"
     else:

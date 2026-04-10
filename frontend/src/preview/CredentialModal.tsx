@@ -299,7 +299,7 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
         {
           name: 'trading_api', label: 'Trading API',
           status: pkValid ? 'passed' as const : 'failed' as const,
-          message: pkValid ? 'Mock: Bakiye kontrolü başarılı' : 'Private key 64 hex karakter olmalı',
+          message: pkValid ? 'Bakiye: $100.00' : 'Private key 64 hex karakter olmalı',
           related_fields: ['private_key'],
         },
         {
@@ -323,7 +323,7 @@ export default function CredentialModal({ closable, onClose, mockMode }: Credent
         has_trading_api: pkValid, has_signing: pkValid, has_relayer: true,
         can_place_orders: pkValid, can_auto_claim: pkValid,
         is_fully_ready: allPassed,
-        message: allPassed ? 'Mock: Kontrol tamamlandı' : `Mock: ${failedChecks.length} sorunlu kontrol`,
+        message: allPassed ? 'Hoş geldiniz! — Mock bakiye: $100.00' : `Eksik kontrol: ${failedChecks.length} sorunlu`,
       });
       return;
     }

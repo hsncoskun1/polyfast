@@ -519,7 +519,7 @@ class TestTradingApiErrorClassification:
         with patch('py_clob_client.client.ClobClient', return_value=mock_client):
             result = await _check_trading_api(orch)
         assert result.status == "passed"
-        assert "başarılı" in result.message
+        assert "Bakiye" in result.message
 
     @pytest.mark.asyncio
     async def test_trading_sdk_error(self):
