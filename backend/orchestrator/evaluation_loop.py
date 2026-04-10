@@ -49,6 +49,7 @@ class EvaluationLoop:
         ptb_fetcher: PTBFetcher,
         settings_store: SettingsStore,
         interval_ms: int = 200,  # schema: MarketDataConfig.evaluation_interval_ms
+        bot_max_positions: int = 3,  # global config'ten
     ):
         self._engine = engine
         self._pipeline = pipeline
@@ -56,6 +57,7 @@ class EvaluationLoop:
         self._ptb_fetcher = ptb_fetcher
         self._settings = settings_store
         self._interval = interval_ms / 1000.0
+        self._bot_max_positions = bot_max_positions
         self._running = False
         self._task: asyncio.Task | None = None
         self._eval_count: int = 0
@@ -204,6 +206,7 @@ class EvaluationLoop:
             delta_threshold=coin_settings.delta_threshold,
             spread_max_pct=coin_settings.spread_max,
             event_max_positions=coin_settings.event_max,
+            bot_max_positions=self._bot_max_positions,
             # Event fill count ve open position count → v0.5.x (şimdilik 0)
             event_fill_count=0,
             open_position_count=0,

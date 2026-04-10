@@ -59,6 +59,7 @@ class ExitEvaluator:
     def __init__(
         self,
         tp_pct: float = 5.0,
+        sl_enabled: bool = True,
         sl_pct: float = 3.0,
         sl_jump_threshold: float = 0.15,
         tp_reevaluate: bool = True,
@@ -70,6 +71,7 @@ class ExitEvaluator:
         force_sell_pnl_pct: float = 5.0,
     ):
         self._tp_pct = tp_pct
+        self._sl_enabled = sl_enabled
         self._sl_pct = sl_pct
         self._sl_jump_threshold = sl_jump_threshold
         self._tp_reevaluate = tp_reevaluate
@@ -130,7 +132,9 @@ class ExitEvaluator:
             )
 
         # ── SL kontrolu ──
-        if pnl_pct <= -self._sl_pct:
+        if not self._sl_enabled:
+            pass  # SL kapalı — skip
+        elif pnl_pct <= -self._sl_pct:
             # Jump threshold — tek tick'te asiri dusus
             if prev_price > 0:
                 drop_pct = (prev_price - current_price) / prev_price

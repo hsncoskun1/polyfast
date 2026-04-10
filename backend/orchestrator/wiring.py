@@ -171,6 +171,7 @@ class Orchestrator:
         fs = cfg.trading.exit_rules.force_sell
         self.exit_evaluator = ExitEvaluator(
             tp_pct=tp.percentage,
+            sl_enabled=sl.enabled,
             sl_pct=sl.percentage,
             sl_jump_threshold=sl.jump_threshold,
             tp_reevaluate=tp.reevaluate_on_retry,
@@ -229,6 +230,7 @@ class Orchestrator:
             self.rule_engine, self.pipeline, self.coin_client,
             self.ptb_fetcher, self.settings_store,
             interval_ms=cfg.market_data.evaluation_interval_ms,
+            bot_max_positions=cfg.trading.entry_rules.bot_max.max_positions,
         )
 
         # WS message callback

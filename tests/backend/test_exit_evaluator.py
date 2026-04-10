@@ -176,6 +176,37 @@ class TestJumpThreshold:
 
 
 # ═══════════════════════════════════════════════════════════════
+# SL ENABLED / DISABLED
+# ═══════════════════════════════════════════════════════════════
+
+class TestSLEnabled:
+
+    def test_sl_disabled_no_trigger(self):
+        """sl_enabled=False → SL tetiklenmez, PnL ne olursa olsun."""
+        pos, _ = _make_open_position(fill_price=0.85)
+        evaluator = ExitEvaluator(tp_pct=5.0, sl_enabled=False, sl_pct=3.0)
+        # Büyük zarar ama SL kapalı
+        signal = evaluator.evaluate(pos, current_price=0.70)
+        assert signal.should_exit is False
+
+    def test_sl_enabled_still_triggers(self):
+        """sl_enabled=True (default) → SL normal çalışır."""
+        pos, _ = _make_open_position(fill_price=0.85)
+        evaluator = ExitEvaluator(tp_pct=5.0, sl_enabled=True, sl_pct=3.0)
+        signal = evaluator.evaluate(pos, current_price=0.80)
+        assert signal.should_exit is True
+        assert signal.reason == CloseReason.STOP_LOSS
+
+    def test_sl_disabled_tp_still_works(self):
+        """SL kapalı olsa bile TP çalışır."""
+        pos, _ = _make_open_position(fill_price=0.85)
+        evaluator = ExitEvaluator(tp_pct=5.0, sl_enabled=False, sl_pct=3.0)
+        signal = evaluator.evaluate(pos, current_price=0.95)
+        assert signal.should_exit is True
+        assert signal.reason == CloseReason.TAKE_PROFIT
+
+
+# ═══════════════════════════════════════════════════════════════
 # FORCE SELL EVALUATION
 # ═══════════════════════════════════════════════════════════════
 

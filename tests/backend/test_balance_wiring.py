@@ -114,17 +114,31 @@ class TestWiringIntegrity:
 
     def test_balance_manager_has_fetch_fn_after_wiring(self):
         """Orchestrator init sonrası BalanceManager.fetch_fn set edilmiş."""
-        # Bu test Orchestrator init'e bağlı — import edip kontrol
         try:
             from backend.orchestrator.wiring import Orchestrator
             orch = Orchestrator()
             assert orch.balance_manager._fetch_fn is not None
             assert orch.balance_manager._fetch_fn == orch.clob_client.get_balance
         except Exception:
-            # Orchestrator init bazı dependency'ler gerektirebilir
-            # En azından set_fetch_function çağrısının wiring.py'de olduğunu
-            # kaynak koddan doğrula
             import inspect
             from backend.orchestrator.wiring import Orchestrator
             source = inspect.getsource(Orchestrator.__init__)
             assert "set_fetch_function" in source
+
+    def test_bot_max_wired_from_config(self):
+        """bot_max_positions config'ten eval_loop'a geçirilmiş."""
+        import inspect
+        from backend.orchestrator.wiring import Orchestrator
+        source = inspect.getsource(Orchestrator.__init__)
+        assert "bot_max_positions" in source
+        # eval_loop constructor'ında da var mı
+        from backend.orchestrator.evaluation_loop import EvaluationLoop
+        eval_source = inspect.getsource(EvaluationLoop.__init__)
+        assert "bot_max_positions" in eval_source
+
+    def test_sl_enabled_wired_from_config(self):
+        """sl_enabled config'ten ExitEvaluator'a geçirilmiş."""
+        import inspect
+        from backend.orchestrator.wiring import Orchestrator
+        source = inspect.getsource(Orchestrator.__init__)
+        assert "sl_enabled" in source
