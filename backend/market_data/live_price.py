@@ -284,9 +284,13 @@ class LivePricePipeline:
             )
             return record
 
-        # Update record — Gamma kaynak olarak bid'e yazar (ask bilgisi yok)
+        # Update record — Gamma kaynak olarak bid VE ask'a yazar
+        # Gamma API ask bilgisi vermez — bid=ask varsayimi (spread=0)
+        # WS baglandiginda gercek bid/ask ile override eder
         record.up_bid = up_price
+        record.up_ask = up_price   # ask = bid (gamma seed — gercek ask WS'ten gelir)
         record.down_bid = down_price
+        record.down_ask = down_price  # ask = bid
         record.spread = spread
         record.status = PriceStatus.FRESH
         record.updated_at = datetime.now(timezone.utc)
