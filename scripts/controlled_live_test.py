@@ -76,12 +76,12 @@ async def main():
     # Eger slot'un ilk 30s'inde degilsek sonraki slot'u bekle
     # (time_min=10 oldugu icin slot sonuna yakin girisebiliriz)
     # Ama en iyisi slot basinda baslamak
-    # Slot basinda isek devam, degilse sonraki slot basini bekle
-    if wait_for_slot > 240:
-        print(f"  Slot yeni basladi ({wait_for_slot}s kaldi) — devam")
+    # Slot'un en az 60s'i kaldiysa devam, yoksa sonraki slot bekle
+    if wait_for_slot > 60:
+        print(f"  Slot aktif ({wait_for_slot}s kaldi) — devam")
     else:
-        wait_next = wait_for_slot + 5  # sonraki slot basi + 5s margin
-        print(f"  Sonraki slot icin {wait_next:.0f}s bekleniyor...")
+        wait_next = wait_for_slot + 5
+        print(f"  Slot sonuna yakin — sonraki slot icin {wait_next:.0f}s bekleniyor...")
         await asyncio.sleep(max(0, wait_next))
         print(f"  Yeni slot basladi")
 
@@ -98,17 +98,12 @@ async def main():
                 print(f"  [{elapsed:.0f}s] BTC eval bekleniyor...")
             continue
 
-        # Current slot kontrolu
-        pipe = orch.pipeline.get_record_by_asset('BTC')
+        # Current slot kontrolu — evaluation_loop helper kullan
+        current_cid = orch.evaluation_loop._find_current_slot_condition_id('BTC')
         is_current_event = False
-        if pipe and orch.registry:
-            reg = orch.registry.get_by_condition_id(pipe.condition_id)
-            if reg:
-                m = _re.search(r'-(\d{10,})$', reg.slug)
-                if m:
-                    end_ts = int(m.group(1))
-                    t_now = int(time.time())
-                    is_current_event = (end_ts - 300) <= t_now < end_ts
+        if current_cid:
+            pipe = orch.pipeline.get_record(current_cid)
+            is_current_event = pipe is not None and pipe.up_bid > 0
 
         if ev.decision.value == 'entry' and is_current_event:
             p = ev.pass_count

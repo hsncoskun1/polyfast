@@ -396,36 +396,15 @@ class ClobClientWrapper:
         )
 
         # Attempt 1 + tek transient retry
+        # SDK sync metotlari — httpx kendi timeout'unu yonetiyor
+        # asyncio.to_thread/wait_for KULLANMA — timeout alirsa order
+        # gonderilmis ama cevabi alinmamis olur, duplicate riski!
         last_error = None
         for attempt in range(2):
             try:
-                # SDK: create + post with timeout guard
-                # SDK metotlari sync — asyncio.to_thread + wait_for ile timeout
-                import asyncio
-
-                async def _sdk_order():
-                    signed = self._client.create_market_order(args)
-                    return self._client.post_order(signed, orderType=OrderType.FOK)
-
-                effective_timeout = timeout_sec if timeout_sec is not None else self._order_timeout
-                try:
-                    response = await asyncio.wait_for(
-                        asyncio.to_thread(lambda: (
-                            self._client.post_order(
-                                self._client.create_market_order(args),
-                                orderType=OrderType.FOK,
-                            )
-                        )),
-                        timeout=effective_timeout,
-                    )
-                except asyncio.TimeoutError:
-                    log_event(
-                        logger, logging.ERROR,
-                        f"FOK ORDER TIMEOUT: {effective_timeout}s exceeded ({side})",
-                        entity_type="execution",
-                        entity_id="order_timeout",
-                    )
-                    return {"status": "error", "error": f"order timeout ({effective_timeout}s)"}
+                # SDK: create signed order + post (sync, SDK httpx timeout)
+                signed_order = self._client.create_market_order(args)
+                response = self._client.post_order(signed_order, orderType=OrderType.FOK)
 
                 # Response parse
                 if isinstance(response, dict):
