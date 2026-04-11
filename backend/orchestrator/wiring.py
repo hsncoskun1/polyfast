@@ -264,6 +264,7 @@ class Orchestrator:
             order_executor=self.order_executor,
             position_tracker=self.position_tracker,
             bridge=self.bridge,
+            registry=self.registry,
         )
 
         # WS message callback

@@ -53,6 +53,7 @@ class EvaluationLoop:
         order_executor=None,
         position_tracker=None,
         bridge=None,
+        registry=None,
     ):
         self._engine = engine
         self._pipeline = pipeline
@@ -64,6 +65,7 @@ class EvaluationLoop:
         self._order_executor = order_executor  # None = sinyal only (paper/test)
         self._position_tracker = position_tracker  # counter wiring icin
         self._bridge = bridge  # token_id lookup icin
+        self._registry = registry  # current slot guard icin
         self._running = False
         self._task: asyncio.Task | None = None
         self._eval_count: int = 0
@@ -162,35 +164,42 @@ class EvaluationLoop:
     async def _dispatch_entry(self, coin_settings: CoinSettings, result) -> None:
         """ENTRY sinyalini OrderExecutor'a gonder.
 
-        OrderIntent olusturur → execute() cagrir → sonucu loglar.
+        CURRENT SLOT GUARD: Sadece su anki live slot event'ine order gider.
+        Upcoming event'lere order gonderilMEZ.
         FOK retry YOK — bir sonraki evaluation cycle yeni sinyal uretir.
         """
         from backend.execution.order_intent import OrderIntent, OrderSide
+        import time as _time
+        import re as _re
 
         side_str = result.detail.get('dominant_side', 'UP')
         side = OrderSide.UP if side_str == 'UP' else OrderSide.DOWN
 
-        # Token ID — pipeline'dan (doğru side'ın token'ı)
         price_record = self._pipeline.get_record_by_asset(coin_settings.coin)
         if not price_record:
-            return  # pipeline bos — order gonderme
+            return
 
-        # Bridge'den token_id bul — condition_id + side ile
-        # Şimdilik condition_id'yi kullan, token_id wiring ileride netleşecek
         condition_id = price_record.condition_id
 
-        # Token ID: bridge'deki registered token'lardan bul
+        # ── CURRENT SLOT GUARD ──
+        # Discovery upcoming eventleri de dondurur (30dk lookahead).
+        # Order SADECE current live slot event'ine gitmeli.
+        # Slug timestamp = event END. Event start = END - 300.
+        now = int(_time.time())
+        bridge = getattr(self, '_bridge', None)
+
+        # Bridge'den bu coin'in token_id'sini bul — condition_id eslesmeliyle
         token_id = ""
-        try:
-            from backend.market_data.ws_price_bridge import WSPriceBridge
-            bridge = getattr(self, '_bridge', None)
-            if bridge:
-                for tid, route in bridge._token_routes.items():
-                    if route.asset.upper() == coin_settings.coin.upper() and route.side.upper() == side_str:
-                        token_id = tid
-                        break
-        except Exception:
-            pass
+        if bridge:
+            for tid, route in bridge._token_routes.items():
+                if route.asset.upper() != coin_settings.coin.upper():
+                    continue
+                if route.side.upper() != side_str:
+                    continue
+                # Bu token'in condition_id'si pipeline record ile eslesiyor mu
+                if route.condition_id == condition_id:
+                    token_id = tid
+                    break
 
         if not token_id:
             log_event(
