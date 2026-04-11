@@ -298,22 +298,66 @@ class Orchestrator:
         if not result.eligible:
             return
 
-        # 2. Eligible asset listesi
+        # 2. Eligible asset listesi + event_map
+        # event_map: asset -> event data. CURRENT SLOT EVENT ONCELIKLI.
+        # Discovery birden fazla BTC event dondurur (current + upcoming).
+        # event_map asset key'li dict — current slot event'i baska event ezmemeli.
+        import re as _re
+        now = int(_time.time())
+
         eligible_assets = []
-        event_map = {}
+        event_map: dict[str, dict] = {}
+        current_slot_cids: dict[str, str] = {}  # asset -> current slot condition_id
+
         for event in result.eligible:
             asset = event.get("asset", "") if isinstance(event, dict) else getattr(event, "asset", "")
-            if asset:
-                eligible_assets.append(asset)
-                # Event data for subscription
-                event_map[asset] = {
-                    "condition_id": event.get("condition_id", "") if isinstance(event, dict) else getattr(event, "condition_id", ""),
-                    "token_ids": list(event.get("clob_token_ids", [])) if isinstance(event, dict) else list(getattr(event, "clob_token_ids", [])),
-                    "sides": list(event.get("outcomes", [])) if isinstance(event, dict) else list(getattr(event, "outcomes", [])),
-                    "slug": event.get("slug", "") if isinstance(event, dict) else getattr(event, "slug", ""),
-                }
+            if not asset:
+                continue
 
-        # 3. Subscription diff
+            eligible_assets.append(asset)
+            cid = event.get("condition_id", "") if isinstance(event, dict) else getattr(event, "condition_id", "")
+            slug = event.get("slug", "") if isinstance(event, dict) else getattr(event, "slug", "")
+            token_ids = list(event.get("clob_token_ids", [])) if isinstance(event, dict) else list(getattr(event, "clob_token_ids", []))
+            sides = list(event.get("outcomes", [])) if isinstance(event, dict) else list(getattr(event, "outcomes", []))
+
+            # Current slot event mi?
+            is_current = False
+            m = _re.search(r'-(\d{10,})$', slug)
+            if m:
+                end_ts = int(m.group(1))
+                is_current = (end_ts - 300) <= now < end_ts
+
+            event_data = {
+                "condition_id": cid,
+                "token_ids": token_ids,
+                "sides": sides,
+                "slug": slug,
+            }
+
+            if is_current:
+                # Current slot event — bu her zaman kazanir
+                event_map[asset] = event_data
+                current_slot_cids[asset] = cid
+            elif asset not in event_map:
+                # Upcoming — sadece current yoksa yaz
+                event_map[asset] = event_data
+
+        # 3. Subscription diff — TUM eligible eventlerin token'lari subscribe olmali
+        # Bridge'e tum event token'larini register et (current + upcoming)
+        all_event_list = []
+        for event in result.eligible:
+            asset = event.get("asset", "") if isinstance(event, dict) else getattr(event, "asset", "")
+            if not asset:
+                continue
+            cid = event.get("condition_id", "") if isinstance(event, dict) else getattr(event, "condition_id", "")
+            token_ids = list(event.get("clob_token_ids", [])) if isinstance(event, dict) else list(getattr(event, "clob_token_ids", []))
+            sides = list(event.get("outcomes", [])) if isinstance(event, dict) else list(getattr(event, "outcomes", []))
+            # Her event'in token'larini bridge'e register et
+            for i, token_id in enumerate(token_ids):
+                side = sides[i] if i < len(sides) else "up"
+                self.bridge.register_token(token_id, cid, asset, side)
+
+        # Asset bazli diff (asset eklendi/cikarildi)
         diff = self.subscription_manager.compute_diff(eligible_assets)
         await self.subscription_manager.apply_diff(diff, event_map)
 
@@ -329,22 +373,36 @@ class Orchestrator:
         # PTB SSR adapter event page'i kullanır → slug slot START olmalı.
         # Discovery slug'ı registry/dashboard için doğrudur, PTB için DEĞİL.
         #
+        # PTB fetch — current slot event ONCELIKLI
+        slot_start = (int(_time.time()) // 300) * 300
+        event_end_ts = float(slot_start + 300)
+
+        for asset, cid in current_slot_cids.items():
+            existing = self.ptb_fetcher.get_record(cid)
+            if existing and existing.is_locked:
+                continue
+            ptb_slug = f"{asset.lower()}-updown-5m-{slot_start}"
+            asyncio.create_task(
+                self.ptb_fetcher.fetch_ptb_with_retry(
+                    cid, asset, ptb_slug, event_end_ts,
+                ),
+                name=f"ptb_retry_{asset}",
+            )
+
+        # Upcoming eventlerin PTB'si de fetch edilebilir (ama current slot oncelikli)
         for asset, info in event_map.items():
             cond_id = info.get("condition_id", "")
-            if not cond_id:
-                continue
+            if not cond_id or cond_id in current_slot_cids.values():
+                continue  # current zaten yukarida yapildi
             existing = self.ptb_fetcher.get_record(cond_id)
             if existing and existing.is_locked:
-                continue  # zaten lock'lı, tekrar deneme
-            # PTB slug: event page convention = slot START timestamp
-            slot_start = (int(_time.time()) // 300) * 300
-            event_end_ts = float(slot_start + 300)
+                continue
             ptb_slug = f"{asset.lower()}-updown-5m-{slot_start}"
             asyncio.create_task(
                 self.ptb_fetcher.fetch_ptb_with_retry(
                     cond_id, asset, ptb_slug, event_end_ts,
                 ),
-                name=f"ptb_retry_{asset}",
+                name=f"ptb_retry_{asset}_upcoming",
             )
 
         log_event(
