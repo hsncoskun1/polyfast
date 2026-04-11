@@ -266,6 +266,17 @@ class NetworkConfig(BaseModel):
     fee_rate_timeout_seconds: float = Field(default=5.0, ge=1.0, le=30.0)
 
 
+class InfraConfig(BaseModel):
+    """Altyapi operasyonel ayarlar — admin/advanced.
+
+    Supervisor, verify retry, SDK transient retry gibi
+    7/24 operasyonel parametreler.
+    """
+    supervisor_interval_sec: float = Field(default=10.0, ge=5.0, le=60.0)
+    verify_retry_interval_sec: float = Field(default=30.0, ge=10.0, le=120.0)
+    sdk_transient_retry_sleep_sec: float = Field(default=3.0, ge=1.0, le=15.0)
+
+
 class MarketDataConfig(BaseModel):
     """Market veri ayarlari — admin/advanced."""
     ptb_source: str = Field(default="next_data", pattern="^(next_data|api)$")
@@ -319,5 +330,6 @@ class AppConfig(BaseModel):
     discovery: DiscoveryConfig = DiscoveryConfig()
     market_data: MarketDataConfig = MarketDataConfig()
     network: NetworkConfig = NetworkConfig()
+    infra: InfraConfig = InfraConfig()
     persistence: PersistenceConfig = PersistenceConfig()
     logging: LoggingConfig = LoggingConfig()

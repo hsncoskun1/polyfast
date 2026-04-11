@@ -1,21 +1,21 @@
 """ClobClientWrapper — py-clob-client SDK wrapper.
 
 SDK sorumlulukları:
-- Auth (private key + API creds)
+- Auth (private key + API creds + signature_type)
 - Balance okuma (get_balance_allowance)
 - Fee rate okuma (neg_risk endpoint)
-- Market resolution okuma (getMarket) — v0.6.8
-- Order gönderme (create_and_post_order) — v0.5.3'te KAPALI
+- Market resolution okuma (getMarket)
+- Order gönderme (send_market_fok_order) — BUY + SELL FOK
 
 Fee rate authoritative path (öncelik sırası):
 1. SDK neg_risk_fee_rate_bps → token bazlı authoritative
 2. Market endpoint fee_rate_bps → fallback
 3. DEFAULT_CRYPTO_FEE_RATE → SADECE paper mode guard
 
-Bu surumde order gonderme TEKNIK GUARD ile KAPALI:
-- LIVE_ORDER_ENABLED = False
-- Bu flag True yapılmadan gerçek order çıkamaz
-- Yanlışlıkla canlı order riski SIFIR
+Order guvenlik:
+- LIVE_ORDER_ENABLED: source-code guard (v0.9.2: True)
+- paper_mode: config guard (cift kilit)
+- dispatch_enabled: evaluation loop gate (default OFF)
 """
 
 import logging
@@ -75,16 +75,17 @@ class ClobClientWrapper:
         api_passphrase: str = "",
         chain_id: int = 137,
         signature_type: int = 0,
+        transient_retry_sleep_sec: float = 3.0,
         credential_store=None,
     ):
         self._credential_store = credential_store
-        # Fallback: direkt string params (backward compat / test)
         self._private_key = private_key
         self._api_key = api_key
         self._api_secret = api_secret
         self._api_passphrase = api_passphrase
         self._chain_id = chain_id
         self._signature_type = signature_type
+        self._transient_retry_sleep = transient_retry_sleep_sec
         self._client = None
         self._initialized = False
         self._last_cred_version: int = -1
@@ -471,7 +472,7 @@ class ClobClientWrapper:
                         entity_id="order_retry",
                     )
                     import asyncio
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(self._transient_retry_sleep)
                     continue
 
                 # Non-transient veya retry tukendi

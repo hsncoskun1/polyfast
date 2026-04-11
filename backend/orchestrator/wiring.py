@@ -33,6 +33,7 @@ from backend.execution.clob_client_wrapper import ClobClientWrapper
 from backend.execution.relayer_client_wrapper import RelayerClientWrapper
 from backend.execution.order_validator import OrderValidator
 from backend.execution.order_executor import OrderExecutor, ExecutionMode
+from backend.execution.position_record import PositionState
 from backend.persistence.position_store import PositionStore
 from backend.persistence.claim_store import ClaimStore
 from backend.persistence.settings_store_db import SettingsStoreDB
@@ -139,6 +140,8 @@ class Orchestrator:
         self.paused: bool = False          # True = entry/order durur, monitoring devam
         self._verify_retry_task: asyncio.Task | None = None
         self._verify_retry_running: bool = False
+        self._verify_retry_interval = cfg.infra.verify_retry_interval_sec
+        self._sdk_transient_retry_sleep = cfg.infra.sdk_transient_retry_sleep_sec
 
         # ── RTDS WS task ──
         self._rtds_task: asyncio.Task | None = None
@@ -146,7 +149,8 @@ class Orchestrator:
         # ── Supervisor ──
         self._supervisor_task: asyncio.Task | None = None
         self._supervisor_running: bool = False
-        self._supervisor_restarts: dict[str, int] = {}  # loop_name → ardışık restart sayısı
+        self._supervisor_restarts: dict[str, int] = {}
+        self._SUPERVISOR_INTERVAL_SEC = cfg.infra.supervisor_interval_sec
 
         # ── Bot uptime (paused-aware) ──
         self._bot_start_time: float | None = None
@@ -162,6 +166,7 @@ class Orchestrator:
         self.clob_client = ClobClientWrapper(
             credential_store=self.credential_store,
             signature_type=cfg.trading.signature_type,
+            transient_retry_sleep_sec=cfg.infra.sdk_transient_retry_sleep_sec,
         )
         # BalanceManager ↔ ClobClientWrapper bağlantısı — balance fetch fonksiyonu
         self.balance_manager.set_fetch_function(self.clob_client.get_balance)
@@ -388,9 +393,26 @@ class Orchestrator:
 
         # 4. Pozisyonlari restore
         positions = await self.position_store.load_all()
+        pending_cleaned = 0
         for pos in positions:
+            # PENDING_OPEN reconciliation: restart arasinda kalan phantom pozisyonlar
+            # Order gonderildi ama fill/reject gelmeden bot kapandi
+            # Bu pozisyonlar reconcile edilemez — reject_fill ile temizle
+            if pos.state == PositionState.PENDING_OPEN:
+                self.position_tracker.restore_position(pos)
+                self.position_tracker.reject_fill(pos.position_id)
+                pending_cleaned += 1
+                log_event(
+                    logger, logging.WARNING,
+                    f"PENDING_OPEN cleaned on restart: {pos.asset} {pos.position_id[:12]}",
+                    entity_type="orchestrator",
+                    entity_id="pending_cleanup",
+                )
+                continue
             self.position_tracker.restore_position(pos)
             result["positions_restored"] += 1
+        if pending_cleaned > 0:
+            result["pending_cleaned"] = pending_cleaned
 
         # 5. Claim'leri restore
         claims = await self.claim_store.load_all()
@@ -623,7 +645,7 @@ class Orchestrator:
         Basarili olunca trading_enabled=True, loop durur.
         Normal balance refresh (20s) ile AYRI — karistirilmaz.
         """
-        verify_interval = 30.0  # 30s — agresif degil
+        verify_interval = self._verify_retry_interval  # config'ten
         attempt = 0
 
         while self._verify_retry_running and not self.trading_enabled:
@@ -683,7 +705,8 @@ class Orchestrator:
     # SUPERVISOR — loop crash detection + auto-restart
     # ══════════════════════════════════════════════════════════════
 
-    _SUPERVISOR_INTERVAL_SEC = 10.0
+    # Config-driven (InfraConfig'ten)
+    _SUPERVISOR_INTERVAL_SEC = 10.0  # init'te config'ten override edilir
     _SUPERVISOR_RAPID_RESTART_THRESHOLD = 3  # 3 ardışık restart → health warning
 
     async def _supervisor_loop(self) -> None:
@@ -738,6 +761,20 @@ class Orchestrator:
                         "SUPERVISOR: exit_cycle restarted (task was dead)",
                         entity_type="supervisor",
                         entity_id="exit_cycle_restart",
+                    )
+
+                # RTDS WS — outcome price akisi icin kritik
+                if self._rtds_task and self._rtds_task.done():
+                    self._record_restart("rtds_ws")
+                    self._rtds_task = asyncio.create_task(
+                        self.rtds_client.run_forever(),
+                        name="rtds_ws_loop",
+                    )
+                    log_event(
+                        logger, logging.WARNING,
+                        "SUPERVISOR: rtds_ws restarted (task was dead)",
+                        entity_type="supervisor",
+                        entity_id="rtds_ws_restart",
                     )
 
             except asyncio.CancelledError:
