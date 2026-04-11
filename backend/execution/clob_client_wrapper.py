@@ -338,6 +338,7 @@ class ClobClientWrapper:
         token_id: str,
         side: str,
         amount: float,
+        timeout_sec: float | None = None,
     ) -> dict | None:
         """Market FOK order gonder.
 
@@ -347,6 +348,7 @@ class ClobClientWrapper:
             token_id: Outcome token ID.
             side: "BUY" veya "SELL".
             amount: BUY=USD tutar, SELL=share sayisi.
+            timeout_sec: Order timeout (None=default _order_timeout).
 
         Returns:
             {"status": "matched"|"not_matched"|"error",
@@ -405,6 +407,7 @@ class ClobClientWrapper:
                     signed = self._client.create_market_order(args)
                     return self._client.post_order(signed, orderType=OrderType.FOK)
 
+                effective_timeout = timeout_sec if timeout_sec is not None else self._order_timeout
                 try:
                     response = await asyncio.wait_for(
                         asyncio.to_thread(lambda: (
@@ -413,16 +416,16 @@ class ClobClientWrapper:
                                 orderType=OrderType.FOK,
                             )
                         )),
-                        timeout=self._order_timeout,
+                        timeout=effective_timeout,
                     )
                 except asyncio.TimeoutError:
                     log_event(
                         logger, logging.ERROR,
-                        f"FOK ORDER TIMEOUT: {self._order_timeout}s exceeded",
+                        f"FOK ORDER TIMEOUT: {effective_timeout}s exceeded ({side})",
                         entity_type="execution",
                         entity_id="order_timeout",
                     )
-                    return {"status": "error", "error": f"order timeout ({self._order_timeout}s)"}
+                    return {"status": "error", "error": f"order timeout ({effective_timeout}s)"}
 
                 # Response parse
                 if isinstance(response, dict):

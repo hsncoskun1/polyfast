@@ -213,6 +213,7 @@ class Orchestrator:
             shutdown_retry_interval_ms=cfg.trading.exit_rules.shutdown_retry_interval_ms,
             max_close_retries=cfg.trading.exit_rules.max_close_retries,
             close_fail_cooldown_sec=cfg.trading.order_reject_cooldown_sec,
+            exit_order_timeout_sec=cfg.trading.exit_rules.exit_order_timeout_sec,
         )
 
         # Order validator — min amount config'den

@@ -75,6 +75,7 @@ class ExitExecutor:
         shutdown_retry_interval_ms: int = 100,
         max_close_retries: int = DEFAULT_MAX_CLOSE_RETRIES,
         close_fail_cooldown_sec: float = 1.0,
+        exit_order_timeout_sec: float = 5.0,
     ):
         self._tracker = tracker
         self._balance = balance_manager
@@ -95,6 +96,7 @@ class ExitExecutor:
         self._retry_count: int = 0
         # Cooldown: CLOSE_FAILED sonrasi anlik retry spam engeli
         self._close_fail_cooldown_sec = close_fail_cooldown_sec
+        self._exit_order_timeout = exit_order_timeout_sec
         self._last_close_fail_at: dict[str, float] = {}  # position_id → fail timestamp
 
     @property
@@ -247,7 +249,8 @@ class ExitExecutor:
         response = await self._clob_wrapper.send_market_fok_order(
             token_id=position.token_id,
             side="SELL",
-            amount=sell_amount,  # SELL = share sayisi
+            amount=sell_amount,
+            timeout_sec=self._exit_order_timeout,
         )
 
         if response is None:
