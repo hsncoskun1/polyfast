@@ -32,6 +32,7 @@ from backend.execution.claim_manager import ClaimManager
 from backend.execution.clob_client_wrapper import ClobClientWrapper
 from backend.execution.relayer_client_wrapper import RelayerClientWrapper
 from backend.execution.order_validator import OrderValidator
+from backend.execution.order_executor import OrderExecutor, ExecutionMode
 from backend.persistence.position_store import PositionStore
 from backend.persistence.claim_store import ClaimStore
 from backend.persistence.settings_store_db import SettingsStoreDB
@@ -134,7 +135,7 @@ class Orchestrator:
 
         # ── Trading mode ──
         self.trading_enabled: bool = True  # False = degraded mode
-        self.paper_mode: bool = True       # True = paper trade, False = live trade
+        self.paper_mode: bool = cfg.trading.paper_mode  # config'ten, default True
         self.paused: bool = False          # True = entry/order durur, monitoring devam
         self._verify_retry_task: asyncio.Task | None = None
         self._verify_retry_running: bool = False
@@ -165,7 +166,7 @@ class Orchestrator:
 
         # Claim manager — retry config + persistence
         self.claim_manager = ClaimManager(
-            self.balance_manager, paper_mode=True,
+            self.balance_manager, paper_mode=self.paper_mode,
             retry_initial_seconds=cfg.trading.claim.retry_initial_seconds,
             retry_second_seconds=cfg.trading.claim.retry_second_seconds,
             retry_steady_seconds=cfg.trading.claim.retry_steady_seconds,
@@ -191,7 +192,7 @@ class Orchestrator:
 
         # Exit executor — retry intervals config'den
         self.exit_executor = ExitExecutor(
-            self.position_tracker, self.balance_manager, paper_mode=True,
+            self.position_tracker, self.balance_manager, paper_mode=self.paper_mode,
             tp_retry_interval_ms=tp.retry_interval_ms,
             sl_retry_interval_ms=sl.retry_interval_ms,
             fs_retry_interval_ms=fs.retry_interval_ms,
@@ -204,9 +205,20 @@ class Orchestrator:
             min_order_usd=cfg.trading.min_amount_usd,
         )
 
+        # Order executor — entry order pipeline
+        _exec_mode = ExecutionMode.PAPER if self.paper_mode else ExecutionMode.LIVE
+        self.order_executor = OrderExecutor(
+            tracker=self.position_tracker,
+            balance_manager=self.balance_manager,
+            validator=self.order_validator,
+            clob_wrapper=self.clob_client,
+            mode=_exec_mode,
+            bot_max=cfg.trading.entry_rules.bot_max.max_positions,
+        )
+
         self.settlement = SettlementOrchestrator(
             self.position_tracker, self.claim_manager, self.relayer_client,
-            paper_mode=True, clob_client=self.clob_client,
+            paper_mode=self.paper_mode, clob_client=self.clob_client,
             ptb_fetcher=self.ptb_fetcher, coin_price_client=self.coin_client,
         )
         self.exit_orchestrator = ExitOrchestrator(
@@ -240,6 +252,9 @@ class Orchestrator:
             self.ptb_fetcher, self.settings_store,
             interval_ms=cfg.market_data.evaluation_interval_ms,
             bot_max_positions=cfg.trading.entry_rules.bot_max.max_positions,
+            order_executor=self.order_executor,
+            position_tracker=self.position_tracker,
+            bridge=self.bridge,
         )
 
         # WS message callback

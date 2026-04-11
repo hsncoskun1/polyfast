@@ -43,4 +43,5 @@ class OrderIntent:
     condition_id: str
     token_id: str
     dominant_price: float  # evaluation ani referansi, PnL/execution icin KULLANILMAZ
+    event_max: int = 1    # coin settings'ten — bu event'te max fill sayisi
     evaluated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

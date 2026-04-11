@@ -48,8 +48,11 @@ class EvaluationLoop:
         coin_client: CoinPriceClient,
         ptb_fetcher: PTBFetcher,
         settings_store: SettingsStore,
-        interval_ms: int = 200,  # schema: MarketDataConfig.evaluation_interval_ms
-        bot_max_positions: int = 3,  # global config'ten
+        interval_ms: int = 200,
+        bot_max_positions: int = 3,
+        order_executor=None,
+        position_tracker=None,
+        bridge=None,
     ):
         self._engine = engine
         self._pipeline = pipeline
@@ -58,11 +61,13 @@ class EvaluationLoop:
         self._settings = settings_store
         self._interval = interval_ms / 1000.0
         self._bot_max_positions = bot_max_positions
+        self._order_executor = order_executor  # None = sinyal only (paper/test)
+        self._position_tracker = position_tracker  # counter wiring icin
+        self._bridge = bridge  # token_id lookup icin
         self._running = False
         self._task: asyncio.Task | None = None
         self._eval_count: int = 0
         self._entry_count: int = 0
-        # Son evaluation sonuçları — snapshot provider bu cache'i okur
         self._last_results: dict[str, "EvaluationResult"] = {}
 
     async def start(self) -> None:
@@ -149,7 +154,81 @@ class EvaluationLoop:
                         "waiting": result.waiting_count,
                     },
                 )
-                # ORDER GÖNDERİLMEZ — sadece log (Faz 5)
+
+                # Order execution — OrderExecutor varsa sinyal → order
+                if self._order_executor is not None:
+                    await self._dispatch_entry(coin_settings, result)
+
+    async def _dispatch_entry(self, coin_settings: CoinSettings, result) -> None:
+        """ENTRY sinyalini OrderExecutor'a gonder.
+
+        OrderIntent olusturur → execute() cagrir → sonucu loglar.
+        FOK retry YOK — bir sonraki evaluation cycle yeni sinyal uretir.
+        """
+        from backend.execution.order_intent import OrderIntent, OrderSide
+
+        side_str = result.detail.get('dominant_side', 'UP')
+        side = OrderSide.UP if side_str == 'UP' else OrderSide.DOWN
+
+        # Token ID — pipeline'dan (doğru side'ın token'ı)
+        price_record = self._pipeline.get_record_by_asset(coin_settings.coin)
+        if not price_record:
+            return  # pipeline bos — order gonderme
+
+        # Bridge'den token_id bul — condition_id + side ile
+        # Şimdilik condition_id'yi kullan, token_id wiring ileride netleşecek
+        condition_id = price_record.condition_id
+
+        # Token ID: bridge'deki registered token'lardan bul
+        token_id = ""
+        try:
+            from backend.market_data.ws_price_bridge import WSPriceBridge
+            bridge = getattr(self, '_bridge', None)
+            if bridge:
+                for tid, route in bridge._token_routes.items():
+                    if route.asset.upper() == coin_settings.coin.upper() and route.side.upper() == side_str:
+                        token_id = tid
+                        break
+        except Exception:
+            pass
+
+        if not token_id:
+            log_event(
+                logger, logging.WARNING,
+                f"ENTRY skipped: no token_id for {coin_settings.coin} {side_str}",
+                entity_type="orchestrator",
+                entity_id=f"entry_skip_{coin_settings.coin}",
+            )
+            return
+
+        entry_price = result.detail.get('entry_ref_price', 0)
+
+        intent = OrderIntent(
+            asset=coin_settings.coin,
+            side=side,
+            amount_usd=coin_settings.order_amount,
+            condition_id=condition_id,
+            token_id=token_id,
+            dominant_price=entry_price,
+            event_max=coin_settings.event_max,
+        )
+
+        try:
+            exec_result = await self._order_executor.execute(intent)
+            log_event(
+                logger, logging.INFO,
+                f"Order result: {coin_settings.coin} {side_str} → {exec_result.result.value}",
+                entity_type="orchestrator",
+                entity_id=f"order_{coin_settings.coin}",
+                payload={"result": exec_result.result.value, "position_id": exec_result.position_id},
+            )
+        except Exception as e:
+            log_event(
+                logger, logging.ERROR,
+                f"Order dispatch error: {coin_settings.coin} {type(e).__name__}: {e}",
+                entity_type="orchestrator",
+                entity_id=f"order_error_{coin_settings.coin}",
+            )
 
     def _evaluate_single(self, coin_settings: CoinSettings) -> EvaluationResult | None:
         """Tek coin için context doldur ve evaluate et."""
@@ -215,9 +294,9 @@ class EvaluationLoop:
             spread_max_pct=coin_settings.spread_max,
             event_max_positions=coin_settings.event_max,
             bot_max_positions=self._bot_max_positions,
-            # Event fill count ve open position count → v0.5.x (şimdilik 0)
-            event_fill_count=0,
-            open_position_count=0,
+            # Position counter wiring — PositionTracker varsa gerçek, yoksa 0
+            event_fill_count=self._position_tracker.get_event_fill_count(condition_id) if self._position_tracker and condition_id else 0,
+            open_position_count=self._position_tracker.open_position_count if self._position_tracker else 0,
             time_enabled=coin_settings.time_min > 0,
             price_enabled=coin_settings.price_min > 0,
             delta_enabled=coin_settings.delta_threshold > 0,

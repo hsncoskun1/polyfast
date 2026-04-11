@@ -2,7 +2,7 @@
 
 Formul: fee = C x feeRate x p x (1 - p)
 - C = shares
-- feeRate = dinamik (crypto su an 0.072)
+- feeRate = base_fee_bps / 10000 (crypto: 1000 bps = 0.10)
 - p = fiyat (0-1)
 
 Onemli:
@@ -16,7 +16,10 @@ Kaynak: https://docs.polymarket.com/trading/fees
 
 # Default crypto fee rate — GUARD ONLY.
 # Production'da dinamik cekilmeli (fee_rate_bps endpoint).
-DEFAULT_CRYPTO_FEE_RATE = 0.072
+# Polymarket crypto 5M Up/Down: base_fee=1000 bps = 0.10
+# Endpoint: GET /fee-rate?token_id=X -> {"base_fee": 1000}
+# Paper mode guard — live'da SDK otomatik çeker
+DEFAULT_CRYPTO_FEE_RATE = 0.10
 
 
 class FeeCalculator:

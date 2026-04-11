@@ -18,7 +18,8 @@ from backend.logging_config.service import get_logger, log_event
 
 logger = get_logger("execution.fee_rate")
 
-DEFAULT_CRYPTO_FEE_RATE = 0.072  # guard/fallback ONLY — paper mode icin
+# Polymarket crypto 5M: base_fee=1000 bps = 0.10
+DEFAULT_CRYPTO_FEE_RATE = 0.10
 CLOB_BASE_URL = "https://clob.polymarket.com"
 
 

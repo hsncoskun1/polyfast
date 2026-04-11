@@ -82,13 +82,17 @@ class OrderExecutor:
         balance_manager: BalanceManager,
         validator: OrderValidator,
         fee_fetcher: FeeRateFetcher | None = None,
+        clob_wrapper=None,
         mode: ExecutionMode = ExecutionMode.PAPER,
+        bot_max: int = 3,
     ):
         self._tracker = tracker
         self._balance = balance_manager
         self._validator = validator
-        self._fee_fetcher = fee_fetcher or FeeRateFetcher()  # paper mode helper
+        self._fee_fetcher = fee_fetcher or FeeRateFetcher()
+        self._clob_wrapper = clob_wrapper  # ClobClientWrapper — live mode icin
         self._mode = mode
+        self._bot_max = bot_max  # config'ten
         self._execution_count: int = 0
         self._fill_count: int = 0
         self._reject_count: int = 0
@@ -140,9 +144,9 @@ class OrderExecutor:
             intent,
             available_balance=self._balance.available_balance,
             event_fill_count=self._tracker.get_event_fill_count(intent.condition_id),
-            event_max=1,  # coin settings'ten gelecek
+            event_max=getattr(intent, 'event_max', 1),  # OrderIntent'ten
             open_position_count=self._tracker.open_position_count,
-            bot_max=3,  # coin settings'ten gelecek
+            bot_max=self._bot_max,  # config'ten
         )
 
         if validation.is_rejected:
@@ -205,42 +209,128 @@ class OrderExecutor:
         )
 
     async def _execute_live(self, intent: OrderIntent, position) -> ExecutionResult:
-        """Live mode — TEKNIK GUARD ile KAPALI.
+        """Live mode — SDK FOK market order.
 
-        LIVE_ORDER_ENABLED = False oldukca gercek order CIKMAZ.
-        SDK wiring hazir ama order gonderme bilinçli olarak devre disi.
-        Bu guard True yapilmadan canli order riski SIFIR.
+        Cift kilit:
+          1. LIVE_ORDER_ENABLED=False → order cikmaz (source code guard)
+          2. ExecutionMode.LIVE olmali (config'ten)
 
-        Gercek order akisi (guard acildiginda):
-        1. SDK feeRateBps'yi token_id icin otomatik ceker
-        2. Signed order payload olusturur
-        3. CLOB API'ye gonderir
-        4. Response: filled/not_filled + fill_price + fee bilgisi
-        5. fill_price ve fee_rate response'tan PositionRecord'a yazilir
+        Akis:
+          SDK fee_rate_bps otomatik ceker → signed order → post FOK
+          Response: matched → confirm_fill, not_matched → reject_fill
+
+        Fee accounting:
+          SDK order'a yazdigi fee_rate_bps response'tan okunur.
+          feeRate = fee_rate_bps / 10000
+          Bu deger confirm_fill'e gecer → PositionRecord.fee_rate authoritative.
+
+        Retry: FOK icin ayni order retry YOK.
+          Network timeout icin SDK ici tek retry var.
+          Bir sonraki ENTRY sinyal yeni evaluation gerektirir.
         """
         from backend.execution.clob_client_wrapper import LIVE_ORDER_ENABLED
 
         if not LIVE_ORDER_ENABLED:
-            # TEKNIK GUARD — gercek order CIKMAZ
             self._tracker.reject_fill(position.position_id)
-
             log_event(
                 logger, logging.WARNING,
-                f"LIVE ORDER BLOCKED by technical guard — LIVE_ORDER_ENABLED=False",
+                "LIVE ORDER BLOCKED — LIVE_ORDER_ENABLED=False",
                 entity_type="execution",
                 entity_id=position.position_id,
             )
-
             return ExecutionResult(
                 result=OrderResult.NOT_FILLED,
                 position_id=position.position_id,
                 detail={"mode": "live", "guard": "LIVE_ORDER_ENABLED=False"},
             )
 
-        # Guard acik oldugunda gercek SDK order buraya gelecek
-        # TODO: self._clob_wrapper.send_market_fok_order(...)
+        # SDK order gonder
+        response = await self._clob_wrapper.send_market_fok_order(
+            token_id=intent.token_id,
+            side="BUY",  # outcome token satin al
+            amount=intent.amount_usd,  # BUY = USD tutar
+        )
+
+        if response is None:
+            # SDK init fail veya guard
+            self._tracker.reject_fill(position.position_id)
+            return ExecutionResult(
+                result=OrderResult.NETWORK_ERROR,
+                position_id=position.position_id,
+                detail={"error": "SDK returned None"},
+            )
+
+        status = response.get("status", "error")
+        order_id = response.get("order_id", "")
+
+        if status == "matched":
+            # Fill — fee accounting
+            fee_bps = response.get("fee_rate_bps", 0)
+            fee_rate = fee_bps / 10000.0 if fee_bps > 0 else self._fee_fetcher.get_default_rate()
+
+            # makingAmount = shares acquired, takingAmount = USDC spent
+            # fill_price hesabi: BUY'da making=shares, taking=USDC
+            # fill_price = USDC / shares (eger her ikisi de > 0 ise)
+            making = response.get("making_amount", 0)
+            taking = response.get("taking_amount", 0)
+
+            if making > 0 and taking > 0:
+                fill_price = taking / making  # USDC per share
+            else:
+                fill_price = intent.dominant_price  # fallback
+
+            self._tracker.confirm_fill(
+                position.position_id,
+                fill_price=fill_price,
+                fee_rate=fee_rate,
+            )
+            self._fill_count += 1
+
+            # Balance: SDK zaten USDC dusmus, ama balance refresh
+            # Post-fill balance fetch (async, non-blocking)
+            try:
+                await self._balance.fetch()
+            except Exception:
+                pass  # fetch fail balance authority'yi bozmaz
+
+            log_event(
+                logger, logging.INFO,
+                f"LIVE FILLED: {intent.asset} {intent.side.value} "
+                f"${intent.amount_usd} fill_price={fill_price:.4f} "
+                f"fee_rate={fee_rate} order={order_id[:12]}",
+                entity_type="execution",
+                entity_id=position.position_id,
+            )
+
+            return ExecutionResult(
+                result=OrderResult.FILLED,
+                position_id=position.position_id,
+                fill_price=fill_price,
+                fee_rate=fee_rate,
+                detail={
+                    "mode": "live",
+                    "order_id": order_id,
+                    "making": making,
+                    "taking": taking,
+                    "fee_rate_bps": fee_bps,
+                },
+            )
+
+        # Not matched veya error
         self._tracker.reject_fill(position.position_id)
+
+        result_type = OrderResult.NOT_FILLED if status == "not_matched" else OrderResult.NETWORK_ERROR
+
+        log_event(
+            logger, logging.WARNING,
+            f"LIVE {status.upper()}: {intent.asset} {intent.side.value} "
+            f"${intent.amount_usd} error={response.get('error', '')} order={order_id}",
+            entity_type="execution",
+            entity_id=position.position_id,
+        )
+
         return ExecutionResult(
-            result=OrderResult.NOT_FILLED,
+            result=result_type,
             position_id=position.position_id,
+            detail={"mode": "live", "status": status, "error": response.get("error", ""), "order_id": order_id},
         )

@@ -278,12 +278,12 @@ class TestEvaluationLoop:
         assert second is not None
         assert len(loop.get_last_results()) == 1  # hâlâ tek BTC
 
-    def test_entry_signal_logged_not_executed(self):
-        """ENTRY sinyali üretilir ama order GÖNDERİLMEZ."""
+    def test_entry_signal_dispatches_to_executor(self):
+        """v0.9.0: ENTRY sinyali OrderExecutor'a dispatch edilir."""
         import backend.orchestrator.evaluation_loop as mod
         source = open(mod.__file__, encoding="utf-8").read()
-        assert "order" not in source.lower() or "ORDER GÖNDERİLMEZ" in source
-        assert "execute" not in source.lower() or "execution" not in source.lower()
+        assert "_dispatch_entry" in source
+        assert "_order_executor" in source
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -350,14 +350,13 @@ class TestPipelineGetByAsset:
 
 class TestOrchestratorBoundaries:
 
-    def test_no_execution_in_evaluation_loop(self):
+    def test_evaluation_loop_has_execution_wiring(self):
+        """v0.9.0: EvaluationLoop artik OrderExecutor + PositionTracker ile wired."""
         import backend.orchestrator.evaluation_loop as mod
-        lines = [l.strip() for l in open(mod.__file__, encoding="utf-8").readlines()
-                 if l.strip().startswith(("import ", "from "))]
-        for line in lines:
-            assert "execution" not in line
-            assert "position" not in line
-            assert "order_executor" not in line
+        source = open(mod.__file__, encoding="utf-8").read()
+        assert "order_executor" in source
+        assert "position_tracker" in source
+        assert "_dispatch_entry" in source
 
     def test_no_execution_in_eligibility(self):
         import backend.orchestrator.eligibility_gate as mod

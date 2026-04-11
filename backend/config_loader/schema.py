@@ -211,6 +211,7 @@ class ClaimRedeemConfig(BaseModel):
 class TradingConfig(BaseModel):
     min_amount_usd: float = Field(default=1.0, ge=0.1, le=10000.0)
     auto_start_bot_on_startup: bool = False
+    paper_mode: bool = True  # True=paper, False=live. Cift kilit: LIVE_ORDER_ENABLED ile birlikte
     entry_rules: EntryRulesConfig = EntryRulesConfig()
     exit_rules: ExitRulesConfig = ExitRulesConfig()
     claim: ClaimRedeemConfig = ClaimRedeemConfig()

@@ -115,8 +115,8 @@ class TestSLEvaluation:
         """PnL > -sl_pct → SL tetiklenmez."""
         pos, _ = _make_open_position(fill_price=0.85)
         evaluator = ExitEvaluator(tp_pct=5.0, sl_pct=3.0)
-        # 0.84'te fee etkisiyle PnL -3.21% oluyor, 0.845 ile test et
-        signal = evaluator.evaluate(pos, current_price=0.845)
+        # fee_rate=0.10 (v0.9.0 fix) ile 0.85'te PnL ~-2.55% → SL tetiklenmez
+        signal = evaluator.evaluate(pos, current_price=0.85)
         assert signal.should_exit is False
 
     def test_sl_latch_no_cancel(self):

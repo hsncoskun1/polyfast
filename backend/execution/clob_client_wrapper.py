@@ -330,28 +330,168 @@ class ClobClientWrapper:
         self,
         token_id: str,
         side: str,
-        amount_usd: float,
+        amount: float,
     ) -> dict | None:
         """Market FOK order gonder.
 
         TEKNIK GUARD: LIVE_ORDER_ENABLED = False oldukca CALISMAZ.
-        Gercek order CIKMAZ.
+
+        Args:
+            token_id: Outcome token ID.
+            side: "BUY" veya "SELL".
+            amount: BUY=USD tutar, SELL=share sayisi.
+
+        Returns:
+            {"status": "matched"|"not_matched"|"error",
+             "order_id": str, "fee_rate_bps": int,
+             "making_amount": float, "taking_amount": float}
+            veya None (guard/init fail).
+
+        FOK retry politikasi:
+            - matched → fill, retry YOK
+            - not_matched → reject, retry YOK
+            - network timeout → tek kisa retry (3s bekle)
+            - ayni order tekrar deneme YOK (duplicate guard caller'da)
         """
         self._ensure_initialized()
+
         if not LIVE_ORDER_ENABLED:
             log_event(
                 logger, logging.WARNING,
-                "LIVE ORDER BLOCKED — LIVE_ORDER_ENABLED = False",
+                "LIVE ORDER BLOCKED — LIVE_ORDER_ENABLED=False",
                 entity_type="execution",
                 entity_id="order_blocked",
             )
             return None
 
         if not self._initialized or self._client is None:
+            log_event(
+                logger, logging.ERROR,
+                "Order rejected: SDK client not initialized",
+                entity_type="execution",
+                entity_id="order_not_init",
+            )
             return None
 
-        # TODO: gercek SDK order gonderme
-        # order = self._client.create_and_post_order(...)
-        # return {"order_id": ..., "fill_price": ..., "status": ...}
+        from py_clob_client.clob_types import MarketOrderArgs, OrderType
+        from py_clob_client.order_builder.constants import BUY, SELL
 
-        return None
+        sdk_side = BUY if side.upper() == "BUY" else SELL
+
+        args = MarketOrderArgs(
+            token_id=token_id,
+            amount=amount,
+            side=sdk_side,
+            order_type=OrderType.FOK,
+            # fee_rate_bps=0 → SDK __resolve_fee_rate ile endpoint'ten otomatik ceker
+        )
+
+        # Attempt 1 + tek transient retry
+        last_error = None
+        for attempt in range(2):
+            try:
+                # SDK: create signed order + auto fee resolve
+                signed_order = self._client.create_market_order(args)
+
+                # SDK: post to CLOB — response = dict
+                response = self._client.post_order(signed_order, orderType=OrderType.FOK)
+
+                # Response parse
+                if isinstance(response, dict):
+                    success = response.get("success", False)
+                    status = response.get("status", "")
+                    order_id = response.get("orderID", "")
+                    error_msg = response.get("errorMsg", "")
+
+                    # makingAmount/takingAmount: fixed-math 6 decimals string
+                    making_raw = response.get("makingAmount", "0")
+                    taking_raw = response.get("takingAmount", "0")
+                    making = int(making_raw) / 1_000_000 if making_raw else 0
+                    taking = int(taking_raw) / 1_000_000 if taking_raw else 0
+
+                    # SDK order'a yazdigi fee_rate_bps'yi kaydet (accounting icin)
+                    fee_bps = getattr(args, 'fee_rate_bps', 0) or 0
+
+                    if success and status == "matched":
+                        log_event(
+                            logger, logging.INFO,
+                            f"FOK MATCHED: {side} token={token_id[:16]}... "
+                            f"making={making:.6f} taking={taking:.6f} "
+                            f"fee_bps={fee_bps} order={order_id[:12]}...",
+                            entity_type="execution",
+                            entity_id=order_id,
+                        )
+                        return {
+                            "status": "matched",
+                            "order_id": order_id,
+                            "fee_rate_bps": fee_bps,
+                            "making_amount": making,
+                            "taking_amount": taking,
+                        }
+
+                    # Not matched veya hata
+                    reason = error_msg or f"status={status}" or "unknown"
+                    log_event(
+                        logger, logging.WARNING,
+                        f"FOK NOT MATCHED: {side} {reason} order={order_id}",
+                        entity_type="execution",
+                        entity_id="order_not_matched",
+                    )
+                    return {
+                        "status": "not_matched",
+                        "order_id": order_id,
+                        "error": reason,
+                        "fee_rate_bps": fee_bps,
+                    }
+
+                # Response dict degil — beklenmeyen format
+                log_event(
+                    logger, logging.ERROR,
+                    f"Unexpected SDK response type: {type(response).__name__}",
+                    entity_type="execution",
+                    entity_id="order_unexpected",
+                )
+                return {"status": "error", "error": f"unexpected response: {type(response).__name__}"}
+
+            except Exception as e:
+                last_error = e
+                err_name = type(e).__name__
+                err_msg = str(e)[:100]
+
+                # Transient network error → tek retry (attempt 0'da)
+                if attempt == 0 and self._is_transient_error(e):
+                    log_event(
+                        logger, logging.WARNING,
+                        f"FOK transient error (retry 1): {err_name}: {err_msg}",
+                        entity_type="execution",
+                        entity_id="order_retry",
+                    )
+                    import asyncio
+                    await asyncio.sleep(3)
+                    continue
+
+                # Non-transient veya retry tukendi
+                log_event(
+                    logger, logging.ERROR,
+                    f"FOK FAILED: {err_name}: {err_msg}",
+                    entity_type="execution",
+                    entity_id="order_failed",
+                )
+                return {"status": "error", "error": f"{err_name}: {err_msg}"}
+
+        # Retry tukendi
+        return {"status": "error", "error": f"exhausted retries: {last_error}"}
+
+    @staticmethod
+    def _is_transient_error(e: Exception) -> bool:
+        """Network timeout / connection error mi? Retry edilebilir mi?"""
+        import httpx
+        transient_types = (
+            TimeoutError,
+            ConnectionError,
+            OSError,
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            httpx.NetworkError,
+        )
+        return isinstance(e, transient_types)

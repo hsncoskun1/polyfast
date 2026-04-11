@@ -1516,18 +1516,17 @@ class TestCrossCuttingIntegrity:
         assert "self.paused" in source  # pause var
         # trading_enabled guard olmaması bekleniyor (bilinçli)
 
-    def test_evaluation_hardcoded_fill_count_zero(self):
-        """⚠️ BULGU: event_fill_count=0, open_position_count=0 hardcoded.
+    def test_evaluation_counter_wiring(self):
+        """v0.9.0: event_fill_count ve open_position_count PositionTracker'dan.
 
-        evaluation_loop.py satır 211-212: v0.5.x placeholder.
-        Event Max ve Bot Max kuralları şu an her zaman PASS döner.
-        Bu Faz 5'te bağlanmalıdır.
+        Hardcoded 0 kaldirildi — gercek counter wiring yapildi.
         """
         import inspect
         from backend.orchestrator.evaluation_loop import EvaluationLoop
         source = inspect.getsource(EvaluationLoop._evaluate_single)
-        assert "event_fill_count=0" in source
-        assert "open_position_count=0" in source
+        assert "position_tracker" in source
+        assert "get_event_fill_count" in source
+        assert "open_position_count" in source
 
     def test_settings_auto_persist_on_set(self):
         """SettingsStore.set() otomatik persist çağırır."""
