@@ -52,6 +52,19 @@ def main():
                     elif low.startswith('relayer_key'):
                         rk = parts[-1].strip()
 
+    # Proxy wallet adresi de oku (.env'den)
+    proxy_wallet = ''
+    with open(env_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line_s = line.strip()
+            if not line_s or line_s.startswith('#'):
+                continue
+            low = line_s.lower()
+            parts = line_s.split(None)
+            if len(parts) >= 2:
+                if low.startswith('polymarket wallet address') or low.startswith('funder'):
+                    proxy_wallet = parts[-1].strip()
+
     if not pk:
         print("HATA: PRIVATE_KEY bulunamadi")
         return False
@@ -65,11 +78,18 @@ def main():
     if not pk.startswith('0x'):
         pk = '0x' + pk
 
-    # 3. Funder address derive
+    # 3. Funder address — proxy wallet varsa onu kullan, yoksa EOA'dan derive
     try:
         from eth_account import Account
-        funder = Account.from_key(pk).address
-        print(f"[2/4] Funder address derive: {funder[:6]}****{funder[-4:]}")
+        eoa = Account.from_key(pk).address
+
+        if proxy_wallet and proxy_wallet.startswith('0x') and len(proxy_wallet) == 42:
+            funder = proxy_wallet
+            print(f"[2/4] Funder = proxy wallet: {funder[:6]}****{funder[-4:]}")
+            print(f"       EOA: {eoa[:6]}****{eoa[-4:]}")
+        else:
+            funder = eoa
+            print(f"[2/4] Funder = EOA (proxy wallet bulunamadi): {funder[:6]}****{funder[-4:]}")
     except Exception as e:
         print(f"HATA: Funder derive basarisiz: {type(e).__name__}")
         return False
