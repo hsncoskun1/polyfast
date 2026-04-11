@@ -917,13 +917,20 @@ class Orchestrator:
                 for pos in self.position_tracker.get_all_positions():
                     if pos.is_open:
                         # Held-side outcome fiyati pipeline'dan
-                        price_data = self.pipeline.get_price(pos.asset)
+                        # Current slot event'in record'unu al
+                        current_cid = self.evaluation_loop._find_current_slot_condition_id(pos.asset)
+                        price_data = None
+                        if current_cid:
+                            price_data = self.pipeline.get_record(current_cid)
+                        if price_data is None:
+                            price_data = self.pipeline.get_record_by_asset(pos.asset)
+
                         if price_data:
-                            side_key = f"{pos.side.lower()}_price"
-                            price = getattr(price_data, side_key, 0.0) if hasattr(price_data, side_key) else 0.0
-                            if price <= 0:
-                                # Fallback: dominant price
-                                price = getattr(price_data, "dominant_price", 0.0) if hasattr(price_data, "dominant_price") else 0.0
+                            # Held-side bid fiyati (exit = bid)
+                            if pos.side.upper() == "UP":
+                                price = price_data.up_bid
+                            else:
+                                price = price_data.down_bid
                             prices[pos.asset] = price
 
                             # Stale detection -- K5 guard
