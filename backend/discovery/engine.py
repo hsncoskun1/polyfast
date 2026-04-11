@@ -207,8 +207,8 @@ class DiscoveryEngine:
         """Check if event is currently live or upcoming within lookahead window.
 
         Slug format: asset-updown-5m-TIMESTAMP
+        TIMESTAMP = event START time (end_date = TIMESTAMP + 300).
         Each 5M event lasts exactly 300 seconds.
-        TIMESTAMP in slug represents the event's end time.
 
         Args:
             slug: Event slug containing timestamp.
@@ -216,12 +216,12 @@ class DiscoveryEngine:
         """
         match = re.search(r'-(\d{10,})$', slug)
         if not match:
-            return True  # Can't determine, let it through
+            return True
 
-        event_end_ts = int(match.group(1))
-        event_start_ts = event_end_ts - 300  # 5M = 300 seconds
+        event_start_ts = int(match.group(1))  # slug timestamp = START
+        event_end_ts = event_start_ts + 300
         now = int(time.time())
 
-        # Event is live if: start <= now <= end
+        # Event is live if: start <= now < end
         # Event is upcoming if: now < start <= now + lookahead
         return event_start_ts <= now + lookahead_seconds and event_end_ts >= now

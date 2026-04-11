@@ -320,12 +320,12 @@ class Orchestrator:
             token_ids = list(event.get("clob_token_ids", [])) if isinstance(event, dict) else list(getattr(event, "clob_token_ids", []))
             sides = list(event.get("outcomes", [])) if isinstance(event, dict) else list(getattr(event, "outcomes", []))
 
-            # Current slot event mi?
+            # Current slot event mi? Slug timestamp = START
             is_current = False
             m = _re.search(r'-(\d{10,})$', slug)
             if m:
-                end_ts = int(m.group(1))
-                is_current = (end_ts - 300) <= now < end_ts
+                start_ts = int(m.group(1))  # slug = START
+                is_current = start_ts <= now < (start_ts + 300)
 
             event_data = {
                 "condition_id": cid,
@@ -352,45 +352,27 @@ class Orchestrator:
         # 4. Coin USD subscribe güncelle
         self.coin_client.set_coins(eligible_assets)
 
-        # 5. PTB fetch — sadece lock'lanmamış olanlar için
-        #
-        # SLUG CONVENTION FARKI:
-        #   Gamma API (discovery) slug  = {asset}-updown-5m-{slot_END}
-        #   Polymarket event page slug  = {asset}-updown-5m-{slot_START}
-        #
-        # PTB SSR adapter event page'i kullanır → slug slot START olmalı.
-        # Discovery slug'ı registry/dashboard için doğrudur, PTB için DEĞİL.
-        #
-        # PTB fetch — current slot event ONCELIKLI
-        slot_start = (int(_time.time()) // 300) * 300
-        event_end_ts = float(slot_start + 300)
+        # 5. PTB fetch — current slot event oncelikli
+        # Gamma slug = {asset}-updown-5m-{START} = Polymarket page slug
+        # Eski backend gibi: discovery slug'ini OLDUGU GIBI kullan
+        now_ts = int(_time.time())
 
         for asset, cid in current_slot_cids.items():
             existing = self.ptb_fetcher.get_record(cid)
             if existing and existing.is_locked:
                 continue
-            ptb_slug = f"{asset.lower()}-updown-5m-{slot_start}"
+            # event_map'ten slug al — discovery'den gelen, rewrite YOK
+            slug = event_map.get(asset, {}).get("slug", "")
+            if not slug:
+                continue
+            # Event end = slug_start + 300
+            m = _re.search(r'-(\d{10,})$', slug)
+            event_end_ts = float(int(m.group(1)) + 300) if m else float(now_ts + 300)
             asyncio.create_task(
                 self.ptb_fetcher.fetch_ptb_with_retry(
-                    cid, asset, ptb_slug, event_end_ts,
+                    cid, asset, slug, event_end_ts,
                 ),
                 name=f"ptb_retry_{asset}",
-            )
-
-        # Upcoming eventlerin PTB'si de fetch edilebilir (ama current slot oncelikli)
-        for asset, info in event_map.items():
-            cond_id = info.get("condition_id", "")
-            if not cond_id or cond_id in current_slot_cids.values():
-                continue  # current zaten yukarida yapildi
-            existing = self.ptb_fetcher.get_record(cond_id)
-            if existing and existing.is_locked:
-                continue
-            ptb_slug = f"{asset.lower()}-updown-5m-{slot_start}"
-            asyncio.create_task(
-                self.ptb_fetcher.fetch_ptb_with_retry(
-                    cond_id, asset, ptb_slug, event_end_ts,
-                ),
-                name=f"ptb_retry_{asset}_upcoming",
             )
 
         log_event(

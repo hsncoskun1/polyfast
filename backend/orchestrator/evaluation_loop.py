@@ -140,10 +140,8 @@ class EvaluationLoop:
     def _find_current_slot_condition_id(self, asset: str) -> str:
         """Registry'den bu coin'in current slot event condition_id'sini bul.
 
-        Discovery upcoming eventleri de dondurur (30dk lookahead).
-        Bu metot sadece su an LIVE olan event'in condition_id'sini doner.
-        Gamma slug format: {asset}-updown-5m-{END_TIMESTAMP}
-        Event live = (END - 300) <= now < END
+        Gamma slug format: {asset}-updown-5m-{START_TIMESTAMP}
+        Event live = START <= now < START + 300
 
         Returns:
             condition_id (str) veya "" (current event yok)
@@ -161,8 +159,8 @@ class EvaluationLoop:
             m = _re.search(r'-(\d{10,})$', rec.slug)
             if not m:
                 continue
-            end_ts = int(m.group(1))
-            start_ts = end_ts - 300
+            start_ts = int(m.group(1))  # slug timestamp = START
+            end_ts = start_ts + 300
             if start_ts <= now < end_ts:
                 return rec.condition_id
 
@@ -244,18 +242,17 @@ class EvaluationLoop:
         # Discovery upcoming eventleri de dondurur (30dk lookahead).
         # Order SADECE current live slot event'ine gitmeli.
         # Truth source: registry'deki event slug timestamp'i.
-        # Gamma API slug format: {asset}-updown-5m-{END_TIMESTAMP}
-        # Event live = (END - 300) <= now < END
+        # Gamma slug format: {asset}-updown-5m-{START_TIMESTAMP}
+        # Event live = START <= now < START + 300
         now = int(_time.time())
 
-        # Registry'den event'in slug'ini al ve current slot kontrolu yap
         if self._registry:
             reg = self._registry.get_by_condition_id(condition_id)
             if reg:
                 m = _re.search(r'-(\d{10,})$', reg.slug)
                 if m:
-                    event_end_ts = int(m.group(1))
-                    event_start_ts = event_end_ts - 300
+                    event_start_ts = int(m.group(1))  # slug = START
+                    event_end_ts = event_start_ts + 300
                     if not (event_start_ts <= now < event_end_ts):
                         # Bu event current slot'ta degil — upcoming veya gecmis
                         log_event(
