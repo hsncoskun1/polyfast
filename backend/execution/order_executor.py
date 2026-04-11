@@ -296,14 +296,14 @@ class OrderExecutor:
             fee_bps = response.get("fee_rate_bps", 0)
             fee_rate = fee_bps / 10000.0 if fee_bps > 0 else self._fee_fetcher.get_default_rate()
 
-            # makingAmount = shares acquired, takingAmount = USDC spent
-            # fill_price hesabi: BUY'da making=shares, taking=USDC
-            # fill_price = USDC / shares (eger her ikisi de > 0 ise)
-            making = response.get("making_amount", 0)
-            taking = response.get("taking_amount", 0)
+            # BUY FOK: makingAmount = USDC spent, takingAmount = shares received
+            # fill_price = outcome price (0-1 range) = USDC / shares
+            # Ornek: $1 harcadik, 1.96 share aldik → fill_price = 1.0/1.96 = 0.51
+            making = response.get("making_amount", 0)  # USDC
+            taking = response.get("taking_amount", 0)   # shares
 
             if making > 0 and taking > 0:
-                fill_price = taking / making  # USDC per share
+                fill_price = making / taking  # outcome price 0-1
             else:
                 fill_price = intent.dominant_price  # fallback
 

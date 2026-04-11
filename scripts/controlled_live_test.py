@@ -98,17 +98,11 @@ async def main():
                 print(f"  [{elapsed:.0f}s] BTC eval bekleniyor...")
             continue
 
-        # Current slot kontrolu — evaluation_loop helper kullan
-        current_cid = orch.evaluation_loop._find_current_slot_condition_id('BTC')
-        is_current_event = False
-        if current_cid:
-            pipe = orch.pipeline.get_record(current_cid)
-            is_current_event = pipe is not None and pipe.up_bid > 0
-
-        if ev.decision.value == 'entry' and is_current_event:
+        # ENTRY 5/5 geldi mi — dispatch guard'lar zaten evaluation_loop icinde
+        if ev.decision.value == 'entry':
             p = ev.pass_count
             t = p + ev.fail_count + ev.waiting_count
-            print(f"  [{elapsed:.0f}s] BTC ENTRY {p}/{t} — CURRENT SLOT + pipeline hazir")
+            print(f"  [{elapsed:.0f}s] BTC ENTRY {p}/{t} — pipeline hazir")
             entry_ready = True
             break
 
@@ -116,8 +110,7 @@ async def main():
             d = ev.decision.value
             p = ev.pass_count
             t = p + ev.fail_count + ev.waiting_count
-            cur = "CURRENT" if is_current_event else "UPCOMING"
-            print(f"  [{elapsed:.0f}s] BTC {d} {p}/{t} [{cur}]")
+            print(f"  [{elapsed:.0f}s] BTC {d} {p}/{t}")
 
     if not entry_ready:
         print("  TIMEOUT — current slot'ta entry sinyali gelmedi")
