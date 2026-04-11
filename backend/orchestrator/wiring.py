@@ -167,6 +167,7 @@ class Orchestrator:
             credential_store=self.credential_store,
             signature_type=cfg.trading.signature_type,
             transient_retry_sleep_sec=cfg.infra.sdk_transient_retry_sleep_sec,
+            order_timeout_sec=cfg.trading.entry_order_timeout_sec,
         )
         # BalanceManager ↔ ClobClientWrapper bağlantısı — balance fetch fonksiyonu
         self.balance_manager.set_fetch_function(self.clob_client.get_balance)

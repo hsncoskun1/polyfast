@@ -76,6 +76,7 @@ class ClobClientWrapper:
         chain_id: int = 137,
         signature_type: int = 0,
         transient_retry_sleep_sec: float = 3.0,
+        order_timeout_sec: float = 5.0,
         credential_store=None,
     ):
         self._credential_store = credential_store
@@ -86,6 +87,7 @@ class ClobClientWrapper:
         self._chain_id = chain_id
         self._signature_type = signature_type
         self._transient_retry_sleep = transient_retry_sleep_sec
+        self._order_timeout = order_timeout_sec
         self._client = None
         self._initialized = False
         self._last_cred_version: int = -1
@@ -395,11 +397,32 @@ class ClobClientWrapper:
         last_error = None
         for attempt in range(2):
             try:
-                # SDK: create signed order + auto fee resolve
-                signed_order = self._client.create_market_order(args)
+                # SDK: create + post with timeout guard
+                # SDK metotlari sync — asyncio.to_thread + wait_for ile timeout
+                import asyncio
 
-                # SDK: post to CLOB — response = dict
-                response = self._client.post_order(signed_order, orderType=OrderType.FOK)
+                async def _sdk_order():
+                    signed = self._client.create_market_order(args)
+                    return self._client.post_order(signed, orderType=OrderType.FOK)
+
+                try:
+                    response = await asyncio.wait_for(
+                        asyncio.to_thread(lambda: (
+                            self._client.post_order(
+                                self._client.create_market_order(args),
+                                orderType=OrderType.FOK,
+                            )
+                        )),
+                        timeout=self._order_timeout,
+                    )
+                except asyncio.TimeoutError:
+                    log_event(
+                        logger, logging.ERROR,
+                        f"FOK ORDER TIMEOUT: {self._order_timeout}s exceeded",
+                        entity_type="execution",
+                        entity_id="order_timeout",
+                    )
+                    return {"status": "error", "error": f"order timeout ({self._order_timeout}s)"}
 
                 # Response parse
                 if isinstance(response, dict):
