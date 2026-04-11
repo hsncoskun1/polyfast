@@ -137,6 +137,37 @@ class EvaluationLoop:
         """Tek coin için son evaluation sonucu."""
         return self._last_results.get(asset)
 
+    def _find_current_slot_condition_id(self, asset: str) -> str:
+        """Registry'den bu coin'in current slot event condition_id'sini bul.
+
+        Discovery upcoming eventleri de dondurur (30dk lookahead).
+        Bu metot sadece su an LIVE olan event'in condition_id'sini doner.
+        Gamma slug format: {asset}-updown-5m-{END_TIMESTAMP}
+        Event live = (END - 300) <= now < END
+
+        Returns:
+            condition_id (str) veya "" (current event yok)
+        """
+        if not self._registry:
+            return ""
+
+        import time as _time
+        import re as _re
+        now = int(_time.time())
+
+        for rec in self._registry.get_all():
+            if rec.asset.upper() != asset.upper():
+                continue
+            m = _re.search(r'-(\d{10,})$', rec.slug)
+            if not m:
+                continue
+            end_ts = int(m.group(1))
+            start_ts = end_ts - 300
+            if start_ts <= now < end_ts:
+                return rec.condition_id
+
+        return ""
+
     async def _loop(self) -> None:
         """Ana evaluation döngüsü."""
         while self._running:
@@ -198,11 +229,16 @@ class EvaluationLoop:
         side_str = result.detail.get('dominant_side', 'UP')
         side = OrderSide.UP if side_str == 'UP' else OrderSide.DOWN
 
-        price_record = self._pipeline.get_record_by_asset(coin_settings.coin)
-        if not price_record:
-            return
+        # Current slot event'in condition_id'si ile pipeline record al
+        current_cid = self._find_current_slot_condition_id(coin_settings.coin)
+        if not current_cid:
+            return  # current slot event yok — dispatch skip
 
-        condition_id = price_record.condition_id
+        price_record = self._pipeline.get_record(current_cid)
+        if not price_record:
+            return  # pipeline'da current event record yok
+
+        condition_id = current_cid
 
         # ── CURRENT SLOT GUARD ──
         # Discovery upcoming eventleri de dondurur (30dk lookahead).
@@ -286,8 +322,18 @@ class EvaluationLoop:
         """Tek coin için context doldur ve evaluate et."""
         asset = coin_settings.coin
 
-        # Pipeline'dan outcome fiyat (per-side bid/ask)
-        price_record = self._pipeline.get_record_by_asset(asset)
+        # Pipeline'dan outcome fiyat — CURRENT SLOT event'i oncelikli
+        # Registry'den current slot event condition_id bul,
+        # sonra o condition_id ile pipeline record al.
+        # get_record_by_asset kullanma — upcoming event dondurur.
+        current_cid = self._find_current_slot_condition_id(asset)
+        price_record = None
+        if current_cid:
+            price_record = self._pipeline.get_record(current_cid)
+        if price_record is None:
+            # Fallback: asset bazli (dashboard/non-trading icin hala calismali)
+            price_record = self._pipeline.get_record_by_asset(asset)
+
         if price_record:
             up_bid = price_record.up_bid
             up_ask = price_record.up_ask
