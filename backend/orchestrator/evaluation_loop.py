@@ -38,7 +38,13 @@ class EvaluationLoop:
     """Periyodik rule evaluation döngüsü.
 
     Her eligible event için context doldurur ve engine'i çağırır.
-    ENTRY sinyali üretir ama order GÖNDERMEz (log only).
+    ENTRY sinyali üretir.
+
+    Order dispatch kontrolü:
+    - _order_dispatch_enabled=False (default): sinyal sadece log
+    - _order_dispatch_enabled=True: sinyal OrderExecutor'a gider
+    - enable_order_dispatch() / disable_order_dispatch() ile kontrol
+    - Bot başladığında dispatch KAPALI — manuel enable gerekli
     """
 
     def __init__(
@@ -62,10 +68,11 @@ class EvaluationLoop:
         self._settings = settings_store
         self._interval = interval_ms / 1000.0
         self._bot_max_positions = bot_max_positions
-        self._order_executor = order_executor  # None = sinyal only (paper/test)
+        self._order_executor = order_executor  # None = sinyal only
         self._position_tracker = position_tracker  # counter wiring icin
         self._bridge = bridge  # token_id lookup icin
         self._registry = registry  # current slot guard icin
+        self._order_dispatch_enabled = False  # Baslatma kontrolu: False=sinyal only, True=order gonder
         self._running = False
         self._task: asyncio.Task | None = None
         self._eval_count: int = 0
@@ -105,6 +112,22 @@ class EvaluationLoop:
     @property
     def entry_signal_count(self) -> int:
         return self._entry_count
+
+    def enable_order_dispatch(self) -> None:
+        """Order dispatch'i ac — ENTRY sinyalinde gercek order gider."""
+        self._order_dispatch_enabled = True
+        log_event(logger, logging.INFO, "Order dispatch ENABLED",
+                  entity_type="orchestrator", entity_id="dispatch_enabled")
+
+    def disable_order_dispatch(self) -> None:
+        """Order dispatch'i kapat — ENTRY sinyali sadece log."""
+        self._order_dispatch_enabled = False
+        log_event(logger, logging.INFO, "Order dispatch DISABLED",
+                  entity_type="orchestrator", entity_id="dispatch_disabled")
+
+    @property
+    def is_order_dispatch_enabled(self) -> bool:
+        return self._order_dispatch_enabled
 
     def get_last_results(self) -> dict[str, "EvaluationResult"]:
         """Son evaluation sonuçlarını döndür (snapshot provider için). Kopya döner."""
@@ -157,8 +180,8 @@ class EvaluationLoop:
                     },
                 )
 
-                # Order execution — OrderExecutor varsa sinyal → order
-                if self._order_executor is not None:
+                # Order dispatch — sadece enable edilmisse ve executor varsa
+                if self._order_dispatch_enabled and self._order_executor is not None:
                     await self._dispatch_entry(coin_settings, result)
 
     async def _dispatch_entry(self, coin_settings: CoinSettings, result) -> None:

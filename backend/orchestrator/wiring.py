@@ -908,6 +908,19 @@ class Orchestrator:
 
             await asyncio.sleep(self._exit_cycle_interval_sec)
 
+    def enable_trading(self) -> None:
+        """Order dispatch'i ac — ENTRY sinyalinde gercek order gider."""
+        self.evaluation_loop.enable_order_dispatch()
+
+    def disable_trading(self) -> None:
+        """Order dispatch'i kapat — ENTRY sinyali sadece log."""
+        self.evaluation_loop.disable_order_dispatch()
+
+    @property
+    def is_trading_active(self) -> bool:
+        """Order dispatch aktif mi?"""
+        return self.evaluation_loop.is_order_dispatch_enabled
+
     def pause(self) -> None:
         """Bot'u duraklat — uptime donmuş olarak saklanır."""
         if self.paused:
