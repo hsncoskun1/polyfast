@@ -25,6 +25,7 @@ Paper mode:
 
 import asyncio
 import logging
+import time as _time
 from datetime import datetime, timezone
 
 from backend.execution.position_record import PositionRecord, PositionState
@@ -73,6 +74,7 @@ class ExitExecutor:
         expiry_retry_interval_ms: int = 200,
         shutdown_retry_interval_ms: int = 100,
         max_close_retries: int = DEFAULT_MAX_CLOSE_RETRIES,
+        close_fail_cooldown_sec: float = 1.0,
     ):
         self._tracker = tracker
         self._balance = balance_manager
@@ -91,6 +93,9 @@ class ExitExecutor:
         self._paper_mode = paper_mode
         self._close_count: int = 0
         self._retry_count: int = 0
+        # Cooldown: CLOSE_FAILED sonrasi anlik retry spam engeli
+        self._close_fail_cooldown_sec = close_fail_cooldown_sec
+        self._last_close_fail_at: dict[str, float] = {}  # position_id → fail timestamp
 
     @property
     def close_count(self) -> int:
@@ -120,6 +125,15 @@ class ExitExecutor:
             PositionState.CLOSE_FAILED,
         ):
             return False
+
+        # Cooldown guard — CLOSE_FAILED sonrasi anlik retry spam engeli
+        # Son fail'den cooldown_sec dolmadan tekrar deneme
+        if position.state == PositionState.CLOSE_FAILED:
+            last_fail = self._last_close_fail_at.get(position.position_id)
+            if last_fail is not None:
+                elapsed = _time.time() - last_fail
+                if elapsed < self._close_fail_cooldown_sec:
+                    return False  # cooldown dolmadi, skip
 
         # TP reevaluate kontrolu
         if (
@@ -169,6 +183,9 @@ class ExitExecutor:
             )
             self._close_count += 1
 
+            # Cooldown temizle — basarili close
+            self._last_close_fail_at.pop(position.position_id, None)
+
             # Post-close balance refresh
             if self._paper_mode:
                 self._balance.add(position.net_exit_usdc)
@@ -185,12 +202,13 @@ class ExitExecutor:
             )
             return True
         else:
-            # close_failed
+            # close_failed — cooldown timestamp kaydet
             position.transition_to(PositionState.CLOSE_FAILED)
+            self._last_close_fail_at[position.position_id] = _time.time()
 
             log_event(
                 logger, logging.WARNING,
-                f"Close failed: {position.asset} — retry gerekli",
+                f"Close failed: {position.asset} — retry after {self._close_fail_cooldown_sec}s cooldown",
                 entity_type="exit_executor",
                 entity_id=position.position_id,
             )
