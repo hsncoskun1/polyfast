@@ -40,15 +40,19 @@ class EligibilityGate:
 
     Credential gate: trading credential yoksa hiçbir coin eligible olamaz.
     Bu kontrol coin bazlı kontrollerden ÖNCE çalışır.
+    Paper mode'da credential gate bypass edilir — credential olmadan da
+    evaluation yapılabilir.
     """
 
     def __init__(
         self,
         store: SettingsStore,
         credential_store: Optional[CredentialStore] = None,
+        paper_mode: bool = False,
     ):
         self._store = store
         self._credential_store = credential_store
+        self._paper_mode = paper_mode
 
     def filter(self, discovered_events: list[dict]) -> EligibilityResult:
         """Discovery sonuçlarını eligible/ineligible olarak ayır.
@@ -61,7 +65,8 @@ class EligibilityGate:
             EligibilityResult with eligible/ineligible lists.
         """
         # Credential gate — trading credential yoksa tüm coinler ineligible
-        if self._credential_store is not None:
+        # Paper mode'da credential gerekmez — bypass
+        if self._credential_store is not None and not self._paper_mode:
             if not self._credential_store.credentials.has_trading_credentials():
                 reasons = {}
                 for event in discovered_events:

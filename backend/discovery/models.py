@@ -41,6 +41,7 @@ class DiscoveredEvent:
     discovered_at: datetime
     clob_token_ids: tuple[str, ...] = ()
     outcomes: tuple[str, ...] = ()
+    outcome_prices: str = ""  # Gamma API outcomePrices — pipeline seed icin
 
     @classmethod
     def from_api_event(cls, event: dict) -> "DiscoveredEvent | None":
@@ -78,6 +79,7 @@ class DiscoveredEvent:
             outcomes = ()
             question = title  # fallback
 
+            outcome_prices_raw = ""
             if markets:
                 m = markets[0]
                 condition_id = m.get("conditionId", "")
@@ -101,6 +103,13 @@ class DiscoveredEvent:
                         raw_outcomes = []
                 outcomes = tuple(raw_outcomes) if raw_outcomes else ()
 
+                # outcomePrices — pipeline Gamma seed icin
+                raw_op = m.get("outcomePrices", "")
+                if isinstance(raw_op, list):
+                    outcome_prices_raw = json.dumps(raw_op)
+                elif isinstance(raw_op, str):
+                    outcome_prices_raw = raw_op
+
             if not condition_id:
                 return None
 
@@ -115,6 +124,7 @@ class DiscoveredEvent:
                 discovered_at=datetime.now(timezone.utc),
                 clob_token_ids=clob_token_ids,
                 outcomes=outcomes,
+                outcome_prices=outcome_prices_raw,
             )
         except Exception:
             return None

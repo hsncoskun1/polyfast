@@ -246,6 +246,7 @@ class Orchestrator:
         self.eligibility_gate = EligibilityGate(
             self.settings_store,
             credential_store=self.credential_store,
+            paper_mode=self.paper_mode,
         )
         self.subscription_manager = SubscriptionManager(
             self.bridge, self.coin_client, self.ptb_fetcher,
@@ -342,7 +343,20 @@ class Orchestrator:
                 # Upcoming — sadece current yoksa yaz
                 event_map[asset] = event_data
 
-        # 3. Subscription — CURRENT SLOT OWNERSHIP modeli
+        # 3. Pipeline Gamma seed — subscribe ONCESI initial fiyat yukle
+        # Gamma API'den gelen outcomePrices'i pipeline'a seed ediyoruz.
+        # Bu sayede WS baglanmadan once de dashboard'da fiyat gorunur.
+        # WS baglantisi geldiginde FRESH status ile override eder.
+        for event in result.eligible:
+            ev_cid = event.get("condition_id", "") if isinstance(event, dict) else getattr(event, "condition_id", "")
+            ev_asset = event.get("asset", "") if isinstance(event, dict) else getattr(event, "asset", "")
+            if not ev_cid or not ev_asset:
+                continue
+            outcome_prices = event.get("outcome_prices", "") if isinstance(event, dict) else getattr(event, "outcome_prices", "")
+            if outcome_prices:
+                self.pipeline.update_from_gamma(ev_cid, ev_asset, outcome_prices)
+
+        # 4. Subscription — CURRENT SLOT OWNERSHIP modeli
         # Her asset icin TEK aktif trade event: current slot event.
         # Upcoming eventler registry'de kalir ama bridge/pipeline'a GIRMEZ.
         # condition_id degisince: eski token unregister, yeni register + RTDS resubscribe.
@@ -590,6 +604,17 @@ class Orchestrator:
             self._supervisor_loop(),
             name="supervisor_loop",
         )
+
+        # Order dispatch — 7/24 otonom bot: balance OK ise otomatik enable
+        # Paper mode'da balance verify basarisiz olsa bile enable (para riski yok)
+        if self.trading_enabled or self.paper_mode:
+            self.enable_trading()
+            log_event(
+                logger, logging.INFO,
+                f"Order dispatch auto-enabled (paper={self.paper_mode}, trading={self.trading_enabled})",
+                entity_type="orchestrator",
+                entity_id="dispatch_auto_enable",
+            )
 
         log_event(
             logger, logging.INFO,
