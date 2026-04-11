@@ -151,25 +151,43 @@ class DiscoveryEngine:
     async def _fetch_events(self) -> list[dict]:
         """Fetch raw event data from Polymarket Gamma API.
 
-        Uses tag_slug=up-or-down to get Up/Down events directly.
-        This is the correct endpoint based on live API validation.
+        Uses tag_slug=5M to get Up/Down events directly.
+        Pagination ile tum sonuclari alir — ilk 100'de eski event'ler
+        gelebilir, current/upcoming event'ler sonraki sayfalarda.
 
         Raises:
             ClientError: On API failure (classified by BaseClient).
         """
-        response = await self._client.get("/events", params={
-            "tag_slug": self.TARGET_TAG_SLUG,
-            "closed": "false",
-            "limit": "100",
-        })
-        data = response.json()
+        all_events: list[dict] = []
+        page_size = 100
+        max_pages = 5  # 500 event cap — guvenlik siniri
 
-        # Gamma API returns list directly or nested
-        if isinstance(data, list):
-            return data
-        if isinstance(data, dict) and "data" in data:
-            return data["data"]
-        return []
+        for page in range(max_pages):
+            response = await self._client.get("/events", params={
+                "tag_slug": self.TARGET_TAG_SLUG,
+                "closed": "false",
+                "limit": str(page_size),
+                "offset": str(page * page_size),
+            })
+            data = response.json()
+
+            # Gamma API returns list directly or nested
+            if isinstance(data, list):
+                page_events = data
+            elif isinstance(data, dict) and "data" in data:
+                page_events = data["data"]
+            else:
+                page_events = []
+
+            if not page_events:
+                break  # Bos sayfa — daha fazla yok
+
+            all_events.extend(page_events)
+
+            if len(page_events) < page_size:
+                break  # Son sayfa
+
+        return all_events
 
     def _matches_criteria(self, event: DiscoveredEvent) -> bool:
         """Check if an event matches 5M Crypto Up/Down criteria.
