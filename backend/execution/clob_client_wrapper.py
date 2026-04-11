@@ -413,11 +413,16 @@ class ClobClientWrapper:
                     order_id = response.get("orderID", "")
                     error_msg = response.get("errorMsg", "")
 
-                    # makingAmount/takingAmount: fixed-math 6 decimals string
+                    # makingAmount/takingAmount: SDK float string doner ("0.999999")
+                    # Docs "6 decimal fixed-math" diyor ama SDK float string veriyor
                     making_raw = response.get("makingAmount", "0")
                     taking_raw = response.get("takingAmount", "0")
-                    making = int(making_raw) / 1_000_000 if making_raw else 0
-                    taking = int(taking_raw) / 1_000_000 if taking_raw else 0
+                    try:
+                        making = float(making_raw) if making_raw else 0.0
+                        taking = float(taking_raw) if taking_raw else 0.0
+                    except (ValueError, TypeError):
+                        making = 0.0
+                        taking = 0.0
 
                     # SDK order'a yazdigi fee_rate_bps'yi kaydet (accounting icin)
                     fee_bps = getattr(args, 'fee_rate_bps', 0) or 0

@@ -86,9 +86,9 @@ async def main():
         print(f"  Yeni slot basladi")
 
     # ── PIPELINE + CURRENT EVENT BEKLEME ──
-    print("--- PIPELINE BEKLEME (max 45s) ---")
+    print("--- PIPELINE BEKLEME (max 90s) ---")
     entry_ready = False
-    for i in range(90):
+    for i in range(180):
         await asyncio.sleep(0.5)
         elapsed = (i+1) * 0.5
 
