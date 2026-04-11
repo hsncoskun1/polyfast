@@ -53,12 +53,19 @@ class SubscriptionManager:
         self._coin_client = coin_price_client
         self._ptb_fetcher = ptb_fetcher
         self._rtds_client = rtds_client
-        self._current_subscribed: set[str] = set()  # şu an subscribe olan asset'ler
+        # CURRENT SLOT OWNERSHIP: her asset icin tek aktif trade event
+        # asset -> condition_id (su an aktif olan event)
+        self._active_events: dict[str, str] = {}
+
+    @property
+    def _current_subscribed(self) -> set[str]:
+        """Geriye uyum: subscribe olan asset set'i."""
+        return set(self._active_events.keys())
 
     def compute_diff(self, new_eligible_assets: list[str]) -> SubscriptionDiff:
-        """Önceki ve yeni eligible set arasındaki farkı hesapla."""
+        """Asset bazli diff hesapla."""
         new_set = set(a.upper() for a in new_eligible_assets)
-        old_set = self._current_subscribed
+        old_set = set(self._active_events.keys())
 
         return SubscriptionDiff(
             to_subscribe=sorted(new_set - old_set),
@@ -69,29 +76,51 @@ class SubscriptionManager:
     async def apply_diff(
         self,
         diff: SubscriptionDiff,
-        event_map: dict[str, dict],  # asset → event data (token_ids, condition_id, slug, etc.)
+        event_map: dict[str, dict],
     ) -> None:
-        """Diff'i uygula — subscribe/unsubscribe."""
+        """Diff uygula + condition_id degisim tespiti.
 
-        # Subscribe yeni eligible'lar
+        CURRENT SLOT OWNERSHIP:
+        - Yeni asset → subscribe (bridge register + RTDS)
+        - Kaldirilan asset → unsubscribe (bridge unregister)
+        - Ayni asset, FARKLI condition_id → ROTATE (eski unregister, yeni register)
+        """
+        changed = False
+
+        # 1. Yeni asset'ler
         for asset in diff.to_subscribe:
             event_data = event_map.get(asset, {})
             await self._subscribe_asset(asset, event_data)
+            self._active_events[asset] = event_data.get("condition_id", "")
+            changed = True
 
-        # Unsubscribe çıkanlar
+        # 2. Kaldirilan asset'ler
         for asset in diff.to_unsubscribe:
             self._unsubscribe_asset(asset)
+            self._active_events.pop(asset, None)
+            changed = True
 
-        # Current set güncelle
-        self._current_subscribed = (
-            (self._current_subscribed | set(diff.to_subscribe))
-            - set(diff.to_unsubscribe)
-        )
+        # 3. Unchanged asset'ler — CONDITION_ID DEGISTI MI?
+        for asset in diff.unchanged:
+            event_data = event_map.get(asset, {})
+            new_cid = event_data.get("condition_id", "")
+            old_cid = self._active_events.get(asset, "")
 
-        # CLOB WS'e güncel token set'i bildir
-        # Bridge'deki registered_token_ids tam listeyi tutar
-        # Reconnect sonrası _subscribed_tokens'tan resubscribe yapılır
-        if (diff.to_subscribe or diff.to_unsubscribe) and self._rtds_client:
+            if new_cid and old_cid and new_cid != old_cid:
+                # ROTATE: ayni asset, yeni slot event
+                self._unsubscribe_asset(asset)
+                await self._subscribe_asset(asset, event_data)
+                self._active_events[asset] = new_cid
+                changed = True
+                log_event(
+                    logger, logging.INFO,
+                    f"Event rotated: {asset} cid={old_cid[:12]}→{new_cid[:12]}",
+                    entity_type="orchestrator",
+                    entity_id=f"rotate_{asset}",
+                )
+
+        # 4. RTDS WS resubscribe — bridge'deki guncel token set
+        if changed and self._rtds_client:
             all_tokens = self._bridge.registered_token_ids
             self._rtds_client.update_subscription(all_tokens)
             if self._rtds_client.is_connected:
@@ -105,17 +134,13 @@ class SubscriptionManager:
                         entity_id="rtds_subscribe_error",
                     )
 
-        if diff.to_subscribe or diff.to_unsubscribe:
+        if changed:
             log_event(
                 logger, logging.INFO,
-                f"Subscription diff applied: +{len(diff.to_subscribe)} -{len(diff.to_unsubscribe)} ={len(diff.unchanged)}",
+                f"Subscription updated: {len(self._active_events)} assets, "
+                f"+{len(diff.to_subscribe)} -{len(diff.to_unsubscribe)}",
                 entity_type="orchestrator",
                 entity_id="subscription_diff",
-                payload={
-                    "subscribed": sorted(self._current_subscribed),
-                    "added": diff.to_subscribe,
-                    "removed": diff.to_unsubscribe,
-                },
             )
 
     async def _subscribe_asset(self, asset: str, event_data: dict) -> None:

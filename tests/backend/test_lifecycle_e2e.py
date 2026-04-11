@@ -676,7 +676,7 @@ class TestStage9Subscription:
             bridge=MagicMock(), coin_price_client=MagicMock(), ptb_fetcher=MagicMock(),
         )
 
-        sm._current_subscribed = {"BTC", "ETH"}
+        sm._active_events = {"BTC": "cid1", "ETH": "cid2"}
         diff = sm.compute_diff(["ETH", "SOL"])
 
         assert set(diff.to_subscribe) == {"SOL"}
@@ -690,7 +690,7 @@ class TestStage9Subscription:
             bridge=MagicMock(), coin_price_client=MagicMock(), ptb_fetcher=MagicMock(),
         )
 
-        sm._current_subscribed = {"BTC", "ETH"}
+        sm._active_events = {"BTC": "cid1", "ETH": "cid2"}
         diff = sm.compute_diff([])
 
         assert len(list(diff.to_subscribe)) == 0

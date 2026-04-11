@@ -342,22 +342,10 @@ class Orchestrator:
                 # Upcoming — sadece current yoksa yaz
                 event_map[asset] = event_data
 
-        # 3. Subscription diff — TUM eligible eventlerin token'lari subscribe olmali
-        # Bridge'e tum event token'larini register et (current + upcoming)
-        all_event_list = []
-        for event in result.eligible:
-            asset = event.get("asset", "") if isinstance(event, dict) else getattr(event, "asset", "")
-            if not asset:
-                continue
-            cid = event.get("condition_id", "") if isinstance(event, dict) else getattr(event, "condition_id", "")
-            token_ids = list(event.get("clob_token_ids", [])) if isinstance(event, dict) else list(getattr(event, "clob_token_ids", []))
-            sides = list(event.get("outcomes", [])) if isinstance(event, dict) else list(getattr(event, "outcomes", []))
-            # Her event'in token'larini bridge'e register et
-            for i, token_id in enumerate(token_ids):
-                side = sides[i] if i < len(sides) else "up"
-                self.bridge.register_token(token_id, cid, asset, side)
-
-        # Asset bazli diff (asset eklendi/cikarildi)
+        # 3. Subscription — CURRENT SLOT OWNERSHIP modeli
+        # Her asset icin TEK aktif trade event: current slot event.
+        # Upcoming eventler registry'de kalir ama bridge/pipeline'a GIRMEZ.
+        # condition_id degisince: eski token unregister, yeni register + RTDS resubscribe.
         diff = self.subscription_manager.compute_diff(eligible_assets)
         await self.subscription_manager.apply_diff(diff, event_map)
 

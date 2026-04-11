@@ -144,7 +144,7 @@ class TestSubscriptionDiff:
         coin_client._coins = []
         ptb = MagicMock()
         mgr = SubscriptionManager(bridge, coin_client, ptb)
-        mgr._current_subscribed = {"BTC", "ETH", "SOL"}
+        mgr._active_events = {"BTC": "cid1", "ETH": "cid2", "SOL": "cid3"}
 
         diff = mgr.compute_diff(["BTC"])
         assert diff.to_subscribe == []
@@ -157,7 +157,7 @@ class TestSubscriptionDiff:
         coin_client._coins = []
         ptb = MagicMock()
         mgr = SubscriptionManager(bridge, coin_client, ptb)
-        mgr._current_subscribed = {"BTC", "ETH"}
+        mgr._active_events = {"BTC": "cid1", "ETH": "cid2"}
 
         diff = mgr.compute_diff(["ETH", "DOGE"])
         assert diff.to_subscribe == ["DOGE"]
