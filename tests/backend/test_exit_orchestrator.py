@@ -21,7 +21,8 @@ def _setup(tp_pct=5.0, sl_pct=3.0, fs_time=True, fs_time_sec=30):
         tp_pct=tp_pct, sl_pct=sl_pct,
         force_sell_time_enabled=fs_time, force_sell_time_seconds=fs_time_sec,
     )
-    executor = ExitExecutor(tracker, balance, paper_mode=True)
+    # v0.9.1: exit_evaluator executor'a inject — TP reevaluate tek noktada
+    executor = ExitExecutor(tracker, balance, exit_evaluator=evaluator, paper_mode=True)
     claim_mgr = ClaimManager(balance, paper_mode=True)
     relayer = RelayerClientWrapper()
     settlement = SettlementOrchestrator(tracker, claim_mgr, relayer, paper_mode=True)

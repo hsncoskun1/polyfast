@@ -192,11 +192,16 @@ class Orchestrator:
 
         # Exit executor — retry intervals config'den
         self.exit_executor = ExitExecutor(
-            self.position_tracker, self.balance_manager, paper_mode=self.paper_mode,
+            self.position_tracker, self.balance_manager,
+            exit_evaluator=self.exit_evaluator,
+            clob_wrapper=self.clob_client,
+            paper_mode=self.paper_mode,
             tp_retry_interval_ms=tp.retry_interval_ms,
             sl_retry_interval_ms=sl.retry_interval_ms,
             fs_retry_interval_ms=fs.retry_interval_ms,
             manual_close_retry_interval_ms=cfg.trading.exit_rules.manual_close_retry_interval_ms,
+            expiry_retry_interval_ms=cfg.trading.exit_rules.expiry_retry_interval_ms,
+            shutdown_retry_interval_ms=cfg.trading.exit_rules.shutdown_retry_interval_ms,
             max_close_retries=cfg.trading.exit_rules.max_close_retries,
         )
 

@@ -184,12 +184,21 @@ class ForceSellConfig(BaseModel):
 
 
 class ExitRulesConfig(BaseModel):
-    """Exit kurallari + genel exit retry ayarlari."""
+    """Exit kurallari + genel exit retry ayarlari.
+
+    Retry intervaller: close basarisiz olduktan sonra kac ms beklenecek.
+    max_close_retries: tek cycle icerisindeki retry siniri.
+    Exit orchestrator her cycle'da CLOSE_FAILED pozisyonlari tekrar secer
+    → 7/24 calismada pozisyon tamamen kapanana kadar denenir.
+    """
     take_profit: TakeProfitConfig = TakeProfitConfig()
     stop_loss: StopLossConfig = StopLossConfig()
     force_sell: ForceSellConfig = ForceSellConfig()
     manual_close_retry_interval_ms: int = Field(default=400, ge=100, le=10000)
+    expiry_retry_interval_ms: int = Field(default=200, ge=50, le=10000)
+    shutdown_retry_interval_ms: int = Field(default=100, ge=50, le=5000)
     max_close_retries: int = Field(default=10, ge=1, le=30)
+    exit_order_timeout_sec: float = Field(default=5.0, ge=1.0, le=30.0)
 
 
 class ClaimRedeemConfig(BaseModel):
@@ -212,6 +221,8 @@ class TradingConfig(BaseModel):
     min_amount_usd: float = Field(default=1.0, ge=0.1, le=10000.0)
     auto_start_bot_on_startup: bool = False
     paper_mode: bool = True  # True=paper, False=live. Cift kilit: LIVE_ORDER_ENABLED ile birlikte
+    entry_order_timeout_sec: float = Field(default=5.0, ge=1.0, le=30.0)
+    order_reject_cooldown_sec: float = Field(default=2.0, ge=0.5, le=30.0)
     entry_rules: EntryRulesConfig = EntryRulesConfig()
     exit_rules: ExitRulesConfig = ExitRulesConfig()
     claim: ClaimRedeemConfig = ClaimRedeemConfig()

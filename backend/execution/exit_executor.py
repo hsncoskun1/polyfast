@@ -64,24 +64,28 @@ class ExitExecutor:
         balance_manager: BalanceManager,
         exit_evaluator: ExitEvaluator | None = None,
         fee_fetcher: FeeRateFetcher | None = None,
+        clob_wrapper=None,
         paper_mode: bool = True,
         tp_retry_interval_ms: int = 400,
-        sl_retry_interval_ms: int = 250,
-        fs_retry_interval_ms: int = 200,
+        sl_retry_interval_ms: int = 500,
+        fs_retry_interval_ms: int = 500,
         manual_close_retry_interval_ms: int = 400,
+        expiry_retry_interval_ms: int = 200,
+        shutdown_retry_interval_ms: int = 100,
         max_close_retries: int = DEFAULT_MAX_CLOSE_RETRIES,
     ):
         self._tracker = tracker
         self._balance = balance_manager
         self._evaluator = exit_evaluator
         self._fee_fetcher = fee_fetcher or FeeRateFetcher()
+        self._clob_wrapper = clob_wrapper
         self._retry_intervals = {
             CloseReason.TAKE_PROFIT: tp_retry_interval_ms,
             CloseReason.STOP_LOSS: sl_retry_interval_ms,
             CloseReason.FORCE_SELL: fs_retry_interval_ms,
             CloseReason.MANUAL_CLOSE: manual_close_retry_interval_ms,
-            CloseReason.EXPIRY: 200,
-            CloseReason.SYSTEM_SHUTDOWN: 100,
+            CloseReason.EXPIRY: expiry_retry_interval_ms,
+            CloseReason.SYSTEM_SHUTDOWN: shutdown_retry_interval_ms,
         }
         self._max_close_retries = max_close_retries
         self._paper_mode = paper_mode
@@ -148,14 +152,13 @@ class ExitExecutor:
 
         # Sell order gonder
         if self._paper_mode:
-            fill_price = current_price  # paper: iyimser varsayim
+            fill_price = current_price
             fee_rate = self._fee_fetcher.get_default_rate()
             success = True
         else:
-            # Live mode — SDK sell order (ileride)
-            fill_price = 0.0
-            fee_rate = 0.0
-            success = False
+            # Live mode — SDK FOK sell order
+            # SELL amount = net_position_shares (TAMAMI, parca kalmaz)
+            success, fill_price, fee_rate = await self._execute_live_sell(position)
 
         if success:
             # confirm_close → net_realized_pnl sabitlenir
@@ -192,6 +195,79 @@ class ExitExecutor:
                 entity_id=position.position_id,
             )
             return False
+
+    async def _execute_live_sell(
+        self, position: PositionRecord,
+    ) -> tuple[bool, float, float]:
+        """Live SDK SELL order — net_position_shares TAMAMI satilir.
+
+        SELL semantik: amount = share sayisi (USD degil).
+        Polymarket docs: BUY=USD, SELL=shares.
+
+        Returns:
+            (success, fill_price, fee_rate)
+        """
+        if self._clob_wrapper is None:
+            log_event(
+                logger, logging.ERROR,
+                f"Live sell: clob_wrapper not set — cannot sell",
+                entity_type="exit_executor",
+                entity_id=position.position_id,
+            )
+            return False, 0.0, 0.0
+
+        sell_amount = position.net_position_shares  # TAMAMI
+        if sell_amount <= 0:
+            log_event(
+                logger, logging.ERROR,
+                f"Live sell: net_position_shares={sell_amount} — nothing to sell",
+                entity_type="exit_executor",
+                entity_id=position.position_id,
+            )
+            return False, 0.0, 0.0
+
+        response = await self._clob_wrapper.send_market_fok_order(
+            token_id=position.token_id,
+            side="SELL",
+            amount=sell_amount,  # SELL = share sayisi
+        )
+
+        if response is None:
+            return False, 0.0, 0.0
+
+        status = response.get("status", "error")
+
+        if status == "matched":
+            fee_bps = response.get("fee_rate_bps", 0)
+            fee_rate = fee_bps / 10000.0 if fee_bps > 0 else self._fee_fetcher.get_default_rate()
+
+            # takingAmount = USDC received, makingAmount = shares sold
+            taking = response.get("taking_amount", 0)
+            making = response.get("making_amount", 0)
+
+            if making > 0 and taking > 0:
+                fill_price = taking / making  # USDC per share
+            else:
+                fill_price = position.fill_price  # fallback
+
+            log_event(
+                logger, logging.INFO,
+                f"LIVE SELL FILLED: {position.asset} {position.side} "
+                f"shares={sell_amount:.4f} fill={fill_price:.4f} fee={fee_rate}",
+                entity_type="exit_executor",
+                entity_id=position.position_id,
+            )
+            return True, fill_price, fee_rate
+
+        # Not matched veya error
+        error = response.get("error", status)
+        log_event(
+            logger, logging.WARNING,
+            f"LIVE SELL FAILED: {position.asset} {error}",
+            entity_type="exit_executor",
+            entity_id=position.position_id,
+        )
+        return False, 0.0, 0.0
 
     async def execute_close_with_retry(
         self,

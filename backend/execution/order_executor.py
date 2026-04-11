@@ -175,7 +175,7 @@ class OrderExecutor:
         """Paper mode — simule fill.
 
         Fill price = dominant_price (iyimser varsayim).
-        Fee rate = default guard (0.072).
+        Fee rate = default guard (0.10, crypto 5M: base_fee=1000 bps).
         Bu authoritative fill DEGIL — simulated.
         """
         fill_price = intent.dominant_price  # iyimser varsayim

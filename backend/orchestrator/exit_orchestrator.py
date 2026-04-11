@@ -144,28 +144,19 @@ class ExitOrchestrator:
                 )
                 result["triggers"] += 1
 
-        # 2. Close execution -- closing_requested pozisyonlar
+        # 2. Close execution — CLOSING_REQUESTED + CLOSE_FAILED
+        # CLOSE_FAILED pozisyonlar da seçilir — orphaned kalmaz.
+        # "Elde pozisyon kaldığı sürece tekrar dene" mantığı.
+        # TP reevaluate tek yerde: ExitExecutor.execute_close() içinde.
         closing_positions = [
             p for p in self._tracker.get_all_positions()
-            if p.state == PositionState.CLOSING_REQUESTED
+            if p.state in (PositionState.CLOSING_REQUESTED, PositionState.CLOSE_FAILED)
         ]
 
         for pos in closing_positions:
             price = prices.get(pos.asset, 0.0)
 
-            # TP reevaluate -- sadece TP icin, SL/force sell latch
-            if pos.close_reason == CloseReason.TAKE_PROFIT:
-                if self._evaluator.should_cancel_close(pos, current_price=price):
-                    pos.transition_to(PositionState.OPEN_CONFIRMED)
-                    log_event(
-                        logger, logging.INFO,
-                        f"TP reevaluate: cancel close, back to open: {pos.asset}",
-                        entity_type="exit",
-                        entity_id=pos.position_id,
-                    )
-                    continue
-
-            # Close execute
+            # Close execute — TP reevaluate ExitExecutor içinde yapılır
             success = await self._executor.execute_close(pos, current_price=price)
             if success:
                 result["closes"] += 1

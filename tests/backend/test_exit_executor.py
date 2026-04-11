@@ -142,8 +142,9 @@ class TestRetry:
         balance = BalanceManager()
         balance.update(available=50.0)
         executor = ExitExecutor(tracker, balance, paper_mode=True)
-        assert executor.get_retry_interval_ms(CloseReason.STOP_LOSS) == 250
-        assert executor.get_retry_interval_ms(CloseReason.FORCE_SELL) == 200
+        # v0.9.1: schema-aligned defaults (SL=500, FS=500)
+        assert executor.get_retry_interval_ms(CloseReason.STOP_LOSS) == 500
+        assert executor.get_retry_interval_ms(CloseReason.FORCE_SELL) == 500
 
     @pytest.mark.asyncio
     async def test_latch_preserved_on_retry(self):
