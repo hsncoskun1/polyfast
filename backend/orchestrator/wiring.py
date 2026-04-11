@@ -570,6 +570,10 @@ class Orchestrator:
         self._bot_paused_at = None
         self._bot_accumulated = 0.0
 
+        # Tracker sifirla — stop/start arasinda stale counter temizle
+        # restore_state DB'den tekrar yukleyecek
+        self.position_tracker.reset()
+
         # State restore (7/24 — restart sonrasi kaldigi yerden devam)
         await self.restore_state()
 

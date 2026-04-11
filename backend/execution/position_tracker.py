@@ -45,6 +45,15 @@ class PositionTracker:
         self._event_fills: dict[str, int] = {}  # condition_id -> fill count
         self._session_trade_count: int = 0
 
+    def reset(self) -> None:
+        """Tum state'i sifirla — bot stop/start arasinda temiz baslangic.
+
+        DB'den restore_position ile tekrar yuklenecek.
+        """
+        self._positions.clear()
+        self._event_fills.clear()
+        self._session_trade_count = 0
+
     def _persist(self, record: PositionRecord) -> None:
         """State degisiminde SQLite'a kaydet. Fire-and-forget.
 
