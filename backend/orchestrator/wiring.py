@@ -273,6 +273,7 @@ class Orchestrator:
             position_tracker=self.position_tracker,
             bridge=self.bridge,
             registry=self.registry,
+            paper_mode=self.paper_mode,
         )
 
         # WS message callback
@@ -608,17 +609,6 @@ class Orchestrator:
             self._supervisor_loop(),
             name="supervisor_loop",
         )
-
-        # Order dispatch — 7/24 otonom bot: balance OK ise otomatik enable
-        # Paper mode'da balance verify basarisiz olsa bile enable (para riski yok)
-        if self.trading_enabled or self.paper_mode:
-            self.enable_trading()
-            log_event(
-                logger, logging.INFO,
-                f"Order dispatch auto-enabled (paper={self.paper_mode}, trading={self.trading_enabled})",
-                entity_type="orchestrator",
-                entity_id="dispatch_auto_enable",
-            )
 
         log_event(
             logger, logging.INFO,

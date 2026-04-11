@@ -60,6 +60,7 @@ class EvaluationLoop:
         position_tracker=None,
         bridge=None,
         registry=None,
+        paper_mode: bool = False,
     ):
         self._engine = engine
         self._pipeline = pipeline
@@ -72,7 +73,8 @@ class EvaluationLoop:
         self._position_tracker = position_tracker  # counter wiring icin
         self._bridge = bridge  # token_id lookup icin
         self._registry = registry  # current slot guard icin
-        self._order_dispatch_enabled = False  # Baslatma kontrolu: False=sinyal only, True=order gonder
+        self._paper_mode = paper_mode  # Paper mode'da dispatch otomatik
+        self._order_dispatch_enabled = False  # Live mode kontrolu
         self._running = False
         self._task: asyncio.Task | None = None
         self._eval_count: int = 0
@@ -209,8 +211,9 @@ class EvaluationLoop:
                     },
                 )
 
-                # Order dispatch — sadece enable edilmisse ve executor varsa
-                if self._order_dispatch_enabled and self._order_executor is not None:
+                # Order dispatch — paper mode'da otomatik, live'da enable gerekli
+                can_dispatch = self._order_dispatch_enabled or self._paper_mode
+                if can_dispatch and self._order_executor is not None:
                     await self._dispatch_entry(coin_settings, result)
 
     async def _dispatch_entry(self, coin_settings: CoinSettings, result) -> None:
@@ -286,7 +289,21 @@ class EvaluationLoop:
             )
             return
 
-        entry_price = result.detail.get('entry_ref_price', 0)
+        # Entry price: dominant tarafin ask fiyati (FOK market order = ask taraf)
+        # result.detail'de olmayabilir — pipeline record'dan dogrudan al
+        if side_str == "UP":
+            entry_price = price_record.up_ask if price_record.up_ask > 0 else price_record.up_bid
+        else:
+            entry_price = price_record.down_ask if price_record.down_ask > 0 else price_record.down_bid
+
+        if entry_price <= 0:
+            log_event(
+                logger, logging.WARNING,
+                f"ENTRY skipped: entry_price=0 for {coin_settings.coin} {side_str}",
+                entity_type="orchestrator",
+                entity_id=f"entry_skip_price_{coin_settings.coin}",
+            )
+            return
 
         intent = OrderIntent(
             asset=coin_settings.coin,
