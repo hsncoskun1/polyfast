@@ -36,6 +36,7 @@ from enum import Enum
 from backend.execution.order_intent import OrderIntent
 from backend.execution.order_validator import OrderValidator
 from backend.execution.position_tracker import PositionTracker
+from backend.execution.position_record import PositionState
 from backend.execution.balance_manager import BalanceManager
 from backend.execution.fee_rate_fetcher import FeeRateFetcher
 from backend.execution.models import ValidationResult, ValidationStatus, RejectReason
@@ -139,7 +140,26 @@ class OrderExecutor:
             )
             return ExecutionResult(result=OrderResult.BALANCE_STALE)
 
-        # 2. Validation
+        # 2. PENDING_OPEN duplicate guard
+        # Ayni event icin zaten pending order varsa yeni order gonderme
+        pending_for_event = [
+            p for p in self._tracker.get_all_positions()
+            if p.condition_id == intent.condition_id
+            and p.state == PositionState.PENDING_OPEN
+        ]
+        if pending_for_event:
+            log_event(
+                logger, logging.WARNING,
+                f"Execution rejected: PENDING_OPEN exists for {intent.asset} cid={intent.condition_id[:12]}",
+                entity_type="execution",
+                entity_id=intent.condition_id,
+            )
+            return ExecutionResult(
+                result=OrderResult.REJECTED,
+                detail={"reason": "pending_open_exists"},
+            )
+
+        # 3. Validation
         validation = self._validator.validate(
             intent,
             available_balance=self._balance.available_balance,

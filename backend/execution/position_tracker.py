@@ -69,19 +69,19 @@ class PositionTracker:
         self._positions[record.position_id] = record
 
         # Sayaclari restore et
-        if record.state in (
+        # event_fill: PENDING_OPEN dahil tum state'ler (create_pending'de artiyor)
+        # session_trade: PENDING_OPEN haric (fill onaylanmis olanlar)
+        cid = record.condition_id
+        if record.state == PositionState.PENDING_OPEN:
+            # Pending — event_fill var ama session_trade yok
+            self._event_fills[cid] = self._event_fills.get(cid, 0) + 1
+        elif record.state in (
             PositionState.OPEN_CONFIRMED,
             PositionState.CLOSING_REQUESTED,
             PositionState.CLOSE_PENDING,
             PositionState.CLOSE_FAILED,
+            PositionState.CLOSED,
         ):
-            # Acik pozisyon — fill sayaci var demek
-            cid = record.condition_id
-            self._event_fills[cid] = self._event_fills.get(cid, 0) + 1
-            self._session_trade_count += 1
-        elif record.state == PositionState.CLOSED:
-            # Kapanmis — fill sayacina dahil ama acik degil
-            cid = record.condition_id
             self._event_fills[cid] = self._event_fills.get(cid, 0) + 1
             self._session_trade_count += 1
 
@@ -98,6 +98,8 @@ class PositionTracker:
         """Order gonderildiginde pending pozisyon olustur.
 
         Henuz fill olmadi — PENDING_OPEN state.
+        event_fill_count BURADA artar (duplicate guard icin).
+        reject_fill olursa geri dusurulur.
         """
         position_id = str(uuid.uuid4())
         record = PositionRecord(
@@ -109,6 +111,10 @@ class PositionTracker:
             requested_amount_usd=requested_amount_usd,
         )
         self._positions[position_id] = record
+
+        # Duplicate guard: event_fill_count pending'de artar
+        # reject_fill'de geri dusurulur, confirm_fill'de TEKRAR artmaz
+        self._event_fills[condition_id] = self._event_fills.get(condition_id, 0) + 1
 
         log_event(
             logger, logging.INFO,
@@ -152,9 +158,8 @@ class PositionTracker:
         # State gecisi
         record.transition_to(PositionState.OPEN_CONFIRMED)
 
-        # Sayaclar — SADECE basarili alis fill
-        cond_id = record.condition_id
-        self._event_fills[cond_id] = self._event_fills.get(cond_id, 0) + 1
+        # Session trade count — fill onaylandi
+        # event_fill_count zaten create_pending'de artirildi, burada TEKRAR artirmiyoruz
         self._session_trade_count += 1
 
         log_event(
@@ -172,10 +177,17 @@ class PositionTracker:
     def reject_fill(self, position_id: str) -> PositionRecord:
         """FOK rejected — fill olmadi, pozisyon kapanir.
 
-        Sayaclar ARTMAZ — fill olmadi.
-        Not: ileride cancelled/not_opened ayri state olabilir.
+        create_pending'de artirilan event_fill_count geri dusurulur.
+        Negatif olmaz (guard).
         """
         record = self._get_record(position_id)
+
+        # event_fill_count geri dusur — create_pending'de artirilmisti
+        cid = record.condition_id
+        current = self._event_fills.get(cid, 0)
+        if current > 0:
+            self._event_fills[cid] = current - 1
+
         record.transition_to(PositionState.CLOSED)
         record.closed_at = datetime.now(timezone.utc)
 

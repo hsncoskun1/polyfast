@@ -207,11 +207,32 @@ class EvaluationLoop:
         # ── CURRENT SLOT GUARD ──
         # Discovery upcoming eventleri de dondurur (30dk lookahead).
         # Order SADECE current live slot event'ine gitmeli.
-        # Slug timestamp = event END. Event start = END - 300.
+        # Truth source: registry'deki event slug timestamp'i.
+        # Gamma API slug format: {asset}-updown-5m-{END_TIMESTAMP}
+        # Event live = (END - 300) <= now < END
         now = int(_time.time())
-        bridge = getattr(self, '_bridge', None)
+
+        # Registry'den event'in slug'ini al ve current slot kontrolu yap
+        if self._registry:
+            reg = self._registry.get_by_condition_id(condition_id)
+            if reg:
+                m = _re.search(r'-(\d{10,})$', reg.slug)
+                if m:
+                    event_end_ts = int(m.group(1))
+                    event_start_ts = event_end_ts - 300
+                    if not (event_start_ts <= now < event_end_ts):
+                        # Bu event current slot'ta degil — upcoming veya gecmis
+                        log_event(
+                            logger, logging.DEBUG,
+                            f"DISPATCH SKIP: {coin_settings.coin} event not in current slot "
+                            f"(event={event_start_ts}-{event_end_ts}, now={now})",
+                            entity_type="orchestrator",
+                            entity_id=f"slot_skip_{coin_settings.coin}",
+                        )
+                        return
 
         # Bridge'den bu coin'in token_id'sini bul — condition_id eslesmeliyle
+        bridge = getattr(self, '_bridge', None)
         token_id = ""
         if bridge:
             for tid, route in bridge._token_routes.items():
@@ -219,7 +240,6 @@ class EvaluationLoop:
                     continue
                 if route.side.upper() != side_str:
                     continue
-                # Bu token'in condition_id'si pipeline record ile eslesiyor mu
                 if route.condition_id == condition_id:
                     token_id = tid
                     break
