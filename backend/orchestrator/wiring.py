@@ -159,7 +159,10 @@ class Orchestrator:
             stale_threshold_sec=cfg.market_data.balance_stale_threshold_seconds,
             passive_refresh_interval=cfg.market_data.balance_refresh_interval_seconds,
         )
-        self.clob_client = ClobClientWrapper(credential_store=self.credential_store)
+        self.clob_client = ClobClientWrapper(
+            credential_store=self.credential_store,
+            signature_type=cfg.trading.signature_type,
+        )
         # BalanceManager ↔ ClobClientWrapper bağlantısı — balance fetch fonksiyonu
         self.balance_manager.set_fetch_function(self.clob_client.get_balance)
         self.relayer_client = RelayerClientWrapper(credential_store=self.credential_store)

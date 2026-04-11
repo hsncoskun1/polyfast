@@ -49,8 +49,10 @@ class MarketResolution:
     winning_side: str = ""       # "UP" veya "DOWN", resolved=True ise dolu
     raw_response: dict | None = None  # debug/log icin ham API cevabi
 
-# TEKNIK GUARD — bu False oldukca gercek order CIKMAZ
-LIVE_ORDER_ENABLED = False
+# TEKNIK GUARD — True ise gercek order CIKABILIR
+# Cift kilit: paper_mode=False ile birlikte olmali
+# v0.9.2: ilk controlled live test icin acildi
+LIVE_ORDER_ENABLED = True
 
 
 class ClobClientWrapper:
@@ -72,6 +74,7 @@ class ClobClientWrapper:
         api_secret: str = "",
         api_passphrase: str = "",
         chain_id: int = 137,
+        signature_type: int = 0,
         credential_store=None,
     ):
         self._credential_store = credential_store
@@ -81,6 +84,7 @@ class ClobClientWrapper:
         self._api_secret = api_secret
         self._api_passphrase = api_passphrase
         self._chain_id = chain_id
+        self._signature_type = signature_type
         self._client = None
         self._initialized = False
         self._last_cred_version: int = -1
@@ -140,7 +144,7 @@ class ClobClientWrapper:
                     key=self._private_key,
                     chain_id=self._chain_id,
                     creds=api_creds,
-                    signature_type=2,
+                    signature_type=self._signature_type,
                     funder=funder,
                 )
                 self._initialized = True
@@ -193,7 +197,7 @@ class ClobClientWrapper:
             from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
             params = BalanceAllowanceParams(
                 asset_type=AssetType.COLLATERAL,
-                signature_type=2,
+                signature_type=self._signature_type,
             )
             result = self._client.get_balance_allowance(params)
             if result is not None:

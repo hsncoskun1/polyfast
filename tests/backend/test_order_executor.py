@@ -187,11 +187,11 @@ class TestBalanceManager:
 class TestLiveMode:
 
     @pytest.mark.asyncio
-    async def test_live_placeholder_not_filled(self):
-        """Live mode SDK entegrasyonu henuz yok — NOT_FILLED doner."""
+    async def test_live_no_wrapper_returns_error(self):
+        """Live mode clob_wrapper=None ise NETWORK_ERROR doner."""
         executor = _make_executor(mode=ExecutionMode.LIVE)
         result = await executor.execute(_make_intent())
-        assert result.result == OrderResult.NOT_FILLED
+        assert result.result == OrderResult.NETWORK_ERROR
 
     @pytest.mark.asyncio
     async def test_no_fee_fetch_in_live_path(self):

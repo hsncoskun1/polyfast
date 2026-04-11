@@ -220,7 +220,8 @@ class ClaimRedeemConfig(BaseModel):
 class TradingConfig(BaseModel):
     min_amount_usd: float = Field(default=1.0, ge=0.1, le=10000.0)
     auto_start_bot_on_startup: bool = False
-    paper_mode: bool = True  # True=paper, False=live. Cift kilit: LIVE_ORDER_ENABLED ile birlikte
+    paper_mode: bool = False  # v0.9.2: live mode. Cift kilit: LIVE_ORDER_ENABLED=True ile birlikte
+    signature_type: int = Field(default=0, ge=0, le=2)  # 0=EOA, 2=Proxy wallet
     entry_order_timeout_sec: float = Field(default=5.0, ge=1.0, le=30.0)
     order_reject_cooldown_sec: float = Field(default=1.0, ge=0.5, le=30.0)
     entry_rules: EntryRulesConfig = EntryRulesConfig()

@@ -245,6 +245,14 @@ class OrderExecutor:
             )
 
         # SDK order gonder
+        if self._clob_wrapper is None:
+            self._tracker.reject_fill(position.position_id)
+            return ExecutionResult(
+                result=OrderResult.NETWORK_ERROR,
+                position_id=position.position_id,
+                detail={"error": "clob_wrapper not initialized"},
+            )
+
         response = await self._clob_wrapper.send_market_fok_order(
             token_id=intent.token_id,
             side="BUY",  # outcome token satin al

@@ -86,7 +86,8 @@ class TestStage1OrchestratorInit:
         orch = Orchestrator()
 
         assert orch.trading_enabled is True  # init'te True
-        assert orch.paper_mode is True
+        # v0.9.2: paper_mode default False (live mode)
+        assert orch.paper_mode is False
         assert orch.paused is False
         assert orch._verify_retry_running is False
         assert orch._verify_retry_task is None
